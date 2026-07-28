@@ -160,11 +160,14 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
 
 ## Phase 3 queue — Selective capability recovery
 
-- [ ] **PENDING — 3.01:** Reservation calendar rebuilt against current public APIs.
-- [ ] **PENDING — 3.02:** Printable rental contract through documents/printing boundaries.
+- [x] **3.01:** Reservation calendar rebuilt against the current public APIs.
+  - Evidence: `src/features/reservations/reservationCalendar.ts` + `ReservationCalendar.tsx`; occupancy is derived from reservations and dates, never from a stored `reserved` flag.
+- [x] **3.02:** Printable rental contract through a shared printing boundary.
+  - Evidence: `@platform/printing` owns every popup/print call; `printRentalContract.ts` prints historical snapshots and states that the deposit is refundable.
 - [x] **3.03:** Inspection, laundry, tailoring, maintenance and damage service queue.
   - Evidence: `src/features/service/*` with a reachable `/service` route; tasks carry stable item ids, block conflicts with confirmed bookings plus the preparation buffer, post their cost as an item-linked expense, and require an explicit resulting item status. `tests/service-workflow.test.mjs`.
-- [ ] **PENDING — 3.04:** Reachable sales ledger and sale-return history.
+- [x] **3.04:** Reachable sales ledger and sale-return history.
+  - Evidence: `/sales` route and navigation entry; the page was previously implemented but unreachable.
 - [ ] **PENDING — 3.05:** Remaining barcode label/lifecycle helpers.
 
 Never merge PR #62 wholesale.
