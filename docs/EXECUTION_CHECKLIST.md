@@ -153,7 +153,7 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
 - [x] **2.06:** Daily close and explicit reopen commands with post-close money blocking.
   - Evidence: `src/features/workflows/dailyCloseCommands.ts`; tests prove expenses and sales are rejected after the close.
 - [x] **2.07:** Forced-failure tests after every command write boundary proving exact rollback.
-  - Evidence: [PR #106](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/106), `tests/workflow-commands.test.mjs`, `tests/sales-and-close-commands.test.mjs`, and `tests/phase-2-07-rollback-completeness.test.mjs`; reservation, payment, delivery, return, sale, sale-line return, expense and daily-close failures restore the exact previous state and leave idempotency keys retryable.
+  - Evidence: [PR #106](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/106), merge `7d8eb9c5789f1494bbd9aed831af8a85fece5f9a`, Build #241, Verify #213; `tests/workflow-commands.test.mjs`, `tests/sales-and-close-commands.test.mjs`, and `tests/phase-2-07-rollback-completeness.test.mjs` prove reservation, payment, delivery, return, sale, sale-line return, expense and daily-close failures restore the exact previous state and leave idempotency keys retryable.
 - [x] **2.08:** Separated rental revenue, sale revenue, deposit liability, fees, expenses, net cash movement and recognised profitability.
   - Evidence: `src/features/finance/finance.service.ts` is now the single money interpretation; reports project it instead of computing their own numbers.
 - [x] **2.09:** Reconciled operational records, reports and daily close for the same scenarios.
@@ -229,5 +229,5 @@ Never merge PR #62 wholesale.
 | Phase 1.16 remove production mock fallback | PR #93 / `6cc44047189ac71322252f30df6d5a532d93736a` | Build + Verify | Default operational queries to empty arrays instead of injecting mock data | Complete |
 | Phase 1.17 confirmed demo data & reversible reset | PR #94 / `eb8af6dcb` | Build + Verify | Explicit confirmed demo loading (`loadConfirmedDemoData`) with pre-demo snapshot rollback | Complete |
 | Phase 1.18 immutable references & display snapshots | PR #96 / `b44ee5a` | Build + Verify | Stable `customerId`/`inventoryItemId` on reservations, idempotent backfill migration, non-destructive snapshot rollback | Complete |
-| Phase 2.07 rollback completeness | PR #106 | Build + Verify | Forced delivery and sale-return failures restore all linked operational, financial, audit and idempotency state | In review |
+| Phase 2.07 rollback completeness | PR #106 / `7d8eb9c5789f1494bbd9aed831af8a85fece5f9a` | Build #241 + Verify #213 | Forced delivery and sale-return failures restore all linked operational, financial, audit and idempotency state | Complete |
 | Phase 3.05 barcode labels and lifecycle helpers | PR #105 / `9f08b0c38b4d1050af8a481659a781c2ab9035b8` | Build #238 + Verify #210 | Shared-boundary print failure, stable lookup/identity, canonical lifecycle projection; real camera remains 4.05 | Complete |
