@@ -1,4 +1,10 @@
 import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { SummaryCard } from '../../components/shared/SummaryCard';
+import { EmptyState } from '../../components/shared/StateViews';
+import { FilterBar, SearchFilter, SelectFilter } from '../../components/shared/FilterBar';
+import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { ACCESSORY_RETURN_CONDITION_LABELS, getReservationAccessoryViews } from '../accessories/reservationAccessory.service';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { DeliveryReturnModal } from './DeliveryReturnModal';
@@ -18,12 +24,13 @@ const statusOptions: Array<{ value: DeliveryReturnStatus | 'all'; label: string 
   { value: 'damaged', label: 'متضرر' },
 ];
 
+/** Same palette family as the reservation and inventory badges. */
 const statusBadgeClasses: Record<DeliveryReturnStatus, string> = {
-  pending_delivery: 'bg-amber-100 text-amber-800',
-  delivered: 'bg-blue-100 text-blue-800',
-  returned: 'bg-emerald-100 text-emerald-800',
-  late: 'bg-orange-100 text-orange-800',
-  damaged: 'bg-rose-100 text-rose-800',
+  pending_delivery: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+  delivered: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200',
+  returned: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200',
+  late: 'bg-orange-50 text-orange-800 ring-1 ring-orange-200',
+  damaged: 'bg-rose-50 text-rose-800 ring-1 ring-rose-200',
 };
 
 const statusLabels: Record<DeliveryReturnStatus, string> = {
@@ -97,67 +104,52 @@ export function DeliveryReturnPage() {
   };
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">إدارة التسليم والاسترجاع</h1>
-          <p className="mt-2 text-slate-600">متابعة تسليم الفساتين واسترجاعها مع الرسوم والملاحظات التشغيلية.</p>
-        </div>
-        <button type="button" onClick={() => { setFeedback(null); setShowCreateModal(true); }} className="rounded-xl bg-violet-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-800">
-          عملية تسليم / استرجاع جديدة
+    <section className="min-w-0 space-y-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <PageHeader
+          eyebrow="التسليم والاسترجاع"
+          title="إدارة التسليم والاسترجاع"
+          description="متابعة تسليم الفساتين والملحقات واسترجاعها مع الرسوم والملاحظات التشغيلية."
+        />
+        <button
+          type="button"
+          onClick={() => { setFeedback(null); setShowCreateModal(true); }}
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+        >
+          <Plus aria-hidden="true" className="h-5 w-5" />
+          عملية تسليم / استرجاع
         </button>
       </div>
 
       {feedback && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{feedback}</div>}
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">بانتظار التسليم</p>
-          <p className="mt-2 text-3xl font-bold text-slate-950">{summary.pendingDelivery}</p>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">تم التسليم / خارج المحل</p>
-          <p className="mt-2 text-3xl font-bold text-slate-950">{summary.deliveredOut}</p>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">تم الاسترجاع</p>
-          <p className="mt-2 text-3xl font-bold text-slate-950">{summary.returned}</p>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">متأخر أو متضرر</p>
-          <p className="mt-2 text-3xl font-bold text-slate-950">{summary.lateOrDamaged}</p>
-        </article>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <SummaryCard label="بانتظار التسليم" value={summary.pendingDelivery} />
+        <SummaryCard label="خارج المحل" value={summary.deliveredOut} hint="تم التسليم" />
+        <SummaryCard label="تم الاسترجاع" value={summary.returned} tone="positive" />
+        <SummaryCard label="متأخر أو متضرر" value={summary.lateOrDamaged} tone={summary.lateOrDamaged > 0 ? 'danger' : 'default'} />
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
-        <input
+      <FilterBar>
+        <SearchFilter
+          label="البحث في عمليات التسليم والاسترجاع"
           value={filters.search}
-          onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
-          placeholder="بحث برقم الحجز أو اسم العميل أو كود العنصر"
-          className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+          onChange={(search) => setFilters((current) => ({ ...current, search }))}
+          placeholder="بحث برقم الحجز أو العميلة أو كود العنصر"
         />
-        <select
+        <SelectFilter
+          label="حالة العملية"
           value={filters.status}
-          onChange={(event) =>
-            setFilters((prev) => ({
-              ...prev,
-              status: event.target.value as DeliveryReturnStatus | 'all',
-            }))
-          }
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-        >
-          {statusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+          onChange={(status) => setFilters((current) => ({ ...current, status }))}
+          options={statusOptions}
+        />
+      </FilterBar>
 
       {filteredRecords.length === 0 ? (
-        <article className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm text-slate-500">لا توجد نتائج مطابقة للفلتر الحالي.</p>
-        </article>
+        <EmptyState
+          title={records.length === 0 ? 'لا توجد عمليات تسليم أو استرجاع بعد' : 'لا توجد نتائج مطابقة'}
+          description={records.length === 0 ? 'ستظهر هنا الحجوزات المستحقة للتسليم فور إنشائها.' : 'غيّري البحث أو الفلتر الحالي لعرض نتائج أخرى.'}
+        />
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredRecords.map((record) => (
@@ -170,7 +162,7 @@ export function DeliveryReturnPage() {
                     {record.dressCode} — {record.dressName}
                   </p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses[record.status]}`}>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusBadgeClasses[record.status]}`}>
                   {statusLabels[record.status]}
                 </span>
               </div>
