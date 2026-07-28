@@ -55,9 +55,48 @@ The application keeps five truths consistent and enforces that with tests:
 - Unified Empty / Loading / Error states, modal focus trapping and body
   scrolling, safe-area handling, accessible labels, duplicate-submit protection.
 
+### Operational calendar and accessories (Phase 6, PR #107)
+- A real reservation calendar with month, week and day views, built entirely on
+  local-time date helpers so a booking never lands on the wrong day for a
+  showroom off UTC.
+- Status colouring comes from the design system; a test fails the build on any
+  hardcoded colour in the calendar or accessory screens.
+- Pickup and return **times**, not just dates, on the calendar, the reservation
+  cards and the printed contract, with configurable showroom defaults.
+- One central conflict rule (`reservationConflicts.ts`) enforced in the service
+  layer for booking creation, date changes, item swaps, rental extensions and
+  accessory attachment. The UI only previews it.
+- Configurable preparation-before-pickup and cleaning-after-return windows;
+  existing installations inherit their previous single buffer value.
+- A full accessory catalogue — veils, crowns, belts, bags, gloves and others —
+  with monotonic never-reused stock codes, code-derived barcodes, printable
+  labels through the shared printing boundary, and states from available through
+  service, lost, damaged and retired.
+- Accessories are linked to reservations and tracked through delivery, partial
+  return, damage and loss. Damage and loss charges post through the existing
+  expense and finance path; no parallel ledger exists.
+- Phones get a stacked calendar agenda instead of a compressed desktop grid.
+
+### Inventory performance and profitability (Phase 7, PR #108)
+- A reporting centre at `/inventory-performance` answering what is in demand,
+  what is idle, what actually earns, and what costs more service than it
+  returns — per dress and per accessory.
+- Every metric has a documented source of truth and formula in
+  `docs/INVENTORY_PERFORMANCE_METRICS.md`.
+- Discounts are provable rather than inferred: reservations store the catalogue
+  rental price and sale lines store the catalogue sale price at the moment of
+  the deal, so a later price change cannot invent a concession.
+- High performers are ranked on net result weighted by utilisation, never on
+  booking count alone.
+- CSV export with a UTF-8 BOM and central formula-injection protection; printing
+  through the shared boundary with full escaping, the reporting period, the
+  generation timestamp, and interactive chrome excluded from the page.
+
 ### Backup and safety
 - The backup covers every registered collection, images, counters, retired
-  codes, audit and migration markers.
+  codes, audit and migration markers, including the accessory catalogue, the
+  reservation–accessory links with their delivery and return state, and the new
+  preparation, cleaning and default-time settings.
 - A backup is fully validated **before** any mutation; a failed import restores
   the exact previous state with no partial restore.
 - PWA ships the Arabic font bundled and precaches the shell for offline reload.
@@ -82,10 +121,19 @@ These were not in the original plan; they were found by probing the system.
    but with no route or navigation entry.
 8. **Unlabelled icon-only buttons** in the image gallery.
 9. **Pseudorandom submission keys** flagged as a security issue; now crypto-backed.
+10. **Date-only values were parsed as UTC.** `new Date('2026-07-28')` is a UTC
+    instant, so calendar cells and day boundaries could land one day off for any
+    showroom outside UTC. All date maths now goes through local-time helpers.
+11. **Barcode normalisation was about to be duplicated** for accessories. It is
+    now defined once in `@shared/utils/barcode` and reused by both families, so
+    the two cannot drift into different ideas of "the same scanned code".
+12. **A sale created through the invoice path carried no catalogue price
+    snapshot**, which would have made every reported discount a guess against
+    the current price list.
 
 ## Quality gates
 
-`npm ci`, `npm test` (25 suites, 130+ assertions), `npm run typecheck`,
+`npm ci`, `npm test` (31 suites, 200+ assertions), `npm run typecheck`,
 `npm run lint`, `npm run build` — all green, enforced on every pull request by
 the Build and Verify workflows plus SonarCloud.
 
@@ -111,5 +159,15 @@ the Build and Verify workflows plus SonarCloud.
 
 ## Release tag policy
 
-Do not tag v1.0 until the outstanding items in `docs/RUNTIME_QA.md` sections
-3, 4, 5 and 6 are executed and recorded. Everything else is complete and gated.
+**No release tag is created yet.** The tag stays withheld until all of the
+following real-device evidence is executed and recorded in `docs/RUNTIME_QA.md`:
+
+1. phone testing at 390×844;
+2. phone testing at 360×740;
+3. a real PWA installation;
+4. an offline reload of the installed app;
+5. a Windows Tauri build produced and launched on Windows;
+6. a real camera barcode scan;
+7. printing a rental contract and barcode/accessory labels from a physical device.
+
+Everything else is implemented, tested and gated by CI.
