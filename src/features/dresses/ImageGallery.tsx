@@ -41,12 +41,16 @@ export function ImageGallery({ images, alt = 'صورة العنصر' }: ImageGal
         {images.length > 1 && (
           <>
             <button
+              type="button"
+              aria-label="الصورة السابقة"
               onClick={prevImage}
               className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-md transition hover:bg-white"
             >
               <ChevronLeft size={20} />
             </button>
             <button
+              type="button"
+              aria-label="الصورة التالية"
               onClick={nextImage}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow-md transition hover:bg-white"
             >
@@ -57,6 +61,8 @@ export function ImageGallery({ images, alt = 'صورة العنصر' }: ImageGal
 
         {/* Zoom Icon */}
         <button
+          type="button"
+          aria-label="تكبير الصورة"
           onClick={() => setShowZoom(true)}
           className="absolute bottom-2 right-2 rounded-full bg-white/80 p-2 shadow-md transition hover:bg-white"
         >
@@ -70,6 +76,8 @@ export function ImageGallery({ images, alt = 'صورة العنصر' }: ImageGal
           {images.map((img, index) => (
             <button
               key={index}
+              type="button"
+              aria-label={`عرض الصورة رقم ${index + 1}`}
               onClick={() => setCurrentIndex(index)}
               className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition ${
                 index === currentIndex ? 'border-amber-500' : 'border-slate-200'
@@ -88,6 +96,8 @@ export function ImageGallery({ images, alt = 'صورة العنصر' }: ImageGal
           onClick={() => setShowZoom(false)}
         >
           <button
+            type="button"
+            aria-label="إغلاق العرض المكبر"
             onClick={() => setShowZoom(false)}
             className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white transition hover:bg-white/40"
           >

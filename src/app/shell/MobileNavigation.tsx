@@ -12,7 +12,7 @@ export function MobileNavigation({ onOpenMenu }: MobileNavigationProps) {
       aria-label="التنقل الرئيسي للموبايل"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
     >
-      <div className="grid grid-cols-5 gap-1 px-2 py-2">
+      <div className="grid grid-cols-5 gap-1 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
         {navigation.slice(0, 4).map((item) => (
           <NavLink
             key={item.to}

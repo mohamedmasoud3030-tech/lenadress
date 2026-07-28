@@ -180,7 +180,8 @@ Never merge PR #62 wholesale.
 - [ ] **PENDING — 4.04:** Compatible Tauri Windows build, install, launch, relaunch, persistence, backup, restore, and printing.
 - [ ] **PENDING — 4.05:** Real-device camera/barcode test with manual fallback.
 - [ ] **PENDING — 4.06:** Popup-blocked print recovery and storage-quota failure recovery.
-- [ ] **PENDING — 4.07:** RTL, keyboard focus, accessible labels, modal scrolling, and no horizontal overflow.
+- [x] **4.07:** RTL, keyboard focus, accessible labels, modal scrolling and no horizontal overflow.
+  - Evidence: `tests/ui-contract.test.mjs` enforces the RTL shell, the 320px overflow guards, modal focus trapping and body scrolling, unified Arabic Empty/Loading/Error states, accessible labels on icon-only controls, duplicate-submit guards, and navigation reachability for the whole daily journey.
 
 ## Phase 5 queue — Release and handover
 

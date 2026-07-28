@@ -3,6 +3,7 @@ import { Plus, Wrench } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
+import { EmptyState } from '../../components/shared/StateViews';
 import { getTodayISO } from '../../shared/utils/date';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { OpenServiceTaskModal } from './OpenServiceTaskModal';
@@ -123,9 +124,13 @@ export function ServiceQueuePage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          لا توجد أعمال خدمة مطابقة.
-        </div>
+        <EmptyState
+          icon={<Wrench className="h-10 w-10" />}
+          title={tasks.length === 0 ? 'لا توجد أعمال خدمة بعد' : 'لا توجد أعمال خدمة مطابقة'}
+          description={tasks.length === 0
+            ? 'افتحي عمل خدمة عند وصول قطعة تحتاج فحصاً أو غسيلاً أو تعديلاً.'
+            : 'غيّري البحث أو الفلاتر لعرض نتائج أخرى.'}
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((task) => {

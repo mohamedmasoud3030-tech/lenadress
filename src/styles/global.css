@@ -25,6 +25,14 @@ body {
   min-width: 320px;
   min-height: 100%;
   background: #f8fafc;
+  /* Mobile-first guard: no page-level horizontal scrolling on 360px phones. */
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+/* Long codes, phone numbers and Arabic notes must wrap instead of widening the page. */
+h1, h2, h3, p, span, td, th, li, label {
+  overflow-wrap: anywhere;
 }
 
 body {
