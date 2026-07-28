@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import JsBarcode from 'jsbarcode';
+import { printBarcodeLabel } from './printBarcodeLabel';
 
 type BarcodeGeneratorProps = {
   value: string;
@@ -11,6 +12,7 @@ type BarcodeGeneratorProps = {
 export function BarcodeGenerator({ value, onClick, itemName, itemCode }: BarcodeGeneratorProps) {
   const barcodeRef = useRef<SVGSVGElement>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!barcodeRef.current || !value) {
@@ -36,94 +38,20 @@ export function BarcodeGenerator({ value, onClick, itemName, itemCode }: Barcode
     }
   }, [value]);
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     if (!barcodeRef.current) return;
 
-    const svgMarkup = new XMLSerializer().serializeToString(barcodeRef.current);
-    const nameLabel = itemName ? `    <p class="item-name">${itemName}</p>\n` : '';
-    const codeLabel = itemCode ? `    <p class="item-code">${itemCode}</p>\n` : '';
-    const printMarkup = `<!doctype html>
-<html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <title>طباعة الباركود</title>
-    <style>
-      body {
-        margin: 0;
-        padding: 24px;
-        font-family: Arial, sans-serif;
-        background: #ffffff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .label {
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 20px;
-        text-align: center;
-      }
-      .title {
-        margin: 0 0 12px;
-        font-size: 16px;
-        font-weight: 700;
-        color: #0f172a;
-      }
-      .item-name {
-        margin: 8px 0 0;
-        font-size: 14px;
-        font-weight: 700;
-        color: #334155;
-      }
-      .item-code {
-        margin: 4px 0 12px;
-        font-size: 12px;
-        color: #64748b;
-        direction: ltr;
-      }
-      svg {
-        max-width: 100%;
-        height: auto;
-      }
-      .value {
-        margin-top: 12px;
-        font-size: 14px;
-        color: #475569;
-        direction: ltr;
-      }
-      @media print {
-        body {
-          padding: 0;
-        }
-        .label {
-          border: none;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <section class="label">
-      <p class="title">ملصق الباركود</p>
-${nameLabel}${codeLabel}      ${svgMarkup}
-      <p class="value">${value}</p>
-    </section>
-    <script>
-      window.addEventListener('load', function () {
-        window.print();
+    try {
+      printBarcodeLabel({
+        value,
+        itemName,
+        itemCode,
+        svgMarkup: new XMLSerializer().serializeToString(barcodeRef.current),
       });
-    </script>
-  </body>
-</html>`;
-
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer');
-    if (!printWindow) {
-      window.alert('تعذر فتح نافذة الطباعة. تأكدي من السماح بالنوافذ المنبثقة.');
-      return;
+      setPrintError(null);
+    } catch (error) {
+      setPrintError(error instanceof Error ? error.message : 'تعذر تجهيز ملصق الباركود للطباعة.');
     }
-
-    printWindow.document.open();
-    printWindow.document.write(printMarkup);
-    printWindow.document.close();
   };
 
   return (
@@ -131,17 +59,23 @@ ${nameLabel}${codeLabel}      ${svgMarkup}
       <p className="text-sm font-bold text-slate-700">الباركود</p>
 
       {generationError ? (
-        <div className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-700">
+        <div role="alert" className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-700">
           {generationError}
         </div>
       ) : (
-        <svg ref={barcodeRef} className="w-full max-w-xs" role="img" aria-label={`Barcode for ${value}`}></svg>
+        <svg ref={barcodeRef} className="w-full max-w-xs" role="img" aria-label={`باركود العنصر ${itemCode || value}`}></svg>
       )}
+
+      {printError ? (
+        <p role="alert" className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-700">
+          {printError}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap justify-center gap-2">
         <button
           type="button"
-          onClick={() => void handlePrint()}
+          onClick={handlePrint}
           disabled={generationError !== null}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
