@@ -18,6 +18,7 @@ import {
   PreferencesPage,
   ReportsPage,
   ReservationsPage,
+  ServiceQueuePage,
 } from './routePages';
 
 export function AppRoutes() {
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="reservations" element={<ReservationsPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="delivery-return" element={<DeliveryReturnPage />} />
+        <Route path="service" element={<ServiceQueuePage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="expenses" element={<ExpensesPage />} />
         <Route path="daily-closing" element={<DailyClosingPage />} />
