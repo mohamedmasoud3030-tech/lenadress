@@ -2,8 +2,15 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` lets the safe-area insets resolve on notched phones.
+         `maximum-scale` is deliberately NOT set: locking zoom would break
+         accessibility. Auto-zoom is prevented properly, by rendering form
+         controls at 16px on touch devices (see global.css). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#651f34" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LENA" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>LENA</title>
   </head>

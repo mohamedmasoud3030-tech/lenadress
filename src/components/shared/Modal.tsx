@@ -11,22 +11,35 @@ type ModalProps = {
 };
 
 let scrollY = 0;
+let lockCount = 0;
 
+/**
+ * Locks the page behind the dialog.
+ *
+ * The previous implementation set `position: fixed` on `<body>` with a negative
+ * `top`. On a phone that fights the software keyboard: every focus and blur
+ * re-laid out the fixed body, so the sheet visibly jumped up and down while
+ * typing. Now the body simply stops scrolling and keeps its position, and the
+ * dialog itself is sized to the *visual* viewport, so the keyboard shrinks the
+ * sheet instead of shoving the page around.
+ *
+ * Nested dialogs are counted, so closing an inner one does not unlock the page
+ * while an outer one is still open.
+ */
 function lockBodyScroll(): void {
+  lockCount += 1;
+  if (lockCount > 1) return;
   scrollY = window.scrollY;
-  document.body.style.position = 'fixed';
-  document.body.style.top = `-${scrollY}px`;
-  document.body.style.left = '0';
-  document.body.style.right = '0';
   document.body.style.overflow = 'hidden';
+  document.body.style.touchAction = 'none';
 }
 
 function unlockBodyScroll(): void {
-  document.body.style.position = '';
-  document.body.style.top = '';
-  document.body.style.left = '';
-  document.body.style.right = '';
-  document.body.style.overflow = '';
+  lockCount = Math.max(lockCount - 1, 0);
+  if (lockCount > 0) return;
+  document.body.style.removeProperty('overflow');
+  document.body.style.removeProperty('touch-action');
+  // Restore the exact reading position the operator was at.
   window.scrollTo(0, scrollY);
 }
 
@@ -35,17 +48,22 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const previouslyOpen = useRef(false);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) {
       if (previouslyOpen.current) {
         unlockBodyScroll();
         previouslyOpen.current = false;
+        // Return focus to whatever opened the dialog.
+        previouslyFocused.current?.focus?.();
+        previouslyFocused.current = null;
       }
       return;
     }
 
     previouslyOpen.current = true;
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
     lockBodyScroll();
     closeButtonRef.current?.focus();
 
@@ -85,10 +103,33 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     };
   }, [open, onClose]);
 
+  /**
+   * Tracks the visual viewport so the sheet resizes with the software keyboard
+   * instead of being pushed off-screen. Without this the submit button on a
+   * long Arabic form sat underneath the keyboard and could not be reached.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const applyViewportHeight = () => {
+      dialogRef.current?.style.setProperty('--modal-viewport-height', `${viewport.height}px`);
+    };
+
+    applyViewportHeight();
+    viewport.addEventListener('resize', applyViewportHeight);
+    viewport.addEventListener('scroll', applyViewportHeight);
+    return () => {
+      viewport.removeEventListener('resize', applyViewportHeight);
+      viewport.removeEventListener('scroll', applyViewportHeight);
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4">
       <button
         type="button"
         aria-label="إغلاق النافذة"
@@ -100,10 +141,12 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        style={{ maxHeight: 'var(--modal-viewport-height, 100dvh)' }}
         className={cn(
           // Full-height sheet on phones, centered dialog from `sm` upwards.
-          // `overscroll-contain` stops the page behind from scrolling with it.
-          'relative flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl',
+          // The height follows the visual viewport, so the keyboard shrinks the
+          // sheet rather than displacing it.
+          'relative flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl',
           className,
         )}
       >
@@ -116,7 +159,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
             type="button"
             onClick={onClose}
             aria-label="إغلاق"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-stone-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-stone-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           >
             <X aria-hidden="true" className="h-5 w-5" />
           </button>

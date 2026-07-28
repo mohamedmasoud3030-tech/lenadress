@@ -60,7 +60,17 @@ test('the modal scrolls its body, traps focus and is labelled', async () => {
   assert.match(modal, /event\.key === 'Escape'/);
   assert.match(modal, /event\.key !== 'Tab'/, 'the dialog must trap Tab focus');
   assert.match(modal, /overflow-y-auto overscroll-contain/, 'the body scrolls without scrolling the page behind');
-  assert.match(modal, /max-h-\[100dvh\]/, 'phone keyboards must not push content out of reach');
+});
+
+test('the modal follows the visual viewport instead of fighting the keyboard', async () => {
+  const modal = await readFile(join(sourceRoot, 'components/shared/Modal.tsx'), 'utf8');
+
+  assert.match(modal, /visualViewport/, 'the sheet must resize with the software keyboard');
+  assert.match(modal, /--modal-viewport-height/, 'the dialog height must follow the visual viewport');
+  // A fixed-position body lock made the page jump on every focus/blur.
+  assert.doesNotMatch(modal, /position\s*=\s*'fixed'/, 'the body lock must not use position: fixed');
+  assert.match(modal, /lockCount/, 'nested dialogs must not unlock the page early');
+  assert.match(modal, /previouslyFocused/, 'focus must return to the control that opened the dialog');
 });
 
 test('unified Empty, Loading and Error states exist and are Arabic', async () => {

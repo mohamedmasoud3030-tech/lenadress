@@ -19,9 +19,11 @@ import {
 } from '../src/features/reports/inventoryPerformanceExport.ts';
 import { buildCsv, escapeCsvValue, toCsvFileName, UTF8_BOM } from '../src/shared/utils/csv.ts';
 import { PrintDocumentError } from '../src/platform/printing/index.ts';
+import { getOverlayButton, getPrintFrameDocument, getPrintOverlay, installDom, uninstallDom } from './helpers/dom.mjs';
 import { addDaysISO } from '../src/shared/utils/date.ts';
 
 function cleanup() {
+  uninstallDom();
   resetCountersForTesting();
   uninstallStorage();
 }
@@ -172,38 +174,60 @@ test('the printable report escapes every value and hides interactive chrome', ()
   }
 });
 
-test('printing goes through the shared boundary and surfaces a blocked popup in Arabic', () => {
+test('the report prints inside the app so the operator is never trapped', () => {
   installStorage();
+  installDom();
   try {
     const { report } = seedReport();
-    // A blocked popup must produce the shared, user-facing failure, not a crash.
-    globalThis.window.open = () => null;
+    printInventoryPerformanceReport(report);
 
-    assert.throws(() => printInventoryPerformanceReport(report), PrintDocumentError);
-    assert.throws(() => printInventoryPerformanceReport(report), /تعذر فتح نافذة الطباعة/);
+    const overlay = getPrintOverlay();
+    assert.ok(overlay, 'the report must render in a dismissible in-app view');
+    assert.equal(overlay.getAttribute('aria-modal'), 'true');
+    assert.ok(getOverlayButton('إغلاق'), 'there must always be a way back to the app');
+
+    getOverlayButton('إغلاق').dispatch('click');
+    assert.equal(getPrintOverlay(), null);
   } finally {
     cleanup();
   }
 });
 
-test('the printed document is produced through one window and closed cleanly', () => {
+test('a print failure surfaces the shared Arabic error instead of breaking silently', () => {
   installStorage();
+  installDom();
   try {
     const { report } = seedReport();
-    const written = [];
-    let printed = 0;
-    globalThis.window.open = () => ({
-      document: { write: (value) => written.push(value), close: () => {} },
-      focus: () => {},
-      print: () => { printed += 1; },
-    });
+    const originalCreate = globalThis.document.createElement;
+    globalThis.document.createElement = (tagName) => {
+      const element = originalCreate(tagName);
+      if (element.tagName === 'IFRAME') {
+        element.contentDocument = null;
+        element.contentWindow = null;
+      }
+      return element;
+    };
 
+    assert.throws(() => printInventoryPerformanceReport(report), PrintDocumentError);
+    assert.throws(() => printInventoryPerformanceReport(report), /تعذر تجهيز المستند للطباعة/);
+    globalThis.document.createElement = originalCreate;
+  } finally {
+    cleanup();
+  }
+});
+
+test('the printed document is produced once and stays RTL', () => {
+  installStorage();
+  installDom();
+  try {
+    const { report } = seedReport();
     printInventoryPerformanceReport(report);
 
-    assert.equal(printed, 1);
-    assert.equal(written.length, 1);
-    assert.ok(written[0].includes('dir="rtl"'), 'the print document must stay RTL');
-    assert.ok(written[0].includes('تقرير أداء المخزون'));
+    const frameDocument = getPrintFrameDocument();
+    assert.equal(frameDocument.written.length, 1);
+    assert.equal(frameDocument.printCount, 1);
+    assert.ok(frameDocument.written[0].includes('dir="rtl"'), 'the print document must stay RTL');
+    assert.ok(frameDocument.written[0].includes('تقرير أداء المخزون'));
   } finally {
     cleanup();
   }

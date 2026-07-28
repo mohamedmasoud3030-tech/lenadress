@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { printSaleInvoice, PrintSaleInvoiceError } from '../src/features/dresses/printSaleInvoice.ts';
+import { getOverlayButton, getPrintFrameDocument, getPrintOverlay, installDom, uninstallDom } from './helpers/dom.mjs';
 
 function createInvoice(overrides = {}) {
   return {
@@ -17,73 +18,68 @@ function createInvoice(overrides = {}) {
   };
 }
 
-test('printSaleInvoice writes escaped invoice markup and triggers print flow', () => {
-  const calls = [];
-  const popup = {
-    document: {
-      markup: '',
-      write(markup) {
-        this.markup += markup;
-        calls.push('write');
-      },
-      close() {
-        calls.push('close');
-      },
-    },
-    focus() {
-      calls.push('focus');
-    },
-    print() {
-      calls.push('print');
-    },
-  };
-
-  globalThis.window = {
-    open: (...args) => {
-      calls.push(['open', ...args]);
-      return popup;
-    },
-  };
-
+test('printSaleInvoice writes escaped invoice markup and triggers the print flow', () => {
+  installDom();
   try {
     printSaleInvoice(createInvoice());
 
-    assert.deepEqual(calls, [
-      ['open', '', '_blank', 'width=880,height=760'],
-      'write',
-      'close',
-      'focus',
-      'print',
-    ]);
-    assert.match(popup.document.markup, /<html dir="rtl" lang="ar">/);
-    assert.match(popup.document.markup, /INV-&lt;1&gt;&amp;&quot;/);
-    assert.match(popup.document.markup, /Lena &amp; Co &lt;VIP&gt;/);
-    assert.match(popup.document.markup, /DR-&lt;01&gt;/);
-    assert.match(popup.document.markup, /فستان &quot;لامع&quot; &amp; فاخر/);
-    assert.match(popup.document.markup, /٤٢٫٥٠٠/);
-    assert.match(popup.document.markup, /ر\.ع\./);
-    assert.doesNotMatch(popup.document.markup, /Lena & Co <VIP>/);
+    const frameDocument = getPrintFrameDocument();
+    assert.ok(frameDocument, 'the invoice must render inside the app');
+    assert.equal(frameDocument.openCount, 1);
+    assert.equal(frameDocument.closeCount, 1);
+    assert.equal(frameDocument.printCount, 1);
+
+    const markup = frameDocument.written.join('');
+    assert.match(markup, /<html dir="rtl" lang="ar">/);
+    assert.match(markup, /INV-&lt;1&gt;&amp;&quot;/);
+    assert.match(markup, /Lena &amp; Co &lt;VIP&gt;/);
+    assert.match(markup, /DR-&lt;01&gt;/);
+    assert.match(markup, /فستان &quot;لامع&quot; &amp; فاخر/);
+    assert.match(markup, /٤٢٫٥٠٠/);
+    assert.match(markup, /ر\.ع\./);
+    assert.doesNotMatch(markup, /Lena & Co <VIP>/);
   } finally {
-    delete globalThis.window;
+    uninstallDom();
   }
 });
 
-test('printSaleInvoice reports blocked popup windows as a print-specific error', () => {
-  globalThis.window = {
-    open: () => null,
-  };
-
+test('the invoice view can always be dismissed back into the app', () => {
+  installDom();
   try {
+    printSaleInvoice(createInvoice());
+    assert.ok(getPrintOverlay(), 'the invoice must not open a detached window');
+
+    getOverlayButton('إغلاق').dispatch('click');
+    assert.equal(getPrintOverlay(), null, 'closing returns the operator to the app');
+  } finally {
+    uninstallDom();
+  }
+});
+
+test('printSaleInvoice reports a print failure as an invoice-specific error', () => {
+  installDom();
+  try {
+    const originalCreate = globalThis.document.createElement;
+    globalThis.document.createElement = (tagName) => {
+      const element = originalCreate(tagName);
+      if (element.tagName === 'IFRAME') {
+        element.contentDocument = null;
+        element.contentWindow = null;
+      }
+      return element;
+    };
+
     assert.throws(
       () => printSaleInvoice(createInvoice()),
       (error) => {
         assert.equal(error instanceof PrintSaleInvoiceError, true);
         assert.equal(error.name, 'PrintSaleInvoiceError');
-        assert.match(error.message, /تعذر فتح نافذة الطباعة/);
+        assert.match(error.message, /تعذر تجهيز المستند للطباعة/);
         return true;
       },
     );
+    globalThis.document.createElement = originalCreate;
   } finally {
-    delete globalThis.window;
+    uninstallDom();
   }
 });
