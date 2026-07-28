@@ -12,7 +12,8 @@ import { getCustomers } from '../customers/customer.service';
 import type { Customer } from '../customers/customer.types';
 import { getDresses } from '../dresses/dress.service';
 import type { Dress } from '../dresses/dress.types';
-import { createReservation, getReservationBufferDays } from './reservation.service';
+import { createReservationCommand } from '../workflows';
+import { getReservationBufferDays } from './reservation.service';
 import type { Reservation } from './reservation.types';
 
 const reservationSchema = z.object({
@@ -57,6 +58,8 @@ function getReservableDresses(): Dress[] {
 export function CreateReservationModal({ open, onClose, onCreated }: CreateReservationModalProps) {
   const fieldId = useId();
   const [submitError, setSubmitError] = useState<unknown>(null);
+  // Stable per-form key so a duplicate submit is rejected by the command layer.
+  const [submissionKey, setSubmissionKey] = useState(() => `rsv-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dresses, setDresses] = useState<Dress[]>([]);
   const bufferDays = getReservationBufferDays();
@@ -95,6 +98,7 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
   }, [selectedDress, setValue]);
 
   const closeModal = () => {
+    setSubmissionKey(`rsv-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     reset(getDefaultValues());
     setSubmitError(null);
     onClose();
@@ -104,7 +108,7 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
     setSubmitError(null);
 
     try {
-      const reservation = createReservation(values);
+      const reservation = createReservationCommand({ ...values, idempotencyKey: submissionKey });
       onCreated(reservation);
       closeModal();
     } catch (error: unknown) {

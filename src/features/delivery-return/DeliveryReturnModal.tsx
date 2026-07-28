@@ -15,12 +15,12 @@ import { getPayments } from '../payments/payment.service';
 import type { PaymentMethod } from '../payments/payment.types';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
-import { completeDelivery, completeReturn } from './deliveryReturn.operations';
+import { completeDeliveryCommand, completeReturnCommand, type ReturnItemStatus } from '../workflows';
 import type { DeliveryReturnRecord } from './deliveryReturn.types';
 
 type Props = { open: boolean; onClose: () => void; onCompleted: (record: DeliveryReturnRecord) => void };
 type Operation = 'delivery' | 'return';
-type NextDressStatus = 'available' | 'laundry' | 'maintenance' | 'damaged';
+type NextDressStatus = ReturnItemStatus;
 type Form = {
   operation: Operation;
   reservationNumber: string;
@@ -48,7 +48,7 @@ function defaults(operation: Operation = 'delivery'): Form {
     lateFee: '0',
     damageFee: '0',
     refundMethod: 'cash',
-    nextDressStatus: 'laundry',
+    nextDressStatus: 'inspection',
     notes: '',
   };
 }
@@ -108,6 +108,10 @@ function getReturnPreview(reservation: Reservation | undefined, lateFee: number,
 export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
   const [form, setForm] = useState<Form>(() => defaults());
   const [error, setError] = useState<unknown>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // One key per opened form instance: a double click reuses it and the command
+  // layer rejects the second write instead of duplicating the operation.
+  const [submissionKey, setSubmissionKey] = useState(() => `dr-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const lateFee = parseAmount(form.lateFee);
   const damageFee = parseAmount(form.damageFee);
   const reservations = useMemo(() => getEligibleReservations(form.operation), [open, form.operation]);
@@ -121,6 +125,8 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     if (!open) return;
     setForm(defaults());
     setError(null);
+    setIsSubmitting(false);
+    setSubmissionKey(`dr-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   }, [open]);
 
   const updateOperation = (operation: Operation) => {
@@ -136,29 +142,34 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setError(null);
+    setIsSubmitting(true);
 
     try {
       const record = form.operation === 'delivery'
-        ? completeDelivery({
+        ? completeDeliveryCommand({
             reservationNumber: form.reservationNumber,
             deliveryDateTime: form.dateTime,
             deliveryCondition: form.condition,
             notes: form.notes,
+            idempotencyKey: submissionKey,
           })
-        : completeReturn({
+        : completeReturnCommand({
             reservationNumber: form.reservationNumber,
             returnDateTime: form.dateTime,
             returnCondition: form.condition,
             lateFee,
             damageFee,
             refundMethod: form.refundMethod,
-            nextDressStatus: form.nextDressStatus,
+            nextItemStatus: form.nextDressStatus,
             notes: form.notes,
+            idempotencyKey: submissionKey,
           });
       onCompleted(record);
       close();
     } catch (reason: unknown) {
+      setIsSubmitting(false);
       setError(reason);
     }
   };
@@ -301,7 +312,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
                   onChange={(event) => setForm((current) => ({ ...current, nextDressStatus: event.target.value as NextDressStatus }))}
                   className={STACKED_FORM_FIELD_CLASS_NAME}
                 >
-                  <option value="available">متاح مباشرة</option>
+                  <option value="inspection">إلى الفحص</option>
                   <option value="laundry">إلى المغسلة</option>
                   <option value="maintenance">إلى التعديل أو الصيانة</option>
                   <option value="damaged">تالف أو متضرر</option>
@@ -360,10 +371,10 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
           </button>
           <button
             type="submit"
-            disabled={reservations.length === 0}
+            disabled={reservations.length === 0 || isSubmitting}
             className={`min-h-11 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 ${AMBER_FOCUS_RING_CLASS_NAME}`}
           >
-            حفظ العملية
+            {isSubmitting ? 'جارٍ الحفظ…' : 'حفظ العملية'}
           </button>
         </div>
       </form>

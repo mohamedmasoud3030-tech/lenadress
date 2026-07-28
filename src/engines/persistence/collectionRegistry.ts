@@ -21,6 +21,7 @@ export const REGISTERED_COLLECTIONS = [
   'audit',
   'daily-closings',
   'counters',
+  'command-log',
   'retired-codes',
   'preferences',
   'showroom-profile',
