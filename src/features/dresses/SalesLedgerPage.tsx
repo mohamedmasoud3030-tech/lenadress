@@ -5,7 +5,8 @@ import { getTodayISO } from '../../shared/utils/date';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { CreateSaleInvoiceModal } from './CreateSaleInvoiceModal';
 import { printSaleInvoice } from './printSaleInvoice';
-import { getSaleInvoices, getSaleReturns, recordSaleReturn, type SaleInvoice } from './salesLedger.service';
+import { getSaleInvoices, getSaleReturns, type SaleInvoice } from './salesLedger.service';
+import { recordSaleReturnCommand } from '../workflows';
 
 export function SalesLedgerPage() {
   const [invoices, setInvoices] = useState(() => getSaleInvoices());
@@ -15,7 +16,7 @@ export function SalesLedgerPage() {
 
   function returnLine(invoice: SaleInvoice, dressCode: string) {
     try {
-      const created = recordSaleReturn({ invoiceNumber: invoice.invoiceNumber, dressCode, returnDate: getTodayISO() });
+      const created = recordSaleReturnCommand({ invoiceNumber: invoice.invoiceNumber, dressCode, returnDate: getTodayISO() });
       setReturns(getSaleReturns());
       setFeedback(`تم تسجيل المرتجع ${created.returnNumber}.`);
     } catch (error: unknown) {

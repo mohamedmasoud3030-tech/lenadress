@@ -23,10 +23,12 @@
     "test:print": "tsx --test tests/print-sale-invoice.test.mjs",
     "test:domain": "tsx --test tests/domain-constants.test.mjs",
     "test:bootstrap": "tsx --test tests/root-bootstrap.test.mjs",
-    "test": "npm run test:architecture && npm run test:persistence-engine && npm run test:shell && npm run test:router && npm run test:platform-storage && npm run test:platform-desktop && npm run test:finance && npm run test:daily-closing && npm run test:storage && npm run test:desktop && npm run test:env && npm run test:print && npm run test:domain && npm run test:bootstrap && npm run test:reference-migration && npm run test:inventory-codes",
+    "test": "npm run test:architecture && npm run test:persistence-engine && npm run test:shell && npm run test:router && npm run test:platform-storage && npm run test:platform-desktop && npm run test:finance && npm run test:daily-closing && npm run test:storage && npm run test:desktop && npm run test:env && npm run test:print && npm run test:domain && npm run test:bootstrap && npm run test:reference-migration && npm run test:inventory-codes && npm run test:workflows && npm run test:sales-close",
     "tauri": "tauri",
     "test:reference-migration": "tsx --test tests/reference-migration.test.mjs",
-    "test:inventory-codes": "tsx --test tests/inventory-codes-and-archive.test.mjs"
+    "test:inventory-codes": "tsx --test tests/inventory-codes-and-archive.test.mjs",
+    "test:workflows": "tsx --test tests/workflow-commands.test.mjs",
+    "test:sales-close": "tsx --test tests/sales-and-close-commands.test.mjs"
   },
   "dependencies": {
     "@fontsource/noto-sans-arabic": "^5.2.10",

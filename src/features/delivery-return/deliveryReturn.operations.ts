@@ -11,7 +11,7 @@ import type { DeliveryReturnRecord } from './deliveryReturn.types';
 const RESERVATION_COLLECTION = 'reservations';
 
 type CompleteDeliveryInput = { reservationNumber: string; deliveryDateTime: string; deliveryCondition?: string; notes?: string };
-type CompleteReturnInput = { reservationNumber: string; returnDateTime: string; returnCondition?: string; lateFee: number; damageFee: number; refundMethod: PaymentMethod; nextDressStatus: 'available' | 'laundry' | 'maintenance' | 'damaged'; notes?: string };
+type CompleteReturnInput = { reservationNumber: string; returnDateTime: string; returnCondition?: string; lateFee: number; damageFee: number; refundMethod: PaymentMethod; nextDressStatus: 'inspection' | 'laundry' | 'maintenance' | 'damaged'; notes?: string };
 
 function validateDateTime(value: string, label: string): number {
   const timestamp = new Date(value).getTime();

@@ -8,7 +8,7 @@ import { formatMoneyOMR } from '../../shared/utils/format';
 import { AddDressModal } from './AddDressModal';
 import { filterDresses, getDressByCode, getDresses, getDressesAsync, summarizeDresses } from './dress.service';
 import { SellDressModal } from './SellDressModal';
-import type { SaleRecord } from './sale.service';
+import type { SaleInvoice } from './salesLedger.service';
 import type { Dress, DressFilters } from './dress.types';
 
 const categories = ['all', ...DRESS_CATEGORIES] as const;
@@ -126,10 +126,11 @@ export function DressesPage() {
     setFeedback(`تمت إضافة العنصر ${dress.code} بنجاح.`);
   };
 
-  const handleSold = (sale: SaleRecord) => {
+  const handleSold = (invoice: SaleInvoice) => {
     setDresses(getDresses());
-    setHighlightedDressCode(sale.dressCode);
-    setFeedback(`تم تسجيل البيع ${sale.saleNumber} للعنصر ${sale.dressCode}.`);
+    const soldCode = invoice.lines[0]?.dressCode ?? '';
+    setHighlightedDressCode(soldCode);
+    setFeedback(`تم تسجيل الفاتورة ${invoice.invoiceNumber} للعنصر ${soldCode}.`);
   };
 
   const handleBarcodeScan = (barcode: string) => {

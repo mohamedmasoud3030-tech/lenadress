@@ -12,10 +12,28 @@ type InvoiceInput = { saleDate: string; customerName: string; customerPhone?: st
 type ReturnInput = { invoiceNumber: string; dressCode: string; returnDate: string; notes?: string };
 
 const INVOICE_COLLECTION = 'sales-invoices';
-const RETURN_COLLECTION = 'sales-returns';
+// Canonical registered collection name. Legacy builds wrote 'sales-returns',
+// which the registry never knew about, so those records were invisible to reset
+// and registry-driven flows. `migrateLegacySaleReturns` folds them in exactly once.
+const RETURN_COLLECTION = 'sale-returns';
+const LEGACY_RETURN_COLLECTION = 'sales-returns';
 
 export function getSaleInvoices(): SaleInvoice[] { return readCollection<SaleInvoice>(INVOICE_COLLECTION, []); }
-export function getSaleReturns(): SaleReturnRecord[] { return readCollection<SaleReturnRecord>(RETURN_COLLECTION, []); }
+export function migrateLegacySaleReturns(): void {
+  const legacy = readCollection<SaleReturnRecord>(LEGACY_RETURN_COLLECTION, []);
+  if (legacy.length === 0) return;
+
+  const canonical = readCollection<SaleReturnRecord>(RETURN_COLLECTION, []);
+  const knownIds = new Set(canonical.map((item) => item.id));
+  const merged = [...canonical, ...legacy.filter((item) => !knownIds.has(item.id))];
+  writeCollection(RETURN_COLLECTION, merged);
+  writeCollection(LEGACY_RETURN_COLLECTION, []);
+}
+
+export function getSaleReturns(): SaleReturnRecord[] {
+  migrateLegacySaleReturns();
+  return readCollection<SaleReturnRecord>(RETURN_COLLECTION, []);
+}
 
 export function createSaleInvoice(input: InvoiceInput): SaleInvoice {
   const customerName = input.customerName.trim();
@@ -50,7 +68,8 @@ export function recordSaleReturn(input: ReturnInput): SaleReturnRecord {
   assertBusinessDateOpen(input.returnDate);
   const saleReturn: SaleReturnRecord = { id: generateId(), returnNumber: generateNumber('RET'), invoiceNumber: invoice.invoiceNumber, returnDate: input.returnDate, dressCode: line.dressCode, dressName: line.dressName, amount: line.amount, paymentMethod: invoice.paymentMethod, notes: input.notes?.trim() || undefined };
   writeCollection(RETURN_COLLECTION, [saleReturn, ...getSaleReturns()]);
-  updateDressStatus(line.dressCode, 'available');
+  // A returned sold item goes back through inspection, never straight to available.
+  updateDressStatus(line.dressCode, 'inspection');
   recordAudit({ action: 'refund', entityType: 'sale', entityId: saleReturn.id, summary: `تم تسجيل المرتجع ${saleReturn.returnNumber} للفاتورة ${invoice.invoiceNumber}.`, nextValues: { amount: saleReturn.amount, dressCode: saleReturn.dressCode } });
   return saleReturn;
 }

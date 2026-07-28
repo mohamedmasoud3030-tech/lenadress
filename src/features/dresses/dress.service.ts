@@ -1,5 +1,5 @@
 import { Dress, DressFilters } from './dress.types';
-import { allocateCode, migrateLegacyInventoryStorage, readCollection, reconcileCounter, writeCollection } from '../../services/localDatabase';
+import { allocateCode, generateId, migrateLegacyInventoryStorage, readCollection, reconcileCounter, writeCollection } from '../../services/localDatabase';
 import { recordAudit } from '../audit/audit.service';
 import { assertDressCanBeArchived, getDressHardDeleteBlockers } from '../integrity/integrity.service';
 
@@ -61,7 +61,7 @@ export function addDress(input: Omit<Dress, 'id' | 'code' | 'timesRented'>): Dre
   const newDress: Dress = {
     ...input,
     itemType: input.itemType ?? 'dress',
-    id: `dress-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `dress-${generateId()}`,
     code: allocateInventoryCode(),
     timesRented: 0,
   };

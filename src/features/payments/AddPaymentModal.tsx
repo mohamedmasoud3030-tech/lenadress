@@ -14,8 +14,10 @@ import { formatMoneyOMR } from '../../shared/utils/format';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
 import { MANUAL_PAYMENT_TYPES, PAYMENT_METHODS } from './payment.constants';
-import { addPayment, formatPaymentMethodLabel, formatPaymentTypeLabel } from './payment.service';
+import { recordPaymentCommand } from '../workflows';
+import { formatPaymentMethodLabel, formatPaymentTypeLabel } from './payment.service';
 import type { ManualPaymentType, PaymentMethod, PaymentRecord } from './payment.types';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
 
 type AddPaymentModalProps = {
   open: boolean;
@@ -109,6 +111,9 @@ function getBalanceEffectLabel(effect: PaymentPreview['balanceEffect']): string 
 export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalProps) {
   const [form, setForm] = useState<PaymentForm>(() => getDefaultForm());
   const [submitError, setSubmitError] = useState<unknown>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Stable per-form key so a double click never posts the same money twice.
+  const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('pay'));
   const amount = parseAmount(form.amount);
   const reservations = useMemo(() => getReservations().filter((item) => isEligible(item, form.type)), [open, form.type]);
   const selected = reservations.find((item) => item.reservationNumber === form.reservationNumber);
@@ -119,6 +124,8 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
     if (!open) return;
     setForm(getDefaultForm());
     setSubmitError(null);
+    setIsSubmitting(false);
+    setSubmissionKey(createSubmissionKey('pay'));
   }, [open]);
 
   const updateType = (type: ManualPaymentType) => {
@@ -134,13 +141,16 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setSubmitError(null);
+    setIsSubmitting(true);
 
     try {
-      const payment = addPayment({ ...form, amount: Number(form.amount) });
+      const payment = recordPaymentCommand({ ...form, amount: Number(form.amount), idempotencyKey: submissionKey });
       onCreated(payment);
       close();
     } catch (error: unknown) {
+      setIsSubmitting(false);
       setSubmitError(error);
     }
   };
@@ -308,7 +318,7 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
           </button>
           <button
             type="submit"
-            disabled={reservations.length === 0}
+            disabled={reservations.length === 0 || isSubmitting}
             className={`min-h-11 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 ${AMBER_FOCUS_RING_CLASS_NAME}`}
           >
             تسجيل الحركة

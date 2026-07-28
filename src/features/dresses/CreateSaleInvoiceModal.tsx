@@ -7,7 +7,8 @@ import { STACKED_FORM_FIELD_CLASS_NAME } from '../../shared/domain/formConstants
 import { getTodayISO } from '../../shared/utils/date';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { BASIC_PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from '../payments/payment.constants';
-import { createSaleInvoice, type SaleInvoice } from './salesLedger.service';
+import type { SaleInvoice } from './salesLedger.service';
+import { createSaleInvoiceCommand } from '../workflows';
 import { getSaleableDresses, type SalePaymentMethod } from './sale.service';
 
 type Props = { open: boolean; onClose: () => void; onCreated: (invoice: SaleInvoice) => void };
@@ -29,7 +30,7 @@ export function CreateSaleInvoiceModal({ open, onClose, onCreated }: Props) {
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
-      const invoice = createSaleInvoice({ saleDate, customerName, customerPhone, paymentMethod, notes, lines: lines.map((line) => ({ dressCode: line.dressCode, amount: Number(line.amount) })) });
+      const invoice = createSaleInvoiceCommand({ saleDate, customerName, customerPhone, paymentMethod, notes, lines: lines.map((line) => ({ dressCode: line.dressCode, amount: Number(line.amount) })) });
       onCreated(invoice);
       close();
     } catch (reason: unknown) { setError(reason); }
