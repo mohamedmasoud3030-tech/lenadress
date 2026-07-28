@@ -18,6 +18,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      workbox: {
+        // The bundled Arabic font must be precached, otherwise an offline reload
+        // renders the whole Arabic interface in a system fallback font.
+        globPatterns: ['**/*.{js,css,html,svg,woff,woff2,ico,png}'],
+        // The app is local-first and offline-capable: every navigation falls back
+        // to the cached shell instead of the browser's offline page.
+        navigateFallback: 'index.html',
+        cleanupOutdatedCaches: true,
+      },
       manifest: {
         name: 'LENA',
         short_name: 'LENA',
