@@ -11,3 +11,4 @@ export * from './deliveryReturnCommands';
 export * from './salesCommands';
 export * from './expenseCommands';
 export * from './dailyCloseCommands';
+export * from './serviceCommands';

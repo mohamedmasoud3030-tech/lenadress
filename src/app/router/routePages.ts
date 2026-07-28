@@ -13,6 +13,7 @@ export { PreferencesPage } from '../../features/preferences/PreferencesPage';
 export { DailyClosingPage } from '../../features/reports/DailyClosingPage';
 export { ReportsPage } from '../../features/reports/ReportsPage';
 export { ReservationsPage } from '../../features/reservations/ReservationsPage';
+export { ServiceQueuePage } from '../../features/service/ServiceQueuePage';
 export { LandingPage } from '../../pages/landing/LandingPage';
 
 export const DressDetailsPage = lazy(async () => {

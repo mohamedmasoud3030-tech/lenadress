@@ -162,7 +162,8 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
 
 - [ ] **PENDING — 3.01:** Reservation calendar rebuilt against current public APIs.
 - [ ] **PENDING — 3.02:** Printable rental contract through documents/printing boundaries.
-- [ ] **PENDING — 3.03:** Inspection, laundry, tailoring, maintenance, and damage service queue.
+- [x] **3.03:** Inspection, laundry, tailoring, maintenance and damage service queue.
+  - Evidence: `src/features/service/*` with a reachable `/service` route; tasks carry stable item ids, block conflicts with confirmed bookings plus the preparation buffer, post their cost as an item-linked expense, and require an explicit resulting item status. `tests/service-workflow.test.mjs`.
 - [ ] **PENDING — 3.04:** Reachable sales ledger and sale-return history.
 - [ ] **PENDING — 3.05:** Remaining barcode label/lifecycle helpers.
 
