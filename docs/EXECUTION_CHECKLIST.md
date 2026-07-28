@@ -218,6 +218,27 @@ Required checks: Build #246 and Verify #218, both green on the final head.
 - [x] **7.06:** Accessory costs attributable to the accessory itself.
   - Implementation: expenses carry `relatedAccessoryCode`; the accessory return workflow now stamps it on every damage and loss charge.
 
+## Phase 8 queue — UX hardening from real-device feedback
+
+Completed by [PR #110](https://github.com/mohamedmasoud3030-tech/lenadress/pull/110) (merge `044b0ccd177b74708f84d9efc19fa48f55388940`, Build #250 + Verify #222)
+and [PR #111](https://github.com/mohamedmasoud3030-tech/lenadress/pull/111) (merge `16599a78e760cafdacf05597d50740604bfa1e87`, Build #252 + Verify #224).
+Full analysis: `docs/UX_HARDENING_REPORT.md`.
+
+- [x] **8.01:** Printing no longer traps the operator in a chromeless popup.
+  - Root cause: `window.open` in a standalone PWA has no back button. Documents now render in a dismissible in-app overlay with three exits.
+- [x] **8.02:** iOS no longer force-zooms when a field is focused.
+  - Root cause: controls rendered at 14px. They now render at 16px on touch devices, without locking zoom.
+- [x] **8.03:** The page no longer drifts sideways while scrolling.
+  - Root cause: `overflow-x: hidden` does not stop touch overscroll. Both axes are now pinned.
+- [x] **8.04:** Dialogs stay stable when the software keyboard opens.
+  - Root cause: a `position: fixed` body lock. The sheet now follows `visualViewport`.
+- [x] **8.05:** The dashboard reports uncollected money and the day's actual work.
+  - Evidence: `tests/dashboard-operations.test.mjs` (11 tests) in the default gate.
+- [x] **8.06:** Shared form, section and filter primitives replace per-page markup.
+  - Evidence: ten new contract assertions in `tests/ui-contract.test.mjs`.
+- [x] **8.07:** Eleven unreported defects found by auditing the same paths were fixed.
+  - Including three unguarded write modals, two `Math.random()` identifier sources, missing appointment validation, and unlabelled filter controls. Each has a guardrail test.
+
 ## Phase 4 queue — Runtime QA
 
 - [x] **4.01:** Desktop browser workflow evidence.
@@ -284,3 +305,4 @@ Required checks: Build #246 and Verify #218, both green on the final head.
 | Phase 3.05 barcode labels and lifecycle helpers | PR #105 / `9f08b0c38b4d1050af8a481659a781c2ab9035b8` | Build #238 + Verify #210 | Shared-boundary print failure, stable lookup/identity, canonical lifecycle projection; real camera remains 4.05 | Complete |
 | Phase 6 calendar and accessories | PR #107 / `a1ac39d7035ac786473f9a506148634ec432f8fe` | Build #244 + Verify #216 | Month/week/day calendar on local time, central conflict rule enforced in the service layer, accessory catalogue with derived barcodes, accessory delivery/return/partial-return/damage/loss, backup coverage; real-device evidence remains 4.02/4.04/4.05 | Complete |
 | Phase 7 inventory performance reports | PR #108 / `901e12dffc4f065fde16a21ae77ac9c4d59d102c` | Build #246 + Verify #218 | Per-item realised-money metrics with documented formulas, provable discounts via price snapshots, ranked lists, per-item detail, CSV with BOM and injection guard, escaped print through the shared boundary | Complete |
+| Phase 8 UX hardening | PR #110 / `044b0cc`, PR #111 / `16599a7` | Build #250 + Verify #222, Build #252 + Verify #224 | In-app print overlay, 16px touch controls, pinned overscroll, viewport-aware dialogs, operational dashboard with uncollected money, shared form/filter primitives, eleven audit fixes | Complete (device confirmation remains 4.02) |

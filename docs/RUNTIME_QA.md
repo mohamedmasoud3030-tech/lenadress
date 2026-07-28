@@ -30,7 +30,8 @@ Status vocabulary:
 | Accessories | `npm run test:accessories` | Stable codes and barcodes, delivery, partial return, damage, loss, rollback on forced failure, no double charge |
 | Accessory backup | `npm run test:accessory-backup` | Links, handover state, charges, counters and the new settings survive a restore without duplication |
 | Inventory performance | `npm run test:inventory-performance` | Realised-money metrics, utilisation, idleness, ranking, date ranges, reconciliation against the finance layer |
-| Report export | `npm run test:inventory-performance-export` | UTF-8 BOM, formula-injection protection, escaping, print contract and blocked-popup recovery |
+| Report export | `npm run test:inventory-performance-export` | UTF-8 BOM, formula-injection protection, escaping, print contract and failure recovery |
+| Daily operations board | `npm run test:dashboard` | Today's pickups and returns ordered by time, uncollected money totalled and ordered for collection, cash matching the finance layer, overdue returns, accessory counts |
 | PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback |
 
 ## 2. Browser (desktop)
@@ -59,7 +60,11 @@ the data visible in reports and the audit log):
 `overflow-wrap`, safe-area insets, bottom navigation, modal body scrolling and
 comfortable tap targets.
 
-**Outstanding — device/emulator capture at 390×844 and 360×740:** confirm no
+**Outstanding — device/emulator capture at 390×844 and 360×740.** The defects
+reported from a real phone in this stage (print view with no way back, auto-zoom
+on focus, sideways drift, dialogs jumping with the keyboard) are now fixed and
+guarded by `tests/ui-contract.test.mjs`, but the contract tests verify the code,
+not the phone. Re-confirm each on hardware, then capture: confirm no
 horizontal scrollbar on every route, correct RTL mirroring, card layouts instead
 of wide tables, modal scrolling with the keyboard open, and reachable bottom
 navigation. Record screenshots per route, including the two routes added in this
