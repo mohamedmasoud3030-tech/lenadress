@@ -190,12 +190,15 @@ Never merge PR #62 wholesale.
 
 ## Phase 5 queue — Release and handover
 
-- [ ] **PENDING — 5.01:** Clean release candidate from current `main`.
+- [x] **5.01:** Release candidate audited from current `main`.
+  - Evidence: `tests/release-gate.test.mjs` turns all twelve launch claims into executable assertions.
 - [ ] **PENDING — 5.02:** Windows build verification in a compatible environment.
 - [ ] **PENDING — 5.03:** PWA manifest, icons, cache, offline startup, and bundled Arabic font verification.
-- [ ] **PENDING — 5.04:** Installation, empty-start, demo-data, backup/recovery, upgrade, and rollback guides.
-- [ ] **PENDING — 5.05:** Final release notes and known limitations.
-- [ ] **PENDING — 5.06:** Release tag only after all gates are complete.
+- [x] **5.04:** Installation, empty-start, demo-data, backup/recovery, upgrade and rollback guides.
+  - Evidence: `docs/OPERATIONS_GUIDE.md` (Arabic, showroom-facing).
+- [x] **5.05:** Release notes and honest known limitations.
+  - Evidence: `docs/RELEASE_NOTES_V1.md`, including the nine defects found during delivery and the outstanding runtime evidence.
+- [ ] **BLOCKED — 5.06:** Release tag only after the outstanding runtime evidence in `docs/RUNTIME_QA.md` (mobile capture, on-device PWA install, Tauri Windows, real-camera barcode) is executed and recorded.
 
 ## Deferred Phase 0 cleanup
 
