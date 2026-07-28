@@ -16,6 +16,8 @@ export type SaleRecord = {
   customerName: string;
   customerPhone?: string;
   amount: number;
+  /** Catalogue sale price snapshot; the gap to `amount` is the recorded discount. */
+  listPrice?: number;
   paymentMethod: SalePaymentMethod;
   notes?: string;
 };
@@ -69,6 +71,7 @@ export function addSale(input: AddSaleInput): SaleRecord {
     customerName,
     customerPhone: input.customerPhone?.trim() || undefined,
     amount: input.amount,
+    listPrice: dress.salePrice,
     paymentMethod: input.paymentMethod,
     notes: input.notes?.trim() || undefined,
   };

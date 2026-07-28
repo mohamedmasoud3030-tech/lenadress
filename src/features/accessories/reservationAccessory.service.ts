@@ -257,6 +257,7 @@ export function recordAccessoryReturn(input: ReturnAccessoriesInput): Reservatio
         category: entry.condition === 'lost' ? 'purchase' : 'maintenance',
         amount: entry.chargeAmount,
         paymentMethod: 'other',
+        relatedAccessoryCode: accessory?.code,
         notes: `الحجز ${input.reservationNumber} — ${entry.notes?.trim() ?? ''}`.trim(),
       });
     }

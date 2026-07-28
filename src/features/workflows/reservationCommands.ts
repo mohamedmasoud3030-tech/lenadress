@@ -16,8 +16,12 @@ export type CreateReservationCommandInput = {
   customerId: string;
   dressId: string;
   pickupDate: string;
+  pickupTime?: string;
   returnDate: string;
+  returnTime?: string;
   depositAmount: number;
+  /** Agreed rental price; below the catalogue price it is recorded as a discount. */
+  rentalPrice?: number;
   notes?: string;
   idempotencyKey?: string;
 };

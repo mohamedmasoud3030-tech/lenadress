@@ -18,6 +18,7 @@ export type PostExpenseCommandInput = {
   amount: number;
   paymentMethod: ExpensePaymentMethod;
   relatedDressCode?: string;
+  relatedAccessoryCode?: string;
   notes?: string;
   idempotencyKey?: string;
 };

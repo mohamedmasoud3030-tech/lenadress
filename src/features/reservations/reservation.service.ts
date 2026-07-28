@@ -24,7 +24,7 @@ import type {
 const COLLECTION = 'reservations';
 const activeStatuses = ACTIVE_RESERVATION_STATUSES;
 const reservableDressStatuses = new Set(['available', 'reserved', 'rented']);
-type CreateReservationInput = { customerId: string; dressId: string; pickupDate: string; pickupTime?: string; returnDate: string; returnTime?: string; depositAmount: number; notes?: string };
+type CreateReservationInput = { customerId: string; dressId: string; pickupDate: string; pickupTime?: string; returnDate: string; returnTime?: string; depositAmount: number; /** Agreed price when a discount is granted; defaults to the catalogue price. */ rentalPrice?: number; notes?: string };
 type ReservationPaymentType = 'rental' | 'deposit' | 'penalty' | 'refund' | 'adjustment';
 type RecordReservationPaymentInput = { reservationNumber: string; type: ReservationPaymentType; direction: 'income' | 'refund'; amount: number };
 type SettleReservationReturnInput = { reservationNumber: string; lateFee: number; damageFee: number; refundAmount: number; settledDepositAmount: number; retainedDepositAmount: number };
@@ -65,8 +65,12 @@ export function createReservation(input: CreateReservationInput): Reservation {
   const returnTime = normalizeTimeInput(input.returnTime, 'وقت الإرجاع');
   // Central conflict guard: the same rule the UI previews, enforced before the write.
   assertNoConflicts(findItemConflicts({ inventoryItemId: dress.id, dressCode: dress.code, pickupDate: input.pickupDate, returnDate: input.returnDate }, reservations));
-  const totalAmount = dress.rentalPrice + input.depositAmount;
-  const reservation: Reservation = { id: generateId(), reservationNumber: generateNumber('RSV'), customerId: customer.id, inventoryItemId: dress.id, customerNameSnapshot: customer.name, customerPhoneSnapshot: customer.phone, dressCodeSnapshot: dress.code, dressNameSnapshot: dress.name, customerName: customer.name, customerPhone: customer.phone, dressCode: dress.code, dressName: dress.name, pickupDate: input.pickupDate, pickupTime, returnDate: input.returnDate, returnTime, status: 'confirmed', rentalPrice: dress.rentalPrice, depositAmount: input.depositAmount, totalAmount, paidAmount: 0, remainingAmount: totalAmount, assessedFeesAmount: 0, refundedAmount: 0, settledDepositAmount: 0, retainedDepositAmount: 0, notes: input.notes?.trim() || undefined };
+  const listRentalPrice = dress.rentalPrice;
+  const agreedRentalPrice = input.rentalPrice ?? listRentalPrice;
+  if (!Number.isFinite(agreedRentalPrice) || agreedRentalPrice < 0) throw new Error('قيمة الإيجار المتفق عليها غير صالحة.');
+  if (agreedRentalPrice > listRentalPrice) throw new Error('قيمة الإيجار المتفق عليها لا يمكن أن تتجاوز السعر المسجل للعنصر.');
+  const totalAmount = agreedRentalPrice + input.depositAmount;
+  const reservation: Reservation = { id: generateId(), reservationNumber: generateNumber('RSV'), customerId: customer.id, inventoryItemId: dress.id, customerNameSnapshot: customer.name, customerPhoneSnapshot: customer.phone, dressCodeSnapshot: dress.code, dressNameSnapshot: dress.name, customerName: customer.name, customerPhone: customer.phone, dressCode: dress.code, dressName: dress.name, pickupDate: input.pickupDate, pickupTime, returnDate: input.returnDate, returnTime, status: 'confirmed', rentalPrice: agreedRentalPrice, listRentalPrice, depositAmount: input.depositAmount, totalAmount, paidAmount: 0, remainingAmount: totalAmount, assessedFeesAmount: 0, refundedAmount: 0, settledDepositAmount: 0, retainedDepositAmount: 0, notes: input.notes?.trim() || undefined };
   writeCollection(COLLECTION, [reservation, ...reservations]);
   recordAudit({ action: 'create', entityType: 'reservation', entityId: reservation.id, summary: `تم إنشاء الحجز ${reservation.reservationNumber} للفستان ${reservation.dressCode}.`, nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount } });
   return reservation;
@@ -90,13 +94,14 @@ export function rescheduleReservation(input: RescheduleReservationInput): Reserv
   const pickupTime = normalizeTimeInput(input.pickupTime, 'وقت الاستلام');
   const returnTime = normalizeTimeInput(input.returnTime, 'وقت الإرجاع');
 
-  let nextItem = { inventoryItemId: reservation.inventoryItemId, dressCode: reservation.dressCode, dressName: reservation.dressName, rentalPrice: reservation.rentalPrice };
+  let nextItem = { inventoryItemId: reservation.inventoryItemId, dressCode: reservation.dressCode, dressName: reservation.dressName, rentalPrice: reservation.rentalPrice, listRentalPrice: reservation.listRentalPrice ?? reservation.rentalPrice };
   if (input.dressId && input.dressId !== reservation.inventoryItemId) {
     if (reservation.status === 'delivered' || reservation.status === 'overdue') throw new Error('لا يمكن تغيير العنصر بعد التسليم.');
     const dress = getDresses().find((item) => item.id === input.dressId);
     if (!dress) throw new Error('العنصر المحدد غير موجود.');
     if (!dress.isForRent || !reservableDressStatuses.has(dress.status)) throw new Error('العنصر غير مؤهل للإيجار حالياً.');
-    nextItem = { inventoryItemId: dress.id, dressCode: dress.code, dressName: dress.name, rentalPrice: dress.rentalPrice };
+    // Swapping the item re-prices the booking at the new item's catalogue price.
+    nextItem = { inventoryItemId: dress.id, dressCode: dress.code, dressName: dress.name, rentalPrice: dress.rentalPrice, listRentalPrice: dress.rentalPrice };
   }
 
   assertNoConflicts(findItemConflicts({
