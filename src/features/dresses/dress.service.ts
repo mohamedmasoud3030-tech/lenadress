@@ -2,7 +2,7 @@ import { Dress, DressFilters } from './dress.types';
 import { allocateCode, generateId, migrateLegacyInventoryStorage, readCollection, reconcileCounter, writeCollection } from '../../services/localDatabase';
 import { recordAudit } from '../audit/audit.service';
 import { assertDressCanBeArchived, getDressHardDeleteBlockers } from '../integrity/integrity.service';
-import { generateDressBarcodeValue } from './barcode.utils';
+import { dressMatchesBarcode, generateDressBarcodeValue } from './barcode.utils';
 
 const INVENTORY_COLLECTION = 'dresses';
 const RETIRED_CODES_COLLECTION = 'retired-codes';
@@ -53,7 +53,7 @@ export function getDressesAsync(): Promise<Dress[]> {
 
 export function getDressByCode(code: string): Dress | undefined {
   const dresses = getDressesFromStorage();
-  return dresses.find(d => d.code === code);
+  return dresses.find((dress) => dressMatchesBarcode(dress, code));
 }
 
 type AddDressServiceInput = Omit<Dress, 'id' | 'code' | 'timesRented' | 'barcode'> & {
