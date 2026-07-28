@@ -1,4 +1,10 @@
 import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { SummaryCard } from '../../components/shared/SummaryCard';
+import { EmptyState } from '../../components/shared/StateViews';
+import { FilterBar, SearchFilter, SelectFilter } from '../../components/shared/FilterBar';
+import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { AddExpenseModal } from './AddExpenseModal';
 import { EXPENSE_CATEGORY_FILTER_OPTIONS, EXPENSE_PAYMENT_METHOD_FILTER_OPTIONS } from './expense.constants';
 import {
@@ -8,7 +14,7 @@ import {
   getExpenses,
   summarizeExpenses,
 } from './expense.service';
-import type { ExpenseCategory, ExpenseFilters, ExpensePaymentMethod, ExpenseRecord } from './expense.types';
+import type { ExpenseCategory, ExpenseFilters, ExpenseRecord } from './expense.types';
 
 const categoryBadgeClasses: Record<ExpenseCategory, string> = {
   laundry: 'bg-sky-100 text-sky-800',
@@ -55,69 +61,49 @@ export function ExpensesPage() {
   };
 
   return (
-    <section className="space-y-6">
+    <section className="min-w-0 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">إدارة المصروفات</h1>
-          <p className="mt-2 text-slate-600">متابعة مصروفات التشغيل والعناية بالفساتين داخل المتجر.</p>
-        </div>
-        <button type="button" onClick={() => { setFeedback(null); setShowCreateModal(true); }} className="rounded-xl bg-violet-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-800">
+        <PageHeader
+          eyebrow="المصروفات"
+          title="إدارة المصروفات"
+          description="متابعة مصروفات التشغيل والعناية بالفساتين والملحقات داخل المعرض."
+        />
+        <button
+          type="button"
+          onClick={() => { setFeedback(null); setShowCreateModal(true); }}
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+        >
+          <Plus aria-hidden="true" className="h-5 w-5" />
           تسجيل مصروف جديد
         </button>
       </div>
 
       {feedback && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{feedback}</div>}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي المصروفات</p><p className="mt-2 text-2xl font-bold">{formatAmount(summary.totalExpenses)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">مصروفات الغسيل</p><p className="mt-2 text-2xl font-bold">{formatAmount(summary.laundryExpenses)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">الخياطة والصيانة</p><p className="mt-2 text-2xl font-bold">{formatAmount(summary.serviceExpenses)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">مصروفات الشراء</p><p className="mt-2 text-2xl font-bold">{formatAmount(summary.purchaseExpenses)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">مصروفات أخرى</p><p className="mt-2 text-2xl font-bold">{formatAmount(summary.otherExpenses)}</p></article>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
+        <SummaryCard label="إجمالي المصروفات" value={formatAmount(summary.totalExpenses)} tone={summary.totalExpenses > 0 ? 'warning' : 'default'} />
+        <SummaryCard label="مصروفات الغسيل" value={formatAmount(summary.laundryExpenses)} />
+        <SummaryCard label="الخياطة والصيانة" value={formatAmount(summary.serviceExpenses)} />
+        <SummaryCard label="مصروفات الشراء" value={formatAmount(summary.purchaseExpenses)} />
+        <SummaryCard label="مصروفات أخرى" value={formatAmount(summary.otherExpenses)} />
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
-        <input
+      <FilterBar>
+        <SearchFilter
+          label="البحث في المصروفات"
           value={filters.search}
-          onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
-          placeholder="بحث برقم المصروف أو العنوان أو العنصر أو الملاحظات"
-          className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+          onChange={(search) => setFilters((current) => ({ ...current, search }))}
+          placeholder="بحث برقم المصروف أو العنوان أو العنصر"
         />
-        <select
-          value={filters.category}
-          onChange={(event) =>
-            setFilters((prev) => ({ ...prev, category: event.target.value as ExpenseCategory | 'all' }))
-          }
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-        >
-          {EXPENSE_CATEGORY_FILTER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filters.paymentMethod}
-          onChange={(event) =>
-            setFilters((prev) => ({
-              ...prev,
-              paymentMethod: event.target.value as ExpensePaymentMethod | 'all',
-            }))
-          }
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-        >
-          {EXPENSE_PAYMENT_METHOD_FILTER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+        <SelectFilter label="فئة المصروف" value={filters.category} onChange={(category) => setFilters((current) => ({ ...current, category }))} options={EXPENSE_CATEGORY_FILTER_OPTIONS} />
+        <SelectFilter label="وسيلة الدفع" value={filters.paymentMethod} onChange={(paymentMethod) => setFilters((current) => ({ ...current, paymentMethod }))} options={EXPENSE_PAYMENT_METHOD_FILTER_OPTIONS} />
+      </FilterBar>
 
       {filteredExpenses.length === 0 ? (
-        <article className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm text-slate-500">لا توجد مصروفات مطابقة للفلاتر الحالية.</p>
-        </article>
+        <EmptyState
+          title={expenses.length === 0 ? 'لا توجد مصروفات بعد' : 'لا توجد مصروفات مطابقة'}
+          description={expenses.length === 0 ? 'سجّلي أول مصروف تشغيلي ليظهر هنا وفي تقارير الربحية.' : 'غيّري البحث أو الفلاتر الحالية لعرض نتائج أخرى.'}
+        />
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredExpenses.map((expense) => (
@@ -131,8 +117,13 @@ export function ExpensesPage() {
                       العنصر: {expense.relatedDressCode}
                       {expense.relatedDressName ? ` / ${expense.relatedDressName}` : ''}
                     </p>
+                  ) : expense.relatedAccessoryCode ? (
+                    <p className="text-sm text-slate-600">
+                      الملحق: {expense.relatedAccessoryCode}
+                      {expense.relatedAccessoryName ? ` / ${expense.relatedAccessoryName}` : ''}
+                    </p>
                   ) : (
-                    <p className="text-sm text-slate-600">غير مرتبط بفستان محدد</p>
+                    <p className="text-sm text-slate-600">غير مرتبط بعنصر محدد</p>
                   )}
                 </div>
                 <p className="text-sm font-bold text-rose-700">- {formatAmount(expense.amount)}</p>

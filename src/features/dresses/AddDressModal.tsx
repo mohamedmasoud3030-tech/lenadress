@@ -209,11 +209,11 @@ export function AddDressModal({ open, onClose, onCreated }: AddDressModalProps) 
           <legend className="px-1 text-sm font-bold text-slate-700">نوع الاستخدام</legend>
           <div className="mt-2 flex flex-wrap gap-5">
             <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-slate-800">
-              <input type="checkbox" {...register('isForRent')} className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-950 focus:ring-amber-500" />
+              <input type="checkbox" {...register('isForRent')} className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-950 focus-visible:ring-2 focus-visible:ring-amber-500" />
               متاح للإيجار
             </label>
             <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-slate-800">
-              <input type="checkbox" {...register('isForSale')} className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-950 focus:ring-amber-500" />
+              <input type="checkbox" {...register('isForSale')} className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-950 focus-visible:ring-2 focus-visible:ring-amber-500" />
               متاح للبيع
             </label>
           </div>

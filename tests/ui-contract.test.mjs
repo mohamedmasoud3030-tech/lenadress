@@ -294,6 +294,55 @@ test('the dashboard surfaces uncollected money and the day\'s work, not just cou
   assert.match(service, /getOutstandingRentalBalances/, 'owed money must come from the canonical source');
 });
 
+test('every list page uses the shared page header, cards, filters and empty state', async () => {
+  // These pages each hand-rolled their own header, summary tiles, filter row and
+  // "no results" block, and had drifted apart. The shared primitives keep the
+  // rhythm identical and carry the accessibility with them.
+  const listPages = [
+    'features/payments/PaymentsPage.tsx',
+    'features/expenses/ExpensesPage.tsx',
+    'features/delivery-return/DeliveryReturnPage.tsx',
+  ];
+
+  for (const relative of listPages) {
+    const content = await readFile(join(sourceRoot, relative), 'utf8');
+    assert.match(content, /<PageHeader/, `${relative} must use the shared page header`);
+    assert.match(content, /<SummaryCard/, `${relative} must use the shared summary card`);
+    assert.match(content, /<FilterBar>/, `${relative} must use the shared filter bar`);
+    assert.match(content, /<EmptyState/, `${relative} must use the unified empty state`);
+    assert.match(content, /min-w-0/, `${relative} must not let content widen the page`);
+    assert.match(content, /min-h-11/, `${relative} primary action must stay tappable`);
+    // A raw <h1> means the page bypassed the shared header.
+    assert.doesNotMatch(content, /<h1 /, `${relative} must not hand-roll its title`);
+  }
+});
+
+test('filter controls are labelled, tappable and use focus-visible rings', async () => {
+  const filterBarSource = await readFile(join(sourceRoot, 'components/shared/FilterBar.tsx'), 'utf8');
+  // Strip comments so describing the old defect does not count as committing it.
+  const filterBar = filterBarSource.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  assert.match(filterBar, /className="sr-only"/, 'every filter needs an accessible name');
+  assert.match(filterBar, /aria-label=\{label\}/, 'selects must announce what they filter');
+  assert.match(filterBar, /min-h-11/, 'filters must stay tappable on phones');
+  // A plain `focus:` ring fires on mouse click too, which is visual noise.
+  assert.match(filterBar, /focus-visible:ring/, 'rings must be keyboard-only');
+  assert.doesNotMatch(filterBar, /(?<!-)\bfocus:ring/, 'no mouse-triggered focus rings');
+});
+
+test('no interactive control draws a focus ring on mouse click', async () => {
+  const components = await collectFiles(sourceRoot, isComponent);
+  const offenders = [];
+
+  for (const file of components) {
+    const content = (await readFile(file, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+    // `focus:` fires for pointer clicks too; only `focus-visible:` is keyboard-only.
+    if (/(?<!-)\bfocus:ring/.test(content)) offenders.push(file.replace(repositoryRoot, ''));
+  }
+
+  assert.deepEqual(offenders, []);
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');

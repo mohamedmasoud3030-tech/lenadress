@@ -58,8 +58,8 @@ export function ReportsPage() {
         <h2 className="text-lg font-semibold">فلتر الفترة المالية</h2>
         <p className="mt-1 text-sm text-slate-500">يؤثر على التحصيل والمصروفات والصافي فقط، بينما تظل مؤشرات التشغيل الحالية كما هي.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <input type="date" value={range.from} onChange={(event) => setRange((current) => ({ ...current, from: event.target.value }))} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" />
-          <input type="date" value={range.to} onChange={(event) => setRange((current) => ({ ...current, to: event.target.value }))} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30" />
+          <input type="date" value={range.from} onChange={(event) => setRange((current) => ({ ...current, from: event.target.value }))} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30" />
+          <input type="date" value={range.to} onChange={(event) => setRange((current) => ({ ...current, to: event.target.value }))} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30" />
           <button type="button" onClick={applyRange} className="min-h-11 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2">تطبيق الفترة</button>
         </div>
       </article>
