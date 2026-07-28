@@ -7,26 +7,32 @@ import { INVENTORY_ITEM_TYPE_LABELS } from '../../shared/domain/dressConstants';
 import { getTodayISO } from '../../shared/utils/date';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { BASIC_PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from '../payments/payment.constants';
-import { addSale, getSaleableDresses, type SalePaymentMethod, type SaleRecord } from './sale.service';
+import { getSaleableDresses, type SalePaymentMethod } from './sale.service';
+import { quickSaleCommand } from '../workflows';
+import type { SaleInvoice } from './salesLedger.service';
 
-type Props = { open: boolean; onClose: () => void; onCreated: (sale: SaleRecord) => void };
+type Props = { open: boolean; onClose: () => void; onCreated: (invoice: SaleInvoice) => void };
 type Form = { dressCode: string; saleDate: string; customerName: string; customerPhone: string; amount: string; paymentMethod: SalePaymentMethod; notes: string };
 function defaults(): Form { return { dressCode: '', saleDate: getTodayISO(), customerName: '', customerPhone: '', amount: '', paymentMethod: 'cash', notes: '' }; }
 
 export function SellDressModal({ open, onClose, onCreated }: Props) {
   const [form, setForm] = useState<Form>(() => defaults());
   const [error, setError] = useState<unknown>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionKey, setSubmissionKey] = useState(() => `sale-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const dresses = useMemo(() => getSaleableDresses(), [open]);
   const selected = dresses.find((dress) => dress.code === form.dressCode);
 
-  useEffect(() => { if (open) { setForm(defaults()); setError(null); } }, [open]);
+  useEffect(() => { if (open) { setForm(defaults()); setError(null); setIsSubmitting(false); setSubmissionKey(`sale-${Date.now()}-${Math.random().toString(36).slice(2)}`); } }, [open]);
   const close = () => { setForm(defaults()); setError(null); onClose(); };
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setError(null);
+    event.preventDefault();
+    if (isSubmitting) return;
+    setError(null); setIsSubmitting(true);
     try {
-      const sale = addSale({ ...form, amount: Number(form.amount), customerPhone: form.customerPhone || undefined });
+      const sale = quickSaleCommand({ ...form, amount: Number(form.amount), customerPhone: form.customerPhone || undefined, idempotencyKey: submissionKey });
       onCreated(sale); close();
-    } catch (reason: unknown) { setError(reason); }
+    } catch (reason: unknown) { setIsSubmitting(false); setError(reason); }
   };
 
   return <Modal open={open} onClose={close} title="بيع عنصر" className="max-w-2xl"><form onSubmit={submit} className="space-y-4">

@@ -145,12 +145,15 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
   - Evidence: `src/features/workflows/paymentCommands.ts`; forced-failure ledger/balance rollback tests.
 - [x] **2.03:** Delivery and return commands with inventory/service transitions.
   - Evidence: `src/features/workflows/deliveryReturnCommands.ts`; a returned item can no longer become `available` directly and must pass inspection/laundry/maintenance/damaged.
-- [ ] **NEXT — 2.04:** Canonical sale invoice and sale-line return/refund commands; quick sale becomes a one-line invoice.
-- [ ] **PENDING — 2.05:** Expense posting command.
-- [ ] **PENDING — 2.06:** Daily close and explicit reopen commands.
+- [x] **2.04:** Canonical sale invoice and sale-line return/refund commands; quick sale is now a one-line invoice.
+  - Evidence: `src/features/workflows/salesCommands.ts`; sale returns route the item to `inspection` and the legacy `sales-returns` collection is folded into the registered `sale-returns` exactly once.
+- [x] **2.05:** Expense posting command (general and item-linked).
+  - Evidence: `src/features/workflows/expenseCommands.ts`.
+- [x] **2.06:** Daily close and explicit reopen commands with post-close money blocking.
+  - Evidence: `src/features/workflows/dailyCloseCommands.ts`; tests prove expenses and sales are rejected after the close.
 - [ ] **IN PROGRESS — 2.07:** Forced-failure tests after every write boundary proving exact rollback.
-  - Done for reservation, payment, delivery and return commands; sales, sale return, expense and daily close remain.
-- [ ] **PENDING — 2.08:** Separate rental revenue, sale revenue, deposit liability, fees, expenses, net cash movement, and recognized profitability.
+  - Done for reservation, payment, delivery, return, sale, sale return, expense and daily close commands.
+- [ ] **NEXT — 2.08:** Separate rental revenue, sale revenue, deposit liability, fees, expenses, net cash movement, and recognized profitability.
 - [ ] **PENDING — 2.09:** Reconcile operational records, reports, daily close, audit, and printed documents for the same scenarios.
 
 ## Phase 3 queue — Selective capability recovery

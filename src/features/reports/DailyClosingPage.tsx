@@ -6,7 +6,8 @@ import { MAX_NOTES_LENGTH, MIN_ZERO_AMOUNT, MONEY_STEP } from '../../shared/doma
 import { STACKED_FORM_FIELD_CLASS_NAME } from '../../shared/domain/formConstants';
 import { getTodayISO } from '../../shared/utils/date';
 import { DailyClosingBreakdown } from './DailyClosingBreakdown';
-import { closeDay, formatReportMoney, getDayClosings, reopenDay } from './report.service';
+import { formatReportMoney, getDayClosings } from './report.service';
+import { closeDayCommand, reopenDayCommand } from '../workflows';
 import type { DayCloseRecord } from './report.types';
 
 export function DailyClosingPage() {
@@ -22,7 +23,7 @@ export function DailyClosingPage() {
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
-      const closing = closeDay({ businessDate, openingCash: Number(openingCash), actualCash: Number(actualCash), notes });
+      const closing = closeDayCommand({ businessDate, openingCash: Number(openingCash), actualCash: Number(actualCash), notes });
       setClosings(getDayClosings());
       setFeedback(`تم إقفال يومية ${closing.businessDate}. فرق الخزينة: ${formatReportMoney(closing.difference)}.`);
       setError(null);
@@ -37,7 +38,7 @@ export function DailyClosingPage() {
     const reopenReason = window.prompt('اكتبي سبب إعادة فتح اليومية ليظهر في سجل التدقيق:');
     if (reopenReason === null) return;
     try {
-      reopenDay(closing.id, reopenReason);
+      reopenDayCommand(closing.id, reopenReason);
       setClosings(getDayClosings());
       setFeedback(`تمت إعادة فتح يومية ${closing.businessDate} مع الاحتفاظ بالسجل التاريخي.`);
       setError(null);

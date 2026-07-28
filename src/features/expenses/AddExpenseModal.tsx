@@ -6,7 +6,7 @@ import { STACKED_FORM_FIELD_CLASS_NAME, STACKED_FORM_LABEL_CLASS_NAME } from '..
 import { getTodayISO } from '../../shared/utils/date';
 import { getDresses } from '../dresses/dress.service';
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, EXPENSE_PAYMENT_METHOD_LABELS, EXPENSE_PAYMENT_METHODS } from './expense.constants';
-import { addExpense } from './expense.service';
+import { postExpenseCommand } from '../workflows';
 import type { ExpenseCategory, ExpensePaymentMethod, ExpenseRecord } from './expense.types';
 
 type Props = { open: boolean; onClose: () => void; onCreated: (expense: ExpenseRecord) => void };
@@ -23,7 +23,7 @@ export function AddExpenseModal({ open, onClose, onCreated }: Props) {
     event.preventDefault();
     setError(null);
     try {
-      const expense = addExpense({ ...form, amount: Number(form.amount), relatedDressCode: form.relatedDressCode || undefined });
+      const expense = postExpenseCommand({ ...form, amount: Number(form.amount), relatedDressCode: form.relatedDressCode || undefined });
       onCreated(expense);
       close();
     } catch (reason: unknown) {
