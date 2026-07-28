@@ -26,11 +26,11 @@ export function AppShell() {
 
       <DesktopNavigation />
 
-      <main id="main-content" className="relative min-h-screen pb-24 lg:pr-72 lg:pb-0">
+      <main id="main-content" className="relative min-h-screen w-full min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pr-72">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-l from-amber-100/80 via-white/60 to-sky-100/70" />
         <AppHeader />
 
-        <div className="relative mx-auto max-w-7xl p-4 sm:p-6">
+        <div className="relative mx-auto w-full min-w-0 max-w-7xl p-4 sm:p-6">
           {showDesktopSyncWarning && (
             <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
               {desktopSyncStatus.message}
