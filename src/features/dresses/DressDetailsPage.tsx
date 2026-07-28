@@ -5,7 +5,9 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { DRESS_STATUS_LABELS, DRESS_STATUS_STYLES, INVENTORY_ITEM_TYPE_LABELS } from '../../shared/domain/dressConstants';
 import { formatMoneyOMR } from '../../shared/utils/format';
+import { getDressPerformance } from '../reports/report.service';
 import { BarcodeGenerator } from './BarcodeGenerator';
+import { DressLifecyclePanel } from './DressLifecyclePanel';
 import { getBarcodeEngineEnvironmentNote, getBarcodeRuntimeSupportStatus } from './barcode.utils';
 import { archiveDress, deleteDress, getDressDeletionBlockers, getDresses } from './dress.service';
 
@@ -57,7 +59,7 @@ export function DressDetailsPage() {
           to="/inventory"
           className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-stone-100"
         >
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight aria-hidden="true" className="h-4 w-4" />
           العودة إلى المخزون
         </Link>
       </section>
@@ -67,6 +69,7 @@ export function DressDetailsPage() {
   const cameraSupport = getBarcodeRuntimeSupportStatus();
   const engineNote = getBarcodeEngineEnvironmentNote();
   const primaryImage = dress.images[0];
+  const performance = getDressPerformance().find((item) => item.id === dress.id || item.code === dress.code);
 
   return (
     <section className="space-y-6">
@@ -74,14 +77,14 @@ export function DressDetailsPage() {
         <PageHeader
           eyebrow="تفاصيل عنصر المخزون"
           title={dress.name}
-          description="مراجعة بيانات العنصر والباركود وحالة الجاهزية للطباعة والمسح."
+          description="مراجعة بيانات العنصر والباركود وحالة الجاهزية والطباعة والأداء المحقق."
         />
         <div className="flex flex-wrap gap-3">
           <Link
             to="/inventory"
             className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100"
           >
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
             العودة إلى المخزون
           </Link>
           <button
@@ -89,7 +92,7 @@ export function DressDetailsPage() {
             onClick={handleArchive}
             className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm font-bold text-amber-700 shadow-sm transition hover:bg-amber-50"
           >
-            <Archive className="h-4 w-4" />
+            <Archive aria-hidden="true" className="h-4 w-4" />
             أرشفة العنصر
           </button>
           <button
@@ -99,21 +102,23 @@ export function DressDetailsPage() {
             title={canHardDelete ? 'حذف نهائي متاح لعنصر بلا أي تاريخ.' : `${deletionBlockers.join(' ')} استخدمي الأرشفة بدل الحذف.`}
             className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-bold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
             حذف نهائي
           </button>
         </div>
       </div>
+
       {actionError ? (
         <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{actionError}</p>
       ) : null}
+
       {!canHardDelete && deletionBlockers.length > 0 ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           لا يمكن حذف هذا العنصر نهائياً لأنه مرتبط بتاريخ تشغيلي أو مالي: {deletionBlockers.join(' ')} استخدمي الأرشفة للحفاظ على التقارير والسجل.
         </p>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
         <SummaryCard label="كود العنصر" value={dress.code} />
         <SummaryCard label="نوع العنصر" value={INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress']} />
         <SummaryCard label="الباركود" value={dress.barcode} />
@@ -187,6 +192,8 @@ export function DressDetailsPage() {
           </div>
         </div>
       </div>
+
+      {performance ? <DressLifecyclePanel performance={performance} /> : null}
     </section>
   );
 }
