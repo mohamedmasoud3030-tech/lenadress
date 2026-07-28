@@ -49,13 +49,13 @@ test('printSaleInvoice writes escaped invoice markup and triggers print flow', (
     printSaleInvoice(createInvoice());
 
     assert.deepEqual(calls, [
-      ['open', '', '_blank', 'width=860,height=720'],
+      ['open', '', '_blank', 'width=880,height=760'],
       'write',
       'close',
       'focus',
       'print',
     ]);
-    assert.match(popup.document.markup, /<html dir="rtl">/);
+    assert.match(popup.document.markup, /<html dir="rtl" lang="ar">/);
     assert.match(popup.document.markup, /INV-&lt;1&gt;&amp;&quot;/);
     assert.match(popup.document.markup, /Lena &amp; Co &lt;VIP&gt;/);
     assert.match(popup.document.markup, /DR-&lt;01&gt;/);
