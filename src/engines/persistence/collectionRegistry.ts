@@ -15,6 +15,8 @@ export const NON_COLLECTION_KEYS = new Set<string>([METADATA_KEY, `${STORAGE_PRE
 export const REGISTERED_COLLECTIONS = [
   'customers',
   'dresses',
+  'accessories',
+  'reservation-accessories',
   'reservations',
   'appointments',
   'payments',

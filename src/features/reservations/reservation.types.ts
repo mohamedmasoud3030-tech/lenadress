@@ -17,7 +17,11 @@ export type Reservation = {
   dressCodeSnapshot?: string;
   dressNameSnapshot?: string;
   pickupDate: string;
+  /** Local `HH:MM` pickup time; falls back to the configured default when absent. */
+  pickupTime?: string;
   returnDate: string;
+  /** Local `HH:MM` return time; falls back to the configured default when absent. */
+  returnTime?: string;
   status: ReservationStatus;
   rentalPrice: number;
   depositAmount: number;
@@ -49,4 +53,16 @@ export type AvailabilityCheck = {
   dressCode: string;
   pickupDate: string;
   returnDate: string;
+  /** Reservation being edited; excluded from its own conflict check. */
+  excludeReservationNumber?: string;
+};
+
+export type RescheduleReservationInput = {
+  reservationNumber: string;
+  pickupDate: string;
+  pickupTime?: string;
+  returnDate: string;
+  returnTime?: string;
+  /** Optional item swap performed in the same guarded operation. */
+  dressId?: string;
 };

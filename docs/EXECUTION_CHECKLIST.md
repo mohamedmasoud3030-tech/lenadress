@@ -174,6 +174,26 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
 
 Never merge PR #62 wholesale.
 
+## Phase 6 queue — Operational calendar and accessories
+
+Branch: `feature/calendar-accessories-20260728`.
+
+- [ ] **IN PROGRESS — 6.01:** Operational reservation calendar with month, week and day views.
+  - Implementation: `src/features/reservations/reservationCalendar.ts` builds every grid from local-time helpers; `ReservationCalendar.tsx` renders the desktop grid and a phone agenda.
+  - Evidence pending merge: `tests/reservation-calendar.test.mjs`.
+- [ ] **IN PROGRESS — 6.02:** Central reservation conflict rule shared by every write path.
+  - Implementation: `src/features/reservations/reservationConflicts.ts`; create, reschedule, item swap, extension and accessory attach all resolve through it.
+  - Evidence pending merge: `tests/reservation-conflicts.test.mjs`.
+- [ ] **IN PROGRESS — 6.03:** Configurable preparation-before-pickup and cleaning-after-return windows.
+  - Implementation: `preferences.service.ts` splits the legacy single buffer and keeps existing installations on their stored value.
+- [ ] **IN PROGRESS — 6.04:** Accessory catalogue with stable stock codes, derived barcodes and printable labels.
+  - Implementation: `src/features/accessories/*`, `@platform/printing` label path, `shared/utils/barcode.ts`.
+  - Evidence pending merge: `tests/accessory-lifecycle.test.mjs`.
+- [ ] **IN PROGRESS — 6.05:** Accessories linked to reservations across delivery, return, partial return, damage and loss.
+  - Implementation: `reservationAccessory.service.ts`; charges post through the existing expense/finance path, never a parallel ledger.
+- [ ] **IN PROGRESS — 6.06:** Backup and restore coverage for accessories, links, handover state, charges and the new settings.
+  - Evidence pending merge: `tests/accessory-backup-integrity.test.mjs`.
+
 ## Phase 4 queue — Runtime QA
 
 - [x] **4.01:** Desktop browser workflow evidence.

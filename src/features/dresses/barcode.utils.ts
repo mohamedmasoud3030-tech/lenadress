@@ -1,37 +1,31 @@
-export type BarcodeIdentity = {
-  code: string;
-  barcode?: string;
-};
+import {
+  deriveBarcodeFromCode,
+  identityMatchesBarcode,
+  normalizeBarcodeValue,
+  type BarcodeIdentity,
+} from '../../shared/utils/barcode';
+
+export type { BarcodeIdentity };
 
 /**
- * Normalises scanner and stored values without changing the human item code.
- * The same rule is used for generation and lookup so spaces/case cannot make a
- * valid label appear missing.
+ * Inventory barcodes reuse the one shared normalisation rule in
+ * `@shared/utils/barcode`, so dresses and accessories can never drift into two
+ * different definitions of "the same scanned code".
  */
-export function normalizeDressBarcodeValue(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, '');
-}
+export const normalizeDressBarcodeValue = normalizeBarcodeValue;
 
 /**
  * Persisted barcodes are derived from the monotonic, never-reused item code.
- * This makes label regeneration stable across reload, backup and restore.
  * The optional argument keeps the old add-form call source-compatible; the
  * inventory service owns the final allocation and always passes the real code.
  */
 export function generateDressBarcodeValue(code?: string): string {
   if (code === undefined) return '';
-  const normalizedCode = normalizeDressBarcodeValue(code);
-  if (!normalizedCode) throw new Error('كود العنصر مطلوب لتوليد الباركود.');
-  return normalizedCode;
+  return deriveBarcodeFromCode(code);
 }
 
 export function dressMatchesBarcode(dress: BarcodeIdentity, scannedValue: string): boolean {
-  const normalizedScan = normalizeDressBarcodeValue(scannedValue);
-  if (!normalizedScan) return false;
-
-  return [dress.barcode, dress.code]
-    .filter((value): value is string => Boolean(value))
-    .some((value) => normalizeDressBarcodeValue(value) === normalizedScan);
+  return identityMatchesBarcode(dress, scannedValue);
 }
 
 export function getBarcodeRuntimeSupportStatus(): { supported: boolean; message: string } {

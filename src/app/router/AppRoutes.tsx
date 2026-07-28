@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppShell } from '@app/shell/AppShell';
 import { RouteLoadingFallback } from './RouteLoadingFallback';
 import {
+  AccessoriesPage,
   AppointmentsPage,
   AuditLogPage,
   CustomersPage,
@@ -37,6 +38,7 @@ export function AppRoutes() {
             </Suspense>
           }
         />
+        <Route path="accessories" element={<AccessoriesPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="reservations" element={<ReservationsPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />

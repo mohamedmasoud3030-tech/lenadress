@@ -13,7 +13,8 @@ import type { Customer } from '../customers/customer.types';
 import { getDresses } from '../dresses/dress.service';
 import type { Dress } from '../dresses/dress.types';
 import { createReservationCommand } from '../workflows';
-import { getReservationBufferDays } from './reservation.service';
+import { getReservationTimeDefaults } from './reservation.service';
+import { getBufferSettings } from './reservationConflicts';
 import type { Reservation } from './reservation.types';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
 
@@ -21,7 +22,9 @@ const reservationSchema = z.object({
   customerId: z.string().min(1, 'اختاري العميلة.'),
   dressId: z.string().min(1, 'اختاري العنصر.'),
   pickupDate: z.string().min(1, 'حددي تاريخ الاستلام.'),
+  pickupTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'وقت الاستلام غير صالح.'),
   returnDate: z.string().min(1, 'حددي تاريخ الإرجاع.'),
+  returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'وقت الإرجاع غير صالح.'),
   depositAmount: z.coerce.number().finite('قيمة العربون غير صالحة.').min(0, 'قيمة العربون لا يمكن أن تكون سالبة.'),
   notes: z.string().max(MAX_NOTES_LENGTH, `الملاحظات يجب ألا تتجاوز ${MAX_NOTES_LENGTH} حرف.`).optional(),
 });
@@ -42,11 +45,14 @@ function addDays(dateValue: string, days: number): string {
 
 function getDefaultValues(): ReservationFormValues {
   const today = getTodayISO();
+  const times = getReservationTimeDefaults();
   return {
     customerId: '',
     dressId: '',
     pickupDate: today,
+    pickupTime: times.pickupTime,
     returnDate: addDays(today, DEFAULT_RESERVATION_DAYS),
+    returnTime: times.returnTime,
     depositAmount: 0,
     notes: '',
   };
@@ -63,7 +69,7 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
   const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('rsv'));
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dresses, setDresses] = useState<Dress[]>([]);
-  const bufferDays = getReservationBufferDays();
+  const bufferDays = getBufferSettings();
 
   const {
     register,
@@ -173,21 +179,31 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
         )}
 
         <fieldset className="grid gap-4 md:grid-cols-2">
-          <legend className="sr-only">فترة الحجز</legend>
+          <legend className="sr-only">فترة الحجز وأوقاتها</legend>
           <div>
             <label htmlFor={`${fieldId}-pickup`} className={FORM_LABEL_CLASS_NAME}>تاريخ الاستلام</label>
             <input id={`${fieldId}-pickup`} type="date" min={getTodayISO()} {...register('pickupDate')} className={FORM_FIELD_CLASS_NAME} />
             {errors.pickupDate && <p className={FORM_ERROR_CLASS_NAME}>{errors.pickupDate.message}</p>}
           </div>
           <div>
+            <label htmlFor={`${fieldId}-pickup-time`} className={FORM_LABEL_CLASS_NAME}>وقت الاستلام</label>
+            <input id={`${fieldId}-pickup-time`} type="time" {...register('pickupTime')} className={FORM_FIELD_CLASS_NAME} />
+            {errors.pickupTime && <p className={FORM_ERROR_CLASS_NAME}>{errors.pickupTime.message}</p>}
+          </div>
+          <div>
             <label htmlFor={`${fieldId}-return`} className={FORM_LABEL_CLASS_NAME}>تاريخ الإرجاع</label>
             <input id={`${fieldId}-return`} type="date" min={getTodayISO()} {...register('returnDate')} className={FORM_FIELD_CLASS_NAME} />
             {errors.returnDate && <p className={FORM_ERROR_CLASS_NAME}>{errors.returnDate.message}</p>}
           </div>
+          <div>
+            <label htmlFor={`${fieldId}-return-time`} className={FORM_LABEL_CLASS_NAME}>وقت الإرجاع</label>
+            <input id={`${fieldId}-return-time`} type="time" {...register('returnTime')} className={FORM_FIELD_CLASS_NAME} />
+            {errors.returnTime && <p className={FORM_ERROR_CLASS_NAME}>{errors.returnTime.message}</p>}
+          </div>
         </fieldset>
 
         <p className="rounded-xl bg-stone-50 px-3 py-2 text-xs leading-5 text-slate-600">
-          يتم حجز فترة تجهيز تلقائياً قبل الحجز وبعده ({bufferDays} يوم).
+          يتم حجز مدة التجهيز قبل التسليم ({bufferDays.preparationDaysBeforePickup} يوم) ومدة التنظيف بعد الإرجاع ({bufferDays.cleaningDaysAfterReturn} يوم) تلقائياً، ولا يمكن حجز نفس العنصر خلالها.
         </p>
 
         <div className="grid gap-4 md:grid-cols-[220px_1fr]">

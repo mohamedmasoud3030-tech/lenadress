@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
-import { CalendarCheck, CircleAlert, Plus, Printer, Search, XCircle } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { CalendarCheck, CircleAlert, Plus, Printer, Search, Shirt, UserRound, XCircle } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { EmptyState } from '../../components/shared/StateViews';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { RESERVATION_STATUS_LABELS, RESERVATION_STATUS_STYLES } from '../../shared/domain/reservationConstants';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { CreateReservationModal } from './CreateReservationModal';
+import { ReservationAccessoriesPanel } from './ReservationAccessoriesPanel';
+import { formatTimeLabel } from '../../shared/utils/date';
+import { getReservationTimes } from './reservation.service';
 import { cancelReservationCommand } from '../workflows';
 import { filterReservations, getReservations, summarizeReservations } from './reservation.service';
 import { ReservationCalendar } from './ReservationCalendar';
@@ -15,6 +18,7 @@ import type { Reservation, ReservationFilters } from './reservation.types';
 
 function ReservationCard({ reservation, onCancel, onPrint }: { reservation: Reservation; onCancel: (id: string) => void; onPrint: (reservation: Reservation) => void }) {
   const canCancel = ['pending', 'confirmed'].includes(reservation.status) && reservation.paidAmount === 0;
+  const times = getReservationTimes(reservation);
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -23,7 +27,22 @@ function ReservationCard({ reservation, onCancel, onPrint }: { reservation: Rese
           <p className="text-xs font-bold text-slate-400">{reservation.reservationNumber}</p>
           <h2 className="mt-1 text-lg font-bold text-slate-950">{reservation.customerName}</h2>
           <p className="mt-1 text-sm text-slate-600">{reservation.customerPhone}</p>
-          <p className="mt-2 text-sm font-medium text-slate-700">{reservation.dressCode} — {reservation.dressName}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-sm font-medium">
+            <Link
+              to={`/customers?search=${encodeURIComponent(reservation.customerPhone)}`}
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-stone-100 px-2.5 font-bold text-slate-700 transition hover:bg-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
+              <UserRound aria-hidden="true" className="h-4 w-4" />
+              بيانات العميلة
+            </Link>
+            <Link
+              to={`/inventory/${encodeURIComponent(reservation.dressCode)}`}
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-stone-100 px-2.5 font-bold text-slate-700 transition hover:bg-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
+              <Shirt aria-hidden="true" className="h-4 w-4" />
+              {reservation.dressCode} — {reservation.dressName}
+            </Link>
+          </div>
         </div>
         <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ${RESERVATION_STATUS_STYLES[reservation.status]}`}>
           {RESERVATION_STATUS_LABELS[reservation.status]}
@@ -31,13 +50,14 @@ function ReservationCard({ reservation, onCancel, onPrint }: { reservation: Rese
       </div>
 
       <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div><p className="text-xs font-bold text-slate-400">الاستلام</p><p className="mt-1 text-sm font-semibold text-slate-800">{reservation.pickupDate}</p></div>
-        <div><p className="text-xs font-bold text-slate-400">الإرجاع</p><p className="mt-1 text-sm font-semibold text-slate-800">{reservation.returnDate}</p></div>
+        <div><p className="text-xs font-bold text-slate-400">الاستلام</p><p className="mt-1 text-sm font-semibold text-slate-800">{reservation.pickupDate} · {formatTimeLabel(times.pickupTime)}</p></div>
+        <div><p className="text-xs font-bold text-slate-400">الإرجاع</p><p className="mt-1 text-sm font-semibold text-slate-800">{reservation.returnDate} · {formatTimeLabel(times.returnTime)}</p></div>
         <div><p className="text-xs font-bold text-slate-400">الإجمالي</p><p className="mt-1 text-sm font-bold text-slate-950">{formatMoneyOMR(reservation.totalAmount)}</p></div>
         <div><p className="text-xs font-bold text-slate-400">المتبقي</p><p className={`mt-1 text-sm font-bold ${reservation.remainingAmount > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{formatMoneyOMR(reservation.remainingAmount)}</p></div>
       </div>
 
       {reservation.notes && <p className="mt-4 rounded-xl bg-stone-50 p-3 text-sm leading-6 text-slate-600">{reservation.notes}</p>}
+      <ReservationAccessoriesPanel reservation={reservation} />
       <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
         <button type="button" onClick={() => onPrint(reservation)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-stone-100"><Printer aria-hidden="true" className="h-4 w-4" />طباعة العقد</button>
       </div>
@@ -64,6 +84,12 @@ export function ReservationsPage() {
     try { cancelReservationCommand(id); setReservations(getReservations()); setFeedback({ tone: 'success', message: `تم إلغاء الحجز ${reservation.reservationNumber}.` }); }
     catch (error: unknown) { setFeedback({ tone: 'danger', message: error instanceof Error ? error.message : 'تعذر إلغاء الحجز.' }); }
   };
+  // Opening a booking from the calendar focuses the same list card, so the
+  // customer and item details are one tap away without a second data source.
+  const handleOpenFromCalendar = (reservation: Reservation) => {
+    setFilters({ search: reservation.reservationNumber, status: 'all', timing: 'all' });
+    setFeedback({ tone: 'success', message: `تم فتح الحجز ${reservation.reservationNumber} من التقويم.` });
+  };
   const handlePrint = (reservation: Reservation) => {
     try { printRentalContract(reservation); }
     catch (error: unknown) { setFeedback({ tone: 'danger', message: error instanceof Error ? error.message : 'تعذر طباعة العقد.' }); }
@@ -78,7 +104,7 @@ export function ReservationsPage() {
       <label><span className="sr-only">حالة الحجز</span><select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value as ReservationFilters['status'] }))} className="h-12 w-full rounded-xl border border-slate-200 bg-stone-50 px-3 text-sm outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30"><option value="all">كل الحالات</option>{Object.entries(RESERVATION_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label><span className="sr-only">توقيت الحجز</span><select value={filters.timing} onChange={(event) => setFilters((current) => ({ ...current, timing: event.target.value as ReservationFilters['timing'] }))} className="h-12 w-full rounded-xl border border-slate-200 bg-stone-50 px-3 text-sm outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30"><option value="all">كل المواعيد</option><option value="today">اليوم</option><option value="upcoming">القادمة</option><option value="overdue">المتأخرة</option></select></label>
     </div></div>
-    <ReservationCalendar reservations={reservations} />
+    <ReservationCalendar reservations={reservations} onOpenReservation={handleOpenFromCalendar} />
     {filteredReservations.length > 0 ? <div className="grid gap-4 xl:grid-cols-2">{filteredReservations.map((reservation) => <ReservationCard key={reservation.id} reservation={reservation} onCancel={handleCancel} onPrint={handlePrint} />)}</div> : reservations.length === 0
       ? <EmptyState
           icon={<CalendarCheck className="h-10 w-10" />}

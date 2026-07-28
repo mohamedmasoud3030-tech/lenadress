@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 
 export { NotFoundPage } from '../../components/shared/NotFoundPage';
+export { AccessoriesPage } from '../../features/accessories/AccessoriesPage';
 export { AuditLogPage } from '../../features/audit/AuditLogPage';
 export { AppointmentsPage } from '../../features/appointments/AppointmentsPage';
 export { CustomersPage } from '../../features/customers/CustomersPage';

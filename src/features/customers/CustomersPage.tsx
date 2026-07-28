@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Archive, CircleAlert, Plus, Search, Trash2 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
@@ -94,8 +95,15 @@ function CustomerCard({ customer, onArchive, onDelete }: { customer: Customer; o
 }
 
 export function CustomersPage() {
+  // `?search=` lets the reservation screen and the calendar link straight to a
+  // customer record instead of dropping the operator on an unfiltered list.
+  const [searchParams] = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>(() => getCustomers());
-  const [filters, setFilters] = useState<CustomerFilters>({ search: '', status: 'all', balance: 'all' });
+  const [filters, setFilters] = useState<CustomerFilters>(() => ({
+    search: searchParams.get('search') ?? '',
+    status: 'all',
+    balance: 'all',
+  }));
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);

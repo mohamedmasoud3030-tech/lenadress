@@ -1,4 +1,5 @@
 import { commandBoundary, runCommand } from '@engines/workflows';
+import type { AccessoryReturnEntry } from '../accessories/reservationAccessory.service';
 import { completeDelivery, completeReturn } from '../delivery-return/deliveryReturn.operations';
 import type { DeliveryReturnRecord } from '../delivery-return/deliveryReturn.types';
 import type { PaymentMethod } from '../payments/payment.types';
@@ -25,6 +26,8 @@ export type CompleteDeliveryCommandInput = {
   reservationNumber: string;
   deliveryDateTime: string;
   deliveryCondition?: string;
+  /** Accessories actually handed over; recorded inside the same boundary. */
+  deliveredAccessoryIds?: string[];
   notes?: string;
   idempotencyKey?: string;
 };
@@ -54,6 +57,8 @@ export type CompleteReturnCommandInput = {
   damageFee: number;
   refundMethod: PaymentMethod;
   nextItemStatus: ReturnItemStatus;
+  /** Per-accessory condition and optional damage/loss charge. */
+  accessoryReturns?: AccessoryReturnEntry[];
   notes?: string;
   idempotencyKey?: string;
 };
