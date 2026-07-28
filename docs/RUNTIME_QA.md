@@ -25,6 +25,12 @@ Status vocabulary:
 | Calendar, contract, printing | `npm run test:capability-recovery` | Date-derived availability; contract uses historical snapshots; blocked-popup recovery |
 | UI contract | `npm run test:ui-contract` | RTL shell, overflow guards, modal focus trap and scrolling, a11y labels, duplicate-submit guards, route reachability |
 | Backup and restore | `npm run test:backup-integrity` | Full collection coverage, validation before mutation, no partial restore, markers survive |
+| Booking conflicts | `npm run test:reservation-conflicts` | One central rule enforced in the service layer for creation, reschedule, item swap, extension and accessory attach, including the preparation and cleaning windows |
+| Reservation calendar | `npm run test:reservation-calendar` | Month/week/day grids built on local time; no day drift; filters, ordering and derived occupancy |
+| Accessories | `npm run test:accessories` | Stable codes and barcodes, delivery, partial return, damage, loss, rollback on forced failure, no double charge |
+| Accessory backup | `npm run test:accessory-backup` | Links, handover state, charges, counters and the new settings survive a restore without duplication |
+| Inventory performance | `npm run test:inventory-performance` | Realised-money metrics, utilisation, idleness, ranking, date ranges, reconciliation against the finance layer |
+| Report export | `npm run test:inventory-performance-export` | UTF-8 BOM, formula-injection protection, escaping, print contract and blocked-popup recovery |
 | PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback |
 
 ## 2. Browser (desktop)
@@ -56,7 +62,10 @@ comfortable tap targets.
 **Outstanding — device/emulator capture at 390×844 and 360×740:** confirm no
 horizontal scrollbar on every route, correct RTL mirroring, card layouts instead
 of wide tables, modal scrolling with the keyboard open, and reachable bottom
-navigation. Record screenshots per route.
+navigation. Record screenshots per route, including the two routes added in this
+stage: the calendar agenda on `/reservations` and the report table on
+`/inventory-performance`, both of which must scroll their content rather than
+widen the page.
 
 ## 4. PWA
 

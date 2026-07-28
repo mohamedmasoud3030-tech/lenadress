@@ -198,20 +198,24 @@ Required checks: Build #244 and Verify #216, both green on the final head.
 
 ## Phase 7 queue — Inventory performance and profitability reports
 
-Branch: `feature/inventory-performance-reports-20260728`.
+Completed by [PR #108](https://github.com/mohamedmasoud3030-tech/lenadress/pull/108).
+Head SHA: `b255f9adae17293d4e9fa8c36e9a14580923b247`. Merge SHA: `901e12dffc4f065fde16a21ae77ac9c4d59d102c`.
+Required checks: Build #246 and Verify #218, both green on the final head.
 
-- [ ] **IN PROGRESS — 7.01:** Per-item performance metrics for dresses and accessories.
+- [x] **7.01:** Per-item performance metrics for dresses and accessories.
+  - Evidence: `tests/inventory-performance.test.mjs` (19 tests) in the default gate.
   - Implementation: `src/features/reports/inventoryPerformance.service.ts` computes rentals, sales, revenue, discounts, service/damage cost, net result, occupied days, utilisation, average transaction value, average rental length, late/damage/loss counts, last use, idle days and turnover.
   - Every figure is read from the operational and finance layers, never aggregated from a screen.
-- [ ] **IN PROGRESS — 7.02:** Documented, unambiguous definitions for every metric.
+- [x] **7.02:** Documented, unambiguous definitions for every metric.
   - Implementation: `docs/INVENTORY_PERFORMANCE_METRICS.md` records the source of truth and the exact formula for each figure.
-- [ ] **IN PROGRESS — 7.03:** Provable discounts through price snapshots.
+- [x] **7.03:** Provable discounts through price snapshots.
   - Implementation: reservations store `listRentalPrice` and sale lines store `listPrice`, so a concession is recorded when it is granted instead of inferred from a later catalogue price.
-- [ ] **IN PROGRESS — 7.04:** Filters, KPI cards, sortable table, trend chart, ranked lists and a per-item detail view.
+- [x] **7.04:** Filters, KPI cards, sortable table, trend chart, ranked lists and a per-item detail view.
   - Implementation: `InventoryPerformancePage.tsx`, `InventoryPerformanceDetailPanel.tsx`, `PerformanceTrendChart.tsx`, reachable at `/inventory-performance`.
-- [ ] **IN PROGRESS — 7.05:** CSV and print export with UTF-8 BOM and formula-injection protection.
+- [x] **7.05:** CSV and print export with UTF-8 BOM and formula-injection protection.
   - Implementation: `src/shared/utils/csv.ts` and `inventoryPerformanceExport.ts`; printing uses the shared boundary with full escaping.
-- [ ] **IN PROGRESS — 7.06:** Accessory costs attributable to the accessory itself.
+  - Evidence: `tests/inventory-performance-export.test.mjs` (10 tests) covering the BOM, every formula trigger, injected item names, escaping and the blocked-popup path.
+- [x] **7.06:** Accessory costs attributable to the accessory itself.
   - Implementation: expenses carry `relatedAccessoryCode`; the accessory return workflow now stamps it on every damage and loss charge.
 
 ## Phase 4 queue — Runtime QA
@@ -239,7 +243,14 @@ Branch: `feature/inventory-performance-reports-20260728`.
   - Evidence: `docs/OPERATIONS_GUIDE.md` (Arabic, showroom-facing).
 - [x] **5.05:** Release notes and honest known limitations.
   - Evidence: `docs/RELEASE_NOTES_V1.md`, including the nine defects found during delivery and the outstanding runtime evidence.
-- [ ] **BLOCKED — 5.06:** Release tag only after the outstanding runtime evidence in `docs/RUNTIME_QA.md` (mobile capture, on-device PWA install, Tauri Windows, real-camera barcode) is executed and recorded.
+- [ ] **BLOCKED — 5.06:** Release tag withheld. No tag was created in this stage. It stays blocked until all seven real-device evidence items are executed and recorded in `docs/RUNTIME_QA.md`:
+  1. phone testing at 390×844;
+  2. phone testing at 360×740;
+  3. a real PWA installation;
+  4. an offline reload of the installed app;
+  5. a Windows Tauri build produced and launched on Windows;
+  6. a real camera barcode scan;
+  7. printing a rental contract and barcode/accessory labels from a physical device.
 
 ## Deferred Phase 0 cleanup
 
@@ -272,3 +283,4 @@ Branch: `feature/inventory-performance-reports-20260728`.
 | Phase 2.07 rollback completeness | PR #106 / `7d8eb9c5789f1494bbd9aed831af8a85fece5f9a` | Build #241 + Verify #213 | Forced delivery and sale-return failures restore all linked operational, financial, audit and idempotency state | Complete |
 | Phase 3.05 barcode labels and lifecycle helpers | PR #105 / `9f08b0c38b4d1050af8a481659a781c2ab9035b8` | Build #238 + Verify #210 | Shared-boundary print failure, stable lookup/identity, canonical lifecycle projection; real camera remains 4.05 | Complete |
 | Phase 6 calendar and accessories | PR #107 / `a1ac39d7035ac786473f9a506148634ec432f8fe` | Build #244 + Verify #216 | Month/week/day calendar on local time, central conflict rule enforced in the service layer, accessory catalogue with derived barcodes, accessory delivery/return/partial-return/damage/loss, backup coverage; real-device evidence remains 4.02/4.04/4.05 | Complete |
+| Phase 7 inventory performance reports | PR #108 / `901e12dffc4f065fde16a21ae77ac9c4d59d102c` | Build #246 + Verify #218 | Per-item realised-money metrics with documented formulas, provable discounts via price snapshots, ranked lists, per-item detail, CSV with BOM and injection guard, escaped print through the shared boundary | Complete |
