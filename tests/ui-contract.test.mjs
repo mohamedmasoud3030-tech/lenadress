@@ -217,6 +217,60 @@ test('report exports keep Arabic intact and cannot be turned into a spreadsheet 
   assert.doesNotMatch(exporter, /window\.open/, 'no direct popup access outside the platform layer');
 });
 
+test('shared form primitives make the accessible version the default', async () => {
+  const field = await readFile(join(sourceRoot, 'components/shared/FormField.tsx'), 'utf8');
+
+  assert.match(field, /htmlFor=\{id\}/, 'every label must be tied to its control');
+  assert.match(field, /aria-invalid=/, 'a failed field must announce itself');
+  assert.match(field, /role="alert"/, 'errors must be announced, not only shown');
+  assert.match(field, /aria-describedby=\{describedBy\}/, 'errors and hints must be described');
+  assert.match(field, /min-h-11/, 'controls must stay tappable on phones');
+  assert.match(field, /inputMode="decimal"/, 'money fields must open a numeric keypad');
+  assert.match(field, /aria-busy=/, 'a pending submit must expose its state');
+});
+
+test('the phone shell prevents iOS auto-zoom and sideways rubber-banding', async () => {
+  const css = await readFile(join(sourceRoot, 'styles/global.css'), 'utf8');
+
+  // iOS zooms any focused control rendered below 16px; that was the reported defect.
+  assert.match(css, /pointer: coarse/, 'touch devices need their own control sizing');
+  assert.match(css, /font-size:\s*16px/, 'form controls must render at 16px on touch devices');
+  assert.match(css, /overscroll-behavior:\s*none/, 'both scroll axes must be pinned');
+  assert.match(css, /touch-action:\s*manipulation/, 'a double tap must not zoom a control');
+
+  const html = await readFile(join(repositoryRoot, 'index.html'), 'utf8');
+  const viewportTag = /<meta name="viewport"[^>]*>/.exec(html)?.[0] ?? '';
+  assert.match(viewportTag, /viewport-fit=cover/, 'safe-area insets need viewport-fit');
+  // Locking zoom would "fix" the symptom by breaking accessibility.
+  assert.doesNotMatch(viewportTag, /maximum-scale|user-scalable=no/, 'zoom must never be locked');
+});
+
+test('printing renders in a dismissible in-app view instead of a detached window', async () => {
+  const printing = await readFile(join(sourceRoot, 'platform/printing/printDocument.ts'), 'utf8');
+
+  assert.match(printing, /iframe/, 'the document renders in-app so the operator can return');
+  assert.match(printing, /aria-modal/, 'the print view is a labelled dialog');
+  assert.match(printing, /'إغلاق'/, 'there must be an explicit Arabic way out');
+  assert.match(printing, /popstate/, 'a system back gesture must close the document');
+  assert.match(printing, /Escape/, 'Escape must close the document');
+  assert.doesNotMatch(printing.replace(/\/\*[\s\S]*?\*\//g, ''), /window\.open\s*\(/, 'no detached popup may remain');
+});
+
+test('the dashboard surfaces uncollected money and the day\'s work, not just counts', async () => {
+  const page = await readFile(join(sourceRoot, 'features/dashboard/DashboardPage.tsx'), 'utf8');
+
+  assert.match(page, /مبالغ غير محصّلة/, 'uncollected money must be visible on the board');
+  assert.match(page, /role="alert"/, 'the money warning must be announced');
+  assert.match(page, /تسليمات اليوم/);
+  assert.match(page, /إرجاعات اليوم/);
+  assert.match(page, /EmptyState/, 'a brand-new showroom must get onboarding, not blank cards');
+  assert.doesNotMatch(page, /#[0-9a-fA-F]{6}/, 'no hardcoded hex colours on the dashboard');
+
+  const service = await readFile(join(sourceRoot, 'features/dashboard/dashboard.service.ts'), 'utf8');
+  assert.match(service, /getFinanceTotals/, 'money must come from the finance layer');
+  assert.match(service, /getOutstandingRentalBalances/, 'owed money must come from the canonical source');
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');
