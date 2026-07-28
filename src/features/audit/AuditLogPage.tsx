@@ -7,6 +7,7 @@ import type { AuditActionType, AuditEntityType, AuditLogFilters } from './audit.
 const entityLabels: Record<AuditEntityType, string> = {
   customer: 'عميلة',
   dress: 'عنصر مخزون',
+  accessory: 'ملحق',
   reservation: 'حجز',
   payment: 'حركة مالية',
   expense: 'مصروف',

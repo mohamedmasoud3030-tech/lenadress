@@ -1,6 +1,9 @@
 import { escapeHtml, printDocument, PrintDocumentError } from '@platform/printing';
 import { formatMoneyOMR } from '../../shared/utils/format.js';
+import { formatTimeLabel } from '../../shared/utils/date';
+import { getAccessoriesForReservation } from '../accessories/reservationAccessory.service';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
+import { getReservationTimes } from './reservation.service';
 import type { Reservation } from './reservation.types';
 
 /**
@@ -35,6 +38,18 @@ export function buildRentalContractHtml(reservation: Reservation): string {
   const itemName = reservation.dressNameSnapshot ?? reservation.dressName;
 
   const terms = CONTRACT_TERMS.map((term) => `<li>${escapeHtml(term)}</li>`).join('');
+  const times = getReservationTimes(reservation);
+  const accessories = getAccessoriesForReservation(reservation.reservationNumber);
+  // Every printed value is escaped; an accessory name is operator-entered text.
+  const accessoryRows = accessories
+    .map((link) => `<tr><td>${escapeHtml(link.accessoryCodeSnapshot)}</td><td>${escapeHtml(link.accessoryNameSnapshot)}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(link.rentalPrice))}</td><td>${escapeHtml(formatMoneyOMR(link.depositAmount))}</td></tr>`)
+    .join('');
+  const accessorySection = accessories.length > 0
+    ? `<div class="section"><b>الملحقات المسلَّمة مع القطعة</b>`
+      + `<table><thead><tr><th>الكود</th><th>الملحق</th><th>قيمة التأجير</th><th>التأمين</th></tr></thead>`
+      + `<tbody>${accessoryRows}</tbody></table></div>`
+    : '';
 
   return `<h1>${escapeHtml(profile.brandName)} — عقد إيجار</h1>`
     + `<p class="muted">${escapeHtml(profile.contact.address ?? '')} · ${escapeHtml(profile.contact.phone ?? '')}</p>`
@@ -44,7 +59,9 @@ export function buildRentalContractHtml(reservation: Reservation): string {
     + `</div>`
     + `<table><thead><tr><th>الكود</th><th>القطعة</th><th>الاستلام</th><th>الإرجاع</th></tr></thead>`
     + `<tbody><tr><td>${escapeHtml(itemCode)}</td><td>${escapeHtml(itemName)}</td>`
-    + `<td>${escapeHtml(reservation.pickupDate)}</td><td>${escapeHtml(reservation.returnDate)}</td></tr></tbody></table>`
+    + `<td>${escapeHtml(`${reservation.pickupDate} — ${formatTimeLabel(times.pickupTime)}`)}</td>`
+    + `<td>${escapeHtml(`${reservation.returnDate} — ${formatTimeLabel(times.returnTime)}`)}</td></tr></tbody></table>`
+    + accessorySection
     + `<table><thead><tr><th>قيمة الإيجار</th><th>العربون (مسترد)</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr></thead>`
     + `<tbody><tr><td>${escapeHtml(formatMoneyOMR(reservation.rentalPrice))}</td>`
     + `<td>${escapeHtml(formatMoneyOMR(reservation.depositAmount))}</td>`

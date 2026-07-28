@@ -23,7 +23,7 @@
     "test:print": "tsx --test tests/print-sale-invoice.test.mjs",
     "test:domain": "tsx --test tests/domain-constants.test.mjs",
     "test:bootstrap": "tsx --test tests/root-bootstrap.test.mjs",
-    "test": "npm run test:architecture && npm run test:persistence-engine && npm run test:shell && npm run test:router && npm run test:platform-storage && npm run test:platform-desktop && npm run test:finance && npm run test:daily-closing && npm run test:storage && npm run test:desktop && npm run test:env && npm run test:print && npm run test:domain && npm run test:bootstrap && npm run test:reference-migration && npm run test:inventory-codes && npm run test:workflows && npm run test:sales-close && npm run test:rollback-completeness && npm run test:finance-reconciliation && npm run test:service && npm run test:capability-recovery && npm run test:barcode-lifecycle && npm run test:ui-contract && npm run test:backup-integrity && npm run test:pwa && npm run test:release-gate",
+    "test": "npm run test:architecture && npm run test:persistence-engine && npm run test:shell && npm run test:router && npm run test:platform-storage && npm run test:platform-desktop && npm run test:finance && npm run test:daily-closing && npm run test:storage && npm run test:desktop && npm run test:env && npm run test:print && npm run test:domain && npm run test:bootstrap && npm run test:reference-migration && npm run test:inventory-codes && npm run test:workflows && npm run test:sales-close && npm run test:rollback-completeness && npm run test:finance-reconciliation && npm run test:service && npm run test:capability-recovery && npm run test:barcode-lifecycle && npm run test:ui-contract && npm run test:backup-integrity && npm run test:reservation-conflicts && npm run test:reservation-calendar && npm run test:accessories && npm run test:accessory-backup && npm run test:pwa && npm run test:release-gate",
     "tauri": "tauri",
     "test:reference-migration": "tsx --test tests/reference-migration.test.mjs",
     "test:inventory-codes": "tsx --test tests/inventory-codes-and-archive.test.mjs",
@@ -37,7 +37,11 @@
     "test:ui-contract": "tsx --test tests/ui-contract.test.mjs",
     "test:backup-integrity": "tsx --test tests/backup-integrity.test.mjs",
     "test:pwa": "npm run build && tsx --test tests/pwa-build-contract.test.mjs",
-    "test:release-gate": "tsx --test tests/release-gate.test.mjs"
+    "test:release-gate": "tsx --test tests/release-gate.test.mjs",
+    "test:reservation-conflicts": "tsx --test tests/reservation-conflicts.test.mjs",
+    "test:reservation-calendar": "tsx --test tests/reservation-calendar.test.mjs",
+    "test:accessories": "tsx --test tests/accessory-lifecycle.test.mjs",
+    "test:accessory-backup": "tsx --test tests/accessory-backup-integrity.test.mjs"
   },
   "dependencies": {
     "@fontsource/noto-sans-arabic": "^5.2.10",

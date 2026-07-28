@@ -10,6 +10,7 @@ import {
   Settings2,
   Wrench,
   Receipt,
+  Gem,
   Shirt,
   UsersRound,
   WalletCards,
@@ -25,6 +26,7 @@ export type NavigationItem = {
 export const navigation: readonly NavigationItem[] = [
   { to: '/', label: 'لوحة التحكم', icon: LayoutDashboard },
   { to: '/inventory', label: 'المخزون', icon: Shirt },
+  { to: '/accessories', label: 'الملحقات', icon: Gem },
   { to: '/customers', label: 'العملاء', icon: UsersRound },
   { to: '/reservations', label: 'الحجوزات', icon: CalendarDays },
   { to: '/appointments', label: 'المواعيد', icon: Clock3 },

@@ -1,4 +1,10 @@
 import { generateId, writeCollection } from '../../services/localDatabase';
+import {
+  getOutstandingAccessories,
+  recordAccessoryDelivery,
+  recordAccessoryReturn,
+  type AccessoryReturnEntry,
+} from '../accessories/reservationAccessory.service';
 import { recordAudit } from '../audit/audit.service';
 import { updateDressStatus } from '../dresses/dress.service';
 import { recordReturnSettlement } from '../payments/payment.service';
@@ -10,8 +16,26 @@ import type { DeliveryReturnRecord } from './deliveryReturn.types';
 
 const RESERVATION_COLLECTION = 'reservations';
 
-type CompleteDeliveryInput = { reservationNumber: string; deliveryDateTime: string; deliveryCondition?: string; notes?: string };
-type CompleteReturnInput = { reservationNumber: string; returnDateTime: string; returnCondition?: string; lateFee: number; damageFee: number; refundMethod: PaymentMethod; nextDressStatus: 'inspection' | 'laundry' | 'maintenance' | 'damaged'; notes?: string };
+type CompleteDeliveryInput = {
+  reservationNumber: string;
+  deliveryDateTime: string;
+  deliveryCondition?: string;
+  /** Accessory ids physically handed over with the dress. */
+  deliveredAccessoryIds?: string[];
+  notes?: string;
+};
+type CompleteReturnInput = {
+  reservationNumber: string;
+  returnDateTime: string;
+  returnCondition?: string;
+  lateFee: number;
+  damageFee: number;
+  refundMethod: PaymentMethod;
+  nextDressStatus: 'inspection' | 'laundry' | 'maintenance' | 'damaged';
+  /** Per-accessory condition; omitting an accessory keeps it out (partial return). */
+  accessoryReturns?: AccessoryReturnEntry[];
+  notes?: string;
+};
 
 function validateDateTime(value: string, label: string): number {
   const timestamp = new Date(value).getTime();
@@ -47,7 +71,13 @@ export function completeDelivery(input: CompleteDeliveryInput): DeliveryReturnRe
   const record = saveDeliveryReturnRecord({ ...base, status: 'delivered', deliveryDateTime: input.deliveryDateTime, deliveryCondition: input.deliveryCondition?.trim() || undefined, notes: input.notes?.trim() || base.notes });
   updateReservationStatus(reservation.reservationNumber, 'delivered');
   updateDressStatus(reservation.dressCode, 'rented');
-  recordAudit({ action: 'deliver', entityType: 'delivery-return', entityId: record.id, summary: `تم تسليم العنصر ${reservation.dressCode} للحجز ${reservation.reservationNumber}.`, nextValues: { deliveryDateTime: record.deliveryDateTime, status: record.status } });
+  // Accessories are part of the same handover, inside the same command boundary.
+  const deliveredAccessories = recordAccessoryDelivery({
+    reservationNumber: reservation.reservationNumber,
+    deliveredAccessoryIds: input.deliveredAccessoryIds ?? [],
+    deliveredAt: input.deliveryDateTime,
+  });
+  recordAudit({ action: 'deliver', entityType: 'delivery-return', entityId: record.id, summary: `تم تسليم العنصر ${reservation.dressCode} للحجز ${reservation.reservationNumber}.`, nextValues: { deliveryDateTime: record.deliveryDateTime, status: record.status, deliveredAccessories: deliveredAccessories.length } });
   return record;
 }
 
@@ -60,11 +90,19 @@ export function completeReturn(input: CompleteReturnInput): DeliveryReturnRecord
   const base = getBaseRecord(reservation);
   if (base.deliveryDateTime && returnTimestamp < new Date(base.deliveryDateTime).getTime()) throw new Error('وقت الاسترجاع لا يمكن أن يسبق وقت التسليم.');
 
+  // Accessory conditions and charges are recorded before the money settlement so a
+  // rejected accessory entry cannot leave a posted settlement behind.
+  const accessoryReturns = input.accessoryReturns ?? [];
+  if (accessoryReturns.length > 0) {
+    recordAccessoryReturn({ reservationNumber: reservation.reservationNumber, entries: accessoryReturns, returnedAt: input.returnDateTime });
+  }
+  const stillOut = getOutstandingAccessories(reservation.reservationNumber);
+
   const settlement = recordReturnSettlement({ reservationNumber: reservation.reservationNumber, paymentDate: input.returnDateTime.slice(0, 10), refundMethod: input.refundMethod, lateFee: input.lateFee, damageFee: input.damageFee });
   const status = input.damageFee > 0 || input.nextDressStatus === 'damaged' ? 'damaged' : input.lateFee > 0 ? 'late' : 'returned';
   const record = saveDeliveryReturnRecord({ ...base, status, returnDateTime: input.returnDateTime, returnCondition: input.returnCondition?.trim() || undefined, lateFee: input.lateFee, damageFee: input.damageFee, depositRefundAmount: settlement.refundAmount, notes: input.notes?.trim() || base.notes });
   updateReservationStatus(reservation.reservationNumber, 'returned');
   updateDressStatus(reservation.dressCode, input.nextDressStatus);
-  recordAudit({ action: 'return', entityType: 'delivery-return', entityId: record.id, summary: `تم استرجاع العنصر ${reservation.dressCode} من الحجز ${reservation.reservationNumber}.`, nextValues: { returnDateTime: record.returnDateTime, status: record.status, lateFee: record.lateFee, damageFee: record.damageFee, depositRefundAmount: record.depositRefundAmount } });
+  recordAudit({ action: 'return', entityType: 'delivery-return', entityId: record.id, summary: `تم استرجاع العنصر ${reservation.dressCode} من الحجز ${reservation.reservationNumber}.`, nextValues: { returnDateTime: record.returnDateTime, status: record.status, lateFee: record.lateFee, damageFee: record.damageFee, depositRefundAmount: record.depositRefundAmount, accessoriesStillOut: stillOut.length } });
   return record;
 }

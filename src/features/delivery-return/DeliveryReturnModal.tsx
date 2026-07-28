@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Modal } from '../../components/shared/Modal';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
 import { MAX_NOTES_LENGTH, MIN_ZERO_AMOUNT, MONEY_STEP } from '../../shared/domain/businessRules';
@@ -18,6 +18,17 @@ import type { Reservation } from '../reservations/reservation.types';
 import { completeDeliveryCommand, completeReturnCommand, type ReturnItemStatus } from '../workflows';
 import type { DeliveryReturnRecord } from './deliveryReturn.types';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { getAccessoryByBarcode } from '../accessories/accessory.service';
+import { getReservationAccessoryViews, type ReservationAccessoryView } from '../accessories/reservationAccessory.service';
+import type { AccessoryReturnEntry } from '../accessories/reservationAccessory.service';
+import { DeliveryAccessoryChecklist, type AccessoryReturnState } from './DeliveryAccessoryChecklist';
+
+const DEFAULT_ACCESSORY_RETURN_STATE: AccessoryReturnState = { selected: false, condition: 'intact', charge: '0' };
+
+const BarcodeScanner = lazy(async () => {
+  const module = await import('../dresses/BarcodeScanner');
+  return { default: module.BarcodeScanner };
+});
 
 type Props = { open: boolean; onClose: () => void; onCompleted: (record: DeliveryReturnRecord) => void };
 type Operation = 'delivery' | 'return';
@@ -113,6 +124,11 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
   // One key per opened form instance: a double click reuses it and the command
   // layer rejects the second write instead of duplicating the operation.
   const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('dr'));
+  const [accessoryLinks, setAccessoryLinks] = useState<ReservationAccessoryView[]>([]);
+  const [deliveredAccessoryIds, setDeliveredAccessoryIds] = useState<string[]>([]);
+  const [returnState, setReturnState] = useState<Record<string, AccessoryReturnState>>({});
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const lateFee = parseAmount(form.lateFee);
   const damageFee = parseAmount(form.damageFee);
   const reservations = useMemo(() => getEligibleReservations(form.operation), [open, form.operation]);
@@ -128,7 +144,65 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     setError(null);
     setIsSubmitting(false);
     setSubmissionKey(createSubmissionKey('dr'));
+    setAccessoryLinks([]);
+    setDeliveredAccessoryIds([]);
+    setReturnState({});
+    setScanFeedback(null);
   }, [open]);
+
+  // Accessory rows follow the selected reservation, so switching bookings never
+  // carries a checked accessory over to the wrong customer.
+  useEffect(() => {
+    if (!form.reservationNumber) {
+      setAccessoryLinks([]);
+      setDeliveredAccessoryIds([]);
+      setReturnState({});
+      return;
+    }
+    const links = getReservationAccessoryViews(form.reservationNumber);
+    setAccessoryLinks(links);
+    setDeliveredAccessoryIds(links.filter((link) => !link.deliveredAt).map((link) => link.accessoryId));
+    setReturnState(Object.fromEntries(
+      links
+        .filter((link) => link.deliveredAt && !link.returnedAt)
+        .map((link) => [link.accessoryId, { selected: true, condition: 'intact' as const, charge: '0' }]),
+    ));
+    setScanFeedback(null);
+  }, [form.reservationNumber, form.operation]);
+
+  const toggleDeliveredAccessory = (accessoryId: string) => {
+    setDeliveredAccessoryIds((current) => current.includes(accessoryId)
+      ? current.filter((value) => value !== accessoryId)
+      : [...current, accessoryId]);
+  };
+
+  const updateReturnState = (accessoryId: string, next: Partial<AccessoryReturnState>) => {
+    setReturnState((current) => ({
+      ...current,
+      [accessoryId]: { ...DEFAULT_ACCESSORY_RETURN_STATE, ...current[accessoryId], ...next },
+    }));
+  };
+
+  // The scanner selects the matching accessory row instead of navigating away.
+  const handleAccessoryScan = (value: string) => {
+    setShowScanner(false);
+    const accessory = getAccessoryByBarcode(value);
+    if (!accessory) {
+      setScanFeedback(`لم يتم العثور على ملحق مرتبط بالباركود ${value}.`);
+      return;
+    }
+    const link = accessoryLinks.find((item) => item.accessoryId === accessory.id);
+    if (!link) {
+      setScanFeedback(`الملحق ${accessory.code} غير مرتبط بهذا الحجز.`);
+      return;
+    }
+    if (form.operation === 'delivery') {
+      setDeliveredAccessoryIds((current) => current.includes(accessory.id) ? current : [...current, accessory.id]);
+    } else {
+      updateReturnState(accessory.id, { selected: true });
+    }
+    setScanFeedback(`تم تحديد الملحق ${accessory.code} — ${accessory.name}.`);
+  };
 
   const updateOperation = (operation: Operation) => {
     setForm(defaults(operation));
@@ -148,11 +222,20 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     setIsSubmitting(true);
 
     try {
+      const accessoryReturns: AccessoryReturnEntry[] = Object.entries(returnState)
+        .filter(([, state]) => state.selected)
+        .map(([accessoryId, state]) => ({
+          accessoryId,
+          condition: state.condition,
+          chargeAmount: parseAmount(state.charge) > 0 ? parseAmount(state.charge) : undefined,
+        }));
+
       const record = form.operation === 'delivery'
         ? completeDeliveryCommand({
             reservationNumber: form.reservationNumber,
             deliveryDateTime: form.dateTime,
             deliveryCondition: form.condition,
+            deliveredAccessoryIds,
             notes: form.notes,
             idempotencyKey: submissionKey,
           })
@@ -164,6 +247,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             damageFee,
             refundMethod: form.refundMethod,
             nextItemStatus: form.nextDressStatus,
+            accessoryReturns,
             notes: form.notes,
             idempotencyKey: submissionKey,
           });
@@ -261,6 +345,28 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             placeholder={form.operation === 'delivery' ? 'مثال: تم التسليم بحالة ممتازة مع الشال.' : 'مثال: يحتاج تنظيف بسيط عند الذيل.'}
           />
         </label>
+
+        {scanFeedback && <p role="status" className="rounded-xl border border-slate-200 bg-stone-50 px-3 py-2 text-sm font-bold text-slate-700">{scanFeedback}</p>}
+
+        {selectedReservation && (form.operation === 'delivery'
+          ? (
+            <DeliveryAccessoryChecklist
+              mode="delivery"
+              links={accessoryLinks}
+              selectedIds={deliveredAccessoryIds}
+              onToggle={toggleDeliveredAccessory}
+              onScan={() => setShowScanner(true)}
+            />
+          )
+          : (
+            <DeliveryAccessoryChecklist
+              mode="return"
+              links={accessoryLinks}
+              state={returnState}
+              onChange={updateReturnState}
+              onScan={() => setShowScanner(true)}
+            />
+          ))}
 
         {form.operation === 'return' && (
           <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -379,6 +485,11 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
           </button>
         </div>
       </form>
+      {showScanner && (
+        <Suspense fallback={null}>
+          <BarcodeScanner onScan={handleAccessoryScan} onClose={() => setShowScanner(false)} />
+        </Suspense>
+      )}
     </Modal>
   );
 }

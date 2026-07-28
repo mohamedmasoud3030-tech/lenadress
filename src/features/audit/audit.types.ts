@@ -1,6 +1,7 @@
 export type AuditEntityType =
   | 'customer'
   | 'dress'
+  | 'accessory'
   | 'reservation'
   | 'payment'
   | 'expense'

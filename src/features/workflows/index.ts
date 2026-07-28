@@ -12,3 +12,5 @@ export * from './salesCommands';
 export * from './expenseCommands';
 export * from './dailyCloseCommands';
 export * from './serviceCommands';
+export * from './accessoryCommands';
+export * from './reservationScheduleCommands';

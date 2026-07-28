@@ -123,12 +123,66 @@ test('destructive and money-changing submits are guarded against double submit',
   }
 });
 
+test('the reservation calendar is usable on a phone and labelled for assistive tech', async () => {
+  const calendar = await readFile(join(sourceRoot, 'features/reservations/ReservationCalendar.tsx'), 'utf8');
+
+  assert.match(calendar, /aria-label="تقويم الحجوزات"/);
+  assert.match(calendar, /aria-label="الفترة السابقة"/);
+  assert.match(calendar, /aria-label="الفترة التالية"/);
+  assert.match(calendar, /aria-pressed=/, 'view and status toggles must expose their pressed state');
+  assert.match(calendar, /lg:hidden/, 'phones must get the stacked agenda instead of a seven-column grid');
+  assert.match(calendar, /hidden lg:block/, 'the seven-column grid is desktop-only');
+  assert.match(calendar, /min-h-11|min-h-9/, 'calendar controls must stay tappable');
+
+  const model = await readFile(join(sourceRoot, 'features/reservations/reservationCalendar.ts'), 'utf8');
+  assert.match(model, /parseLocalDate|addDaysISO/, 'calendar dates must use the local-time helpers');
+  assert.doesNotMatch(model, /new Date\(`\$\{[^}]+\}T00:00:00`\)/, 'no ad-hoc date parsing inside the calendar');
+});
+
+test('calendar and accessory colours come from the design system, not inline values', async () => {
+  const calendar = await readFile(join(sourceRoot, 'features/reservations/ReservationCalendar.tsx'), 'utf8');
+  assert.match(calendar, /RESERVATION_STATUS_STYLES/);
+  assert.match(calendar, /RESERVATION_STATUS_DOT_STYLES/);
+  assert.doesNotMatch(calendar, /#[0-9a-fA-F]{6}/, 'no hardcoded hex colours in the calendar');
+
+  const accessories = await readFile(join(sourceRoot, 'features/accessories/AccessoriesPage.tsx'), 'utf8');
+  assert.match(accessories, /ACCESSORY_STATUS_STYLES/);
+  assert.doesNotMatch(accessories, /#[0-9a-fA-F]{6}/, 'no hardcoded hex colours on the accessories page');
+
+  const constants = await readFile(join(sourceRoot, 'shared/domain/accessoryConstants.ts'), 'utf8');
+  assert.match(constants, /satisfies Record<AccessoryStatus, string>/, 'every accessory status must have a label and a style');
+});
+
+test('accessory screens are Arabic, labelled and guarded against double submit', async () => {
+  const modal = await readFile(join(sourceRoot, 'features/accessories/AddAccessoryModal.tsx'), 'utf8');
+  assert.match(modal, /isSubmitting/);
+  assert.match(modal, /isSubmitting\) return;/);
+  assert.match(modal, /idempotencyKey/);
+  assert.match(modal, /disabled=\{[^}]*isSubmitting/);
+
+  const page = await readFile(join(sourceRoot, 'features/accessories/AccessoriesPage.tsx'), 'utf8');
+  assert.match(page, /min-h-11/, 'primary accessory actions must stay tappable on phones');
+  assert.match(page, /className="sr-only"/, 'every filter control needs a visible or screen-reader label');
+
+  const checklist = await readFile(join(sourceRoot, 'features/delivery-return/DeliveryAccessoryChecklist.tsx'), 'utf8');
+  assert.match(checklist, /htmlFor=\{rowId\}/, 'accessory rows must be label-linked to their checkbox');
+  assert.match(checklist, /aria-label="ملحقات الحجز"/);
+});
+
+test('the accessory label print path escapes its values through the shared boundary', async () => {
+  const label = await readFile(join(sourceRoot, 'features/accessories/printAccessoryLabel.ts'), 'utf8');
+  assert.match(label, /from '@platform\/printing'/, 'printing must go through the shared boundary');
+  assert.match(label, /escapeHtml\(/);
+  assert.doesNotMatch(label, /window\.open/, 'no direct popup access outside the platform layer');
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');
 
   const required = [
     '/inventory',
+    '/accessories',
     '/customers',
     '/reservations',
     '/delivery-return',

@@ -14,6 +14,8 @@ import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 
+const preferenceFieldClassName = 'mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30';
+
 function downloadJson(filename: string, value: unknown): void {
   const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -136,10 +138,16 @@ export function PreferencesPage() {
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-bold">قواعد التشغيل</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <label className="text-sm font-bold text-slate-700">اسم المعرض<input value={preferences.showroomName} onChange={(event) => setPreferences((current) => ({ ...current, showroomName: event.target.value }))} className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3" /></label>
-          <label className="text-sm font-bold text-slate-700">أيام التجهيز قبل وبعد الحجز<input type="number" min="0" max="14" value={preferences.reservationBufferDays} onChange={(event) => setPreferences((current) => ({ ...current, reservationBufferDays: Number(event.target.value) }))} className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3" /></label>
-          <label className="text-sm font-bold text-slate-700">حد العنصر الراكد بالأيام<input type="number" min="1" max="3650" value={preferences.dormantDressDays} onChange={(event) => setPreferences((current) => ({ ...current, dormantDressDays: Number(event.target.value) }))} className="mt-2 h-11 w-full rounded-xl border border-slate-300 px-3" /></label>
+          <label className="text-sm font-bold text-slate-700">اسم المعرض<input value={preferences.showroomName} onChange={(event) => setPreferences((current) => ({ ...current, showroomName: event.target.value }))} className={preferenceFieldClassName} /></label>
+          <label className="text-sm font-bold text-slate-700">مدة التجهيز قبل التسليم (أيام)<input type="number" min="0" max="14" value={preferences.preparationDaysBeforePickup} onChange={(event) => setPreferences((current) => ({ ...current, preparationDaysBeforePickup: Number(event.target.value) }))} className={preferenceFieldClassName} /></label>
+          <label className="text-sm font-bold text-slate-700">مدة التنظيف بعد الإرجاع (أيام)<input type="number" min="0" max="14" value={preferences.cleaningDaysAfterReturn} onChange={(event) => setPreferences((current) => ({ ...current, cleaningDaysAfterReturn: Number(event.target.value) }))} className={preferenceFieldClassName} /></label>
+          <label className="text-sm font-bold text-slate-700">وقت الاستلام الافتراضي<input type="time" value={preferences.defaultPickupTime} onChange={(event) => setPreferences((current) => ({ ...current, defaultPickupTime: event.target.value }))} className={preferenceFieldClassName} /></label>
+          <label className="text-sm font-bold text-slate-700">وقت الإرجاع الافتراضي<input type="time" value={preferences.defaultReturnTime} onChange={(event) => setPreferences((current) => ({ ...current, defaultReturnTime: event.target.value }))} className={preferenceFieldClassName} /></label>
+          <label className="text-sm font-bold text-slate-700">حد العنصر الراكد بالأيام<input type="number" min="1" max="3650" value={preferences.dormantDressDays} onChange={(event) => setPreferences((current) => ({ ...current, dormantDressDays: Number(event.target.value) }))} className={preferenceFieldClassName} /></label>
         </div>
+        <p className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-slate-600">
+          مدة التجهيز ومدة التنظيف تُوسّعان فترة الحجز المحجوبة تلقائياً، فلا يُقبل حجز جديد لنفس الفستان أو الملحق داخل هذه المدد.
+        </p>
         <button type="button" onClick={savePreferences} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"><Save aria-hidden="true" className="h-4 w-4" />حفظ الإعدادات</button>
       </article>
 

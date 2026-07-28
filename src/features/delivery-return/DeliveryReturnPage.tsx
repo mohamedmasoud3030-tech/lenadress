@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { ACCESSORY_RETURN_CONDITION_LABELS, getReservationAccessoryViews } from '../accessories/reservationAccessory.service';
+import { formatMoneyOMR } from '../../shared/utils/format';
 import { DeliveryReturnModal } from './DeliveryReturnModal';
 import {
   filterDeliveryReturnRecords,
@@ -42,6 +44,32 @@ function formatDateTime(dateTime?: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+/** Accessory handover state for one queue row, read from the link records. */
+function RecordAccessories({ reservationNumber }: { reservationNumber: string }) {
+  const links = getReservationAccessoryViews(reservationNumber);
+  if (links.length === 0) return null;
+
+  return (
+    <section className="mt-3 rounded-xl bg-slate-50 p-3" aria-label={`ملحقات الحجز ${reservationNumber}`}>
+      <p className="text-xs font-extrabold text-slate-700">الملحقات ({links.length})</p>
+      <ul className="mt-2 space-y-1 text-xs text-slate-600">
+        {links.map((link) => (
+          <li key={link.id} className="flex flex-wrap items-center justify-between gap-2">
+            <span className="min-w-0">
+              <span dir="ltr">{link.accessoryCodeSnapshot}</span> — {link.accessoryNameSnapshot}
+            </span>
+            <span className="font-bold text-slate-700">
+              {link.returnedAt
+                ? `${link.returnCondition ? ACCESSORY_RETURN_CONDITION_LABELS[link.returnCondition] : 'سليم'}${link.chargeAmount ? ` · ${formatMoneyOMR(link.chargeAmount)}` : ''}`
+                : link.deliveredAt ? 'خارج المحل' : 'بانتظار التسليم'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export function DeliveryReturnPage() {
@@ -177,6 +205,8 @@ export function DeliveryReturnPage() {
                   <dd>{record.depositRefundAmount} ر.ع</dd>
                 </div>
               </dl>
+
+              <RecordAccessories reservationNumber={record.reservationNumber} />
 
               {record.notes ? <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{record.notes}</p> : null}
             </article>
