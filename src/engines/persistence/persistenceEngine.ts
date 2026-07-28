@@ -17,6 +17,31 @@ import { migrateLegacyAppointmentStorage } from './appointmentMigration';
 import { migrateStableReferences } from './referenceMigration';
 import { getAllImages, restoreImages, clearAllImages, type StoredImage } from '@platform/images';
 
+const MIGRATION_MARKERS_STORAGE_KEY = `${STORAGE_PREFIX}:migration-markers`;
+
+function readMigrationMarkersRaw(): Record<string, unknown> {
+  const storage = getStorage();
+  if (!storage) return {};
+  try {
+    const raw = storage.getItem(MIGRATION_MARKERS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeMigrationMarkersRaw(markers: Record<string, unknown>): void {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(MIGRATION_MARKERS_STORAGE_KEY, JSON.stringify(markers));
+  } catch {
+    // Markers are best-effort; a failure must never abort a restore.
+  }
+}
+
 export const CURRENT_BACKUP_SCHEMA_VERSION = 2;
 
 export type DatabaseMetadata = {
@@ -33,6 +58,12 @@ export type LocalDatabaseBackup = {
   metadata: DatabaseMetadata;
   collections: Record<string, unknown[]>;
   imageBlobs?: StoredImage[];
+  /**
+   * Migration markers travel with the backup. Without them a restore would look
+   * like a fresh install and legacy one-time migrations could run again over
+   * already-migrated data.
+   */
+  migrationMarkers?: Record<string, unknown>;
 };
 
 const memoryCollections = new Map<string, unknown[]>();
@@ -199,6 +230,7 @@ export function exportDatabaseBackup(): LocalDatabaseBackup {
       metadata,
       collections,
       imageBlobs: [],
+      migrationMarkers: readMigrationMarkersRaw(),
     };
   } finally {
     isTakingSnapshot = false;
@@ -244,6 +276,7 @@ function validateBackup(value: unknown): LocalDatabaseBackup {
     metadata: createMetadata(Number(value.schemaVersion)),
     collections,
     imageBlobs: Array.isArray(value.imageBlobs) ? cloneItems(value.imageBlobs as StoredImage[]) : undefined,
+    migrationMarkers: isRecord(value.migrationMarkers) ? cloneValue(value.migrationMarkers) : undefined,
   };
 }
 
@@ -289,12 +322,14 @@ export function importDatabaseBackup(value: unknown): LocalDatabaseBackup {
     clearStoredApplicationData();
     saveMetadata(createMetadata(backup.schemaVersion));
     Object.entries(backup.collections).forEach(([collection, items]) => writeCollection(collection, items));
+    if (backup.migrationMarkers) writeMigrationMarkersRaw(backup.migrationMarkers);
     initializeLocalDatabase();
     return exportDatabaseBackup();
   } catch (error) {
     clearStoredApplicationData();
     saveMetadata(previousBackup.metadata);
     Object.entries(previousBackup.collections).forEach(([collection, items]) => writeCollection(collection, items));
+    if (previousBackup.migrationMarkers) writeMigrationMarkersRaw(previousBackup.migrationMarkers);
     throw error;
   }
 }
@@ -307,6 +342,7 @@ export async function importDatabaseBackupAsync(value: unknown): Promise<LocalDa
     clearStoredApplicationData();
     saveMetadata(createMetadata(backup.schemaVersion));
     Object.entries(backup.collections).forEach(([collection, items]) => writeCollection(collection, items));
+    if (backup.migrationMarkers) writeMigrationMarkersRaw(backup.migrationMarkers);
     if (backup.imageBlobs && Array.isArray(backup.imageBlobs)) {
       await restoreImages(backup.imageBlobs);
     }
@@ -316,6 +352,7 @@ export async function importDatabaseBackupAsync(value: unknown): Promise<LocalDa
     clearStoredApplicationData();
     saveMetadata(previousBackup.metadata);
     Object.entries(previousBackup.collections).forEach(([collection, items]) => writeCollection(collection, items));
+    if (previousBackup.migrationMarkers) writeMigrationMarkersRaw(previousBackup.migrationMarkers);
     if (previousBackup.imageBlobs && Array.isArray(previousBackup.imageBlobs)) {
       try {
         await restoreImages(previousBackup.imageBlobs);

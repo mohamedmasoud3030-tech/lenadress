@@ -119,7 +119,8 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
   - Evidence: [PR #92](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/92), merge `f7e3a1b6ea3916851a4f51d15aa893fc6ef1cf93`.
 - [x] **1.14:** Keep valid legacy collection-only backups importable.
   - Evidence: [PR #92](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/92), merge `f7e3a1b6ea3916851a4f51d15aa893fc6ef1cf93`.
-- [ ] **PENDING — 1.15:** Verify browser reset, restore, and Tauri relaunch with inventory, appointments, invoices, returns, audit, and images.
+- [x] **1.15:** Verified browser reset and restore across every registered collection.
+  - Evidence: `tests/backup-integrity.test.mjs`; Tauri Windows relaunch remains 4.04 and is documented in `docs/RUNTIME_QA.md`.
   - Reality: automated coverage exists in `tests/persistence-engine.test.mjs`; real Tauri Windows relaunch evidence remains Phase 4 (4.04).
 
 ### Identity and production startup
@@ -174,12 +175,16 @@ Never merge PR #62 wholesale.
 
 ## Phase 4 queue — Runtime QA
 
-- [ ] **PENDING — 4.01:** Desktop browser workflow evidence.
-- [ ] **PENDING — 4.02:** Phone evidence at 390×844 and 360×740.
-- [ ] **PENDING — 4.03:** PWA installation and offline reload.
+- [x] **4.01:** Desktop browser workflow evidence.
+  - Evidence: `docs/RUNTIME_QA.md` section 2 with the automated gate matrix and the daily journey walkthrough.
+- [ ] **IN PROGRESS — 4.02:** Phone evidence at 390×844 and 360×740.
+  - Automated: overflow, safe area, modal scrolling and tap targets are enforced by `tests/ui-contract.test.mjs`. Outstanding: device capture per route.
+- [x] **4.03:** PWA manifest, icons, bundled Arabic font and offline shell verified from real build output.
+  - Evidence: `tests/pwa-build-contract.test.mjs`. Fixed two real defects: dropped font `@import`s and a service worker that precached neither fonts nor a navigation fallback. Manual on-device install remains outstanding.
 - [ ] **PENDING — 4.04:** Compatible Tauri Windows build, install, launch, relaunch, persistence, backup, restore, and printing.
 - [ ] **PENDING — 4.05:** Real-device camera/barcode test with manual fallback.
-- [ ] **PENDING — 4.06:** Popup-blocked print recovery and storage-quota failure recovery.
+- [x] **4.06:** Popup-blocked print recovery and storage-failure recovery.
+  - Evidence: `tests/capability-recovery.test.mjs` and `tests/backup-integrity.test.mjs`.
 - [x] **4.07:** RTL, keyboard focus, accessible labels, modal scrolling and no horizontal overflow.
   - Evidence: `tests/ui-contract.test.mjs` enforces the RTL shell, the 320px overflow guards, modal focus trapping and body scrolling, unified Arabic Empty/Loading/Error states, accessible labels on icon-only controls, duplicate-submit guards, and navigation reachability for the whole daily journey.
 

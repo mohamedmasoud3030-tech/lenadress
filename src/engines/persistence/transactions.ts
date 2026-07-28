@@ -7,7 +7,9 @@ import {
   type LocalDatabaseBackup,
   type DatabaseMetadata,
 } from './persistenceEngine';
-import { METADATA_KEY } from './collectionRegistry';
+import { METADATA_KEY, STORAGE_PREFIX } from './collectionRegistry';
+
+const MIGRATION_MARKERS_KEY = `${STORAGE_PREFIX}:migration-markers`;
 import { getBrowserLocalStorage, type StoragePort } from '@platform/storage';
 import { restoreImages } from '@platform/images';
 
@@ -19,6 +21,17 @@ function getStorage(): StoragePort | null {
 
 function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function restoreMigrationMarkers(snapshot: PersistenceSnapshot): void {
+  if (!snapshot.migrationMarkers) return;
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(MIGRATION_MARKERS_KEY, JSON.stringify(snapshot.migrationMarkers));
+  } catch {
+    // Best-effort marker restore during rollback.
+  }
 }
 
 function restoreMetadataDirectly(metadata: DatabaseMetadata): void {
@@ -52,6 +65,7 @@ export async function createDatabaseSnapshotAsync(): Promise<PersistenceSnapshot
  */
 function restoreSnapshotCollections(snapshot: PersistenceSnapshot): void {
   restoreMetadataDirectly(snapshot.metadata);
+  restoreMigrationMarkers(snapshot);
 
   const snapshotCollections = Object.keys(snapshot.collections);
   const snapshotCollectionSet = new Set(snapshotCollections);

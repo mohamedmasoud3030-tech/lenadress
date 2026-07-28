@@ -1,12 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+/* Bundled Arabic font: these @import statements MUST precede every other
+   statement, otherwise PostCSS drops them and the offline PWA falls back
+   to a system font. */
 @import '@fontsource/noto-sans-arabic/400.css';
 @import '@fontsource/noto-sans-arabic/500.css';
 @import '@fontsource/noto-sans-arabic/600.css';
 @import '@fontsource/noto-sans-arabic/700.css';
 @import '@fontsource/noto-sans-arabic/800.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 
 :root {
   font-family: 'Noto Sans Arabic', Tahoma, 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;

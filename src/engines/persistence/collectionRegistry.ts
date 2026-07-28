@@ -5,6 +5,13 @@ export const CURRENT_STORAGE_SCHEMA_VERSION = 1;
 export const STORAGE_PREFIX = 'dress-roomshow';
 export const METADATA_KEY = `${STORAGE_PREFIX}:metadata`;
 
+/**
+ * Prefixed keys that are NOT collections. They hold objects rather than arrays,
+ * so treating them as collections silently exported them as `[]` and then wiped
+ * them on restore.
+ */
+export const NON_COLLECTION_KEYS = new Set<string>([METADATA_KEY, `${STORAGE_PREFIX}:migration-markers`]);
+
 export const REGISTERED_COLLECTIONS = [
   'customers',
   'dresses',
@@ -47,7 +54,7 @@ export function listCollectionNames(storage?: StoragePort | null, memoryKeys?: I
     const length = storage.length;
     for (let index = 0; index < length; index += 1) {
       const key = storage.key(index);
-      if (key?.startsWith(`${STORAGE_PREFIX}:`) && key !== METADATA_KEY) {
+      if (key?.startsWith(`${STORAGE_PREFIX}:`) && !NON_COLLECTION_KEYS.has(key)) {
         names.add(key.slice(STORAGE_PREFIX.length + 1));
       }
     }
@@ -55,7 +62,7 @@ export function listCollectionNames(storage?: StoragePort | null, memoryKeys?: I
 
   if (memoryKeys) {
     for (const key of memoryKeys) {
-      if (key.startsWith(`${STORAGE_PREFIX}:`) && key !== METADATA_KEY) {
+      if (key.startsWith(`${STORAGE_PREFIX}:`) && !NON_COLLECTION_KEYS.has(key)) {
         names.add(key.slice(STORAGE_PREFIX.length + 1));
       }
     }
