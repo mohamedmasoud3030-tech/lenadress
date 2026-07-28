@@ -118,7 +118,7 @@ export function DressDetailsPage() {
         </p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <SummaryCard label="كود العنصر" value={dress.code} />
         <SummaryCard label="نوع العنصر" value={INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress']} />
         <SummaryCard label="الباركود" value={dress.barcode} />

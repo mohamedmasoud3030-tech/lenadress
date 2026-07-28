@@ -343,6 +343,71 @@ test('no interactive control draws a focus ring on mouse click', async () => {
   assert.deepEqual(offenders, []);
 });
 
+test('summary tiles are 2-up on phones on every page that has them', async () => {
+  const pages = await collectFiles(sourceRoot, isComponent);
+  const offenders = [];
+
+  for (const file of pages) {
+    // The component's own definition is not a page that renders a grid of them.
+    if (file.endsWith('SummaryCard.tsx')) continue;
+    const content = await readFile(file, 'utf8');
+    if (!content.includes('<SummaryCard')) continue;
+    // A summary grid that is not 2-up collapses to one tall column on a phone.
+    const grids = content.match(/className="grid[^"]*"/g) ?? [];
+    const hasTwoUp = grids.some((grid) => /grid-cols-2/.test(grid));
+    if (!hasTwoUp) offenders.push(file.replace(repositoryRoot, ''));
+  }
+
+  assert.deepEqual(offenders, []);
+});
+
+test('the visual system has real surfaces instead of white on white', async () => {
+  const cardSource = await readFile(join(sourceRoot, 'components/shared/SummaryCard.tsx'), 'utf8');
+  // Strip comments so describing the old defect does not count as committing it.
+  const card = cardSource.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Fading every tone to white on a near-white page is what made screens look flat.
+  assert.doesNotMatch(card, /to-white/, 'tiles must keep a tinted surface');
+  assert.match(card, /ring-1/, 'tiles need a visible edge');
+  assert.match(card, /truncate/, 'long money strings must not overflow a 2-up phone grid');
+
+  const css = await readFile(join(sourceRoot, 'styles/global.css'), 'utf8');
+  assert.doesNotMatch(css, /#f8fafc/, 'the canvas must not sit at the same value as the cards');
+
+  const field = await readFile(join(sourceRoot, 'components/shared/FormField.tsx'), 'utf8');
+  assert.match(field, /bg-stone-50/, 'a white input on a white card is invisible until tapped');
+  assert.match(field, /focus-visible:bg-white/, 'the active field must stand out');
+});
+
+test('long lists are chosen with a searchable picker that can be cleared', async () => {
+  const picker = await readFile(join(sourceRoot, 'components/shared/SearchableSelect.tsx'), 'utf8');
+
+  assert.match(picker, /role="listbox"/);
+  assert.match(picker, /aria-expanded=/);
+  assert.match(picker, /aria-selected=/);
+  assert.match(picker, /بحث داخل/, 'the filter box needs its own accessible name');
+  assert.match(picker, /إزالة الاختيار/, 'a choice must be removable');
+  assert.match(picker, /min-h-11/, 'options must stay tappable');
+  assert.match(picker, /'Escape'/, 'Escape must close the list');
+
+  // The reservation form is the one that must never be a raw select of every piece.
+  const reservation = await readFile(join(sourceRoot, 'features/reservations/CreateReservationModal.tsx'), 'utf8');
+  assert.match(reservation, /<SearchableSelect/);
+  assert.match(reservation, /getBookablePieces/, 'offered pieces must be resolved for the period');
+});
+
+test('inventory offers grid and list views and design grouping', async () => {
+  const page = await readFile(join(sourceRoot, 'features/dresses/DressesPage.tsx'), 'utf8');
+
+  assert.match(page, /<ViewModeToggle/, 'a compact list is needed for scanning many codes');
+  assert.match(page, /useViewMode/);
+  assert.match(page, /groupByDesign/, 'pieces must be groupable by their design');
+  assert.match(page, /aria-pressed=/, 'view switches must expose their state');
+
+  const toggle = await readFile(join(sourceRoot, 'components/shared/ViewModeToggle.tsx'), 'utf8');
+  assert.match(toggle, /aria-label="طريقة العرض"/);
+  assert.match(toggle, /getBrowserLocalStorage/, 'storage must go through the platform port');
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');

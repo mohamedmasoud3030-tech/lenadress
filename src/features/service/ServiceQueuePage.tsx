@@ -78,7 +78,7 @@ export function ServiceQueuePage() {
       ) : null}
       {error !== null ? <UserFacingErrorAlert error={error} fallback="تعذر تنفيذ العملية." /> : null}
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <SummaryCard label="بانتظار البدء" value={String(summary.open)} />
         <SummaryCard label="قيد التنفيذ" value={String(summary.inProgress)} />
         <SummaryCard label="مكتملة اليوم" value={String(summary.completedToday)} />

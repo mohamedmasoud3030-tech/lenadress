@@ -1,4 +1,4 @@
-type SummaryCardTone = 'default' | 'positive' | 'warning' | 'danger';
+type SummaryCardTone = 'default' | 'positive' | 'warning' | 'danger' | 'accent';
 
 type SummaryCardProps = {
   label: string;
@@ -7,20 +7,33 @@ type SummaryCardProps = {
   tone?: SummaryCardTone;
 };
 
-const toneStyles: Record<SummaryCardTone, string> = {
-  default: 'from-slate-50 to-white text-slate-950 ring-slate-200',
-  positive: 'from-emerald-50 to-white text-emerald-700 ring-emerald-100',
-  warning: 'from-amber-50 to-white text-amber-700 ring-amber-100',
-  danger: 'from-rose-50 to-white text-rose-700 ring-rose-100',
+/**
+ * Summary tile.
+ *
+ * The previous version faded every tone `to-white` on an almost-white page, so
+ * the cards had no edge and the whole screen read as one flat white sheet —
+ * reported from a phone as "the pages look pale, everything is white". Each
+ * tone now keeps a real tinted surface and a solid accent bar, so a tile is
+ * visibly a tile and its status is readable at a glance in daylight.
+ */
+const toneStyles: Record<SummaryCardTone, { surface: string; accent: string; value: string }> = {
+  default: { surface: 'bg-white ring-slate-200', accent: 'bg-slate-400', value: 'text-slate-950' },
+  positive: { surface: 'bg-emerald-50/80 ring-emerald-200', accent: 'bg-emerald-500', value: 'text-emerald-800' },
+  warning: { surface: 'bg-amber-50/90 ring-amber-200', accent: 'bg-amber-500', value: 'text-amber-900' },
+  danger: { surface: 'bg-rose-50/90 ring-rose-200', accent: 'bg-rose-500', value: 'text-rose-800' },
+  accent: { surface: 'bg-violet-50/80 ring-violet-200', accent: 'bg-violet-500', value: 'text-violet-900' },
 };
 
 export function SummaryCard({ label, value, hint, tone = 'default' }: SummaryCardProps) {
+  const styles = toneStyles[tone];
+
   return (
-    <article className={`rounded-3xl bg-gradient-to-br p-5 shadow-sm ring-1 ${toneStyles[tone]}`}>
-      <div className="mb-5 h-1.5 w-12 rounded-full bg-current opacity-30" />
-      <p className="text-sm font-bold text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-extrabold text-current">{value}</p>
-      {hint && <p className="mt-2 text-sm text-slate-500">{hint}</p>}
+    <article className={`min-w-0 rounded-2xl p-4 shadow-sm ring-1 transition sm:p-5 ${styles.surface}`}>
+      <div className={`mb-3 h-1 w-10 rounded-full ${styles.accent}`} />
+      <p className="text-xs font-bold text-slate-600 sm:text-sm">{label}</p>
+      {/* Long money strings must shrink rather than overflow a 2-up phone grid. */}
+      <p className={`mt-1.5 truncate text-xl font-extrabold sm:text-2xl ${styles.value}`}>{value}</p>
+      {hint && <p className="mt-1.5 truncate text-xs text-slate-500">{hint}</p>}
     </article>
   );
 }

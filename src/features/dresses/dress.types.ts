@@ -31,6 +31,13 @@ export type Dress = {
   isForSale: boolean;
   images: string[];
   barcode: string;
+  /**
+   * Parent design, when the piece belongs to one. Optional: a showroom may own
+   * one-off pieces, and every record created before designs existed has none.
+   */
+  designId?: string;
+  /** Historical design-code snapshot, so a printed document stays readable. */
+  designCode?: string;
   timesRented: number;
   /** Set when the item is archived instead of deleted; history stays intact. */
   archivedAt?: string;
@@ -45,6 +52,10 @@ export type DressFilters = {
   itemType: 'all' | InventoryItemType;
   category: 'all' | DressCategory;
   usage: 'all' | 'rent' | 'sale';
+  /** Narrow to the pieces of one design. */
+  designId?: string;
+  size?: string;
+  color?: string;
 };
 
 export type DressSummary = {

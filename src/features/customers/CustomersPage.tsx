@@ -173,7 +173,7 @@ export function CustomersPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <SummaryCard label="إجمالي العميلات" value={summary.total} />
         <SummaryCard label="عميلات موثوقات" value={summary.trusted} tone="positive" />
         <SummaryCard label="عليهن متبقي" value={summary.withBalance} tone={summary.withBalance > 0 ? 'warning' : 'default'} />

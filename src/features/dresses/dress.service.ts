@@ -104,7 +104,7 @@ export function filterDresses(filters?: Partial<DressFilters>): Dress[] {
   if (filters?.search) {
     const normalizedSearch = filters.search.trim().toLowerCase();
     dresses = dresses.filter((dress) =>
-      [dress.name, dress.code, dress.barcode, dress.color, dress.size]
+      [dress.name, dress.code, dress.barcode, dress.color, dress.size, dress.designCode ?? '']
         .some((value) => value.toLowerCase().includes(normalizedSearch)),
     );
   }
@@ -127,6 +127,18 @@ export function filterDresses(filters?: Partial<DressFilters>): Dress[] {
 
   if (filters?.usage === 'sale') {
     dresses = dresses.filter((dress) => dress.isForSale);
+  }
+
+  if (filters?.designId) {
+    dresses = dresses.filter((dress) => dress.designId === filters.designId);
+  }
+
+  if (filters?.size) {
+    dresses = dresses.filter((dress) => dress.size === filters.size);
+  }
+
+  if (filters?.color) {
+    dresses = dresses.filter((dress) => dress.color === filters.color);
   }
 
   return dresses;

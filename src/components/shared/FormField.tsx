@@ -19,12 +19,18 @@ import { cn } from '../../lib/utils';
  * so iOS never force-zooms the page on focus.
  */
 
+/**
+ * Controls rest on a light tint rather than pure white. On a white card a white
+ * input is invisible until you tap it, which is what made the forms feel
+ * unfinished; the tint plus a stronger border makes the field obvious, and the
+ * surface turns white on focus so the active field stands out.
+ */
 const CONTROL_BASE =
-  'min-h-11 w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-950 transition placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-slate-500';
+  'min-h-11 w-full rounded-xl border bg-stone-50 px-3 py-2 text-sm text-slate-950 transition placeholder:text-slate-400 focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-slate-500';
 
 const CONTROL_TONES = {
-  normal: 'border-slate-300 focus-visible:border-amber-500 focus-visible:ring-amber-500/30',
-  invalid: 'border-rose-400 focus-visible:border-rose-500 focus-visible:ring-rose-500/30',
+  normal: 'border-slate-300 hover:border-slate-400 focus-visible:border-amber-500 focus-visible:ring-amber-500/30',
+  invalid: 'border-rose-400 bg-rose-50/60 focus-visible:border-rose-500 focus-visible:ring-rose-500/30',
 } as const;
 
 export function getControlClassName(invalid = false, extra?: string): string {

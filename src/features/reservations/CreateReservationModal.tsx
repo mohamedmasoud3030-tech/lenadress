@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -11,7 +11,9 @@ import { formatMoneyOMR } from '../../shared/utils/format';
 import { getCustomers } from '../customers/customer.service';
 import type { Customer } from '../customers/customer.types';
 import { getDresses } from '../dresses/dress.service';
+import { getBookablePieces, summarizeAllDesigns } from '../dresses/design.service';
 import type { Dress } from '../dresses/dress.types';
+import { SearchableSelect, type SearchableOption } from '../../components/shared/SearchableSelect';
 import { createReservationCommand } from '../workflows';
 import { getReservationTimeDefaults } from './reservation.service';
 import { getBufferSettings } from './reservationConflicts';
@@ -71,6 +73,9 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
   const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('rsv'));
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dresses, setDresses] = useState<Dress[]>([]);
+  const [designId, setDesignId] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
   const bufferDays = getBufferSettings();
 
   const {
@@ -88,13 +93,102 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
   const selectedDressId = watch('dressId');
   const depositAmount = watch('depositAmount');
   const rentalPrice = watch('rentalPrice');
+  const pickupDate = watch('pickupDate');
+  const returnDate = watch('returnDate');
   const selectedDress = dresses.find((dress) => dress.id === selectedDressId);
+
+  const period = useMemo(
+    () => (pickupDate && returnDate && returnDate > pickupDate ? { pickupDate, returnDate } : undefined),
+    [pickupDate, returnDate],
+  );
+
+  const customerOptions = useMemo<SearchableOption[]>(() => customers.map((customer) => ({
+    value: customer.id,
+    label: customer.name,
+    hint: customer.phone,
+    disabled: customer.status === 'blocked',
+    disabledReason: 'عميلة محظورة — سوّي حالتها أولاً.',
+  })), [customers]);
+
+  // Designs are summarised against the chosen period, so the operator sees what
+  // is genuinely free rather than what merely exists.
+  const designSummaries = useMemo(() => (open ? summarizeAllDesigns(period) : []), [open, period]);
+
+  const designOptions = useMemo<SearchableOption[]>(() => designSummaries.map((summary) => {
+    const free = summary.variants.reduce((total, variant) => total + (variant.freeInPeriod ?? variant.available), 0);
+    return {
+      value: summary.design.id,
+      label: summary.design.name,
+      hint: `${summary.design.code} · ${summary.sizes.length} مقاس · ${summary.colors.length} لون`,
+      badge: period ? `${free} متاحة` : `${summary.availableCount} متاحة`,
+      disabled: free === 0,
+      disabledReason: 'لا توجد قطعة متاحة من هذا التصميم في هذه الفترة.',
+    };
+  }), [designSummaries, period]);
+
+  const variantSummary = useMemo(
+    () => designSummaries.find((summary) => summary.design.id === designId)?.variants ?? [],
+    [designSummaries, designId],
+  );
+
+  const sizeOptions = useMemo<SearchableOption[]>(() => {
+    const sizes = new Map<string, number>();
+    variantSummary.forEach((variant) => {
+      sizes.set(variant.size, (sizes.get(variant.size) ?? 0) + (variant.freeInPeriod ?? variant.available));
+    });
+    return Array.from(sizes.entries()).map(([size, free]) => ({
+      value: size,
+      label: size,
+      badge: `${free} متاحة`,
+      disabled: free === 0,
+      disabledReason: 'لا توجد قطعة متاحة بهذا المقاس في هذه الفترة.',
+    }));
+  }, [variantSummary]);
+
+  const colorOptions = useMemo<SearchableOption[]>(() => {
+    const colors = new Map<string, number>();
+    variantSummary
+      .filter((variant) => !selectedSize || variant.size === selectedSize)
+      .forEach((variant) => {
+        colors.set(variant.color, (colors.get(variant.color) ?? 0) + (variant.freeInPeriod ?? variant.available));
+      });
+    return Array.from(colors.entries()).map(([color, free]) => ({
+      value: color,
+      label: color,
+      badge: `${free} متاحة`,
+      disabled: free === 0,
+      disabledReason: 'لا توجد قطعة متاحة بهذا اللون في هذه الفترة.',
+    }));
+  }, [variantSummary, selectedSize]);
+
+  /**
+   * Pieces offered for booking. With a design chosen the list is resolved
+   * through the shared conflict rule for the exact period; without one it falls
+   * back to the full rentable list so a one-off piece is still reachable.
+   */
+  const pieceOptions = useMemo<SearchableOption[]>(() => {
+    const source = designId && period
+      ? getBookablePieces(designId, period, selectedSize || undefined, selectedColor || undefined)
+      : dresses.filter((dress) => (!designId || dress.designId === designId)
+        && (!selectedSize || dress.size === selectedSize)
+        && (!selectedColor || dress.color === selectedColor));
+
+    return source.map((dress) => ({
+      value: dress.id,
+      label: `${dress.code} — ${dress.name}`,
+      hint: `${dress.size} · ${dress.color}${dress.designCode ? ` · ${dress.designCode}` : ''}`,
+      badge: formatMoneyOMR(dress.rentalPrice),
+    }));
+  }, [designId, period, selectedSize, selectedColor, dresses]);
 
   useEffect(() => {
     if (!open) return;
       try {
         setCustomers(getCustomers());
         setDresses(getReservableDresses());
+        setDesignId('');
+        setSelectedSize('');
+        setSelectedColor('');
         reset(getDefaultValues());
         setSubmitError(null);
       } catch (error: unknown) {
@@ -104,10 +198,14 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
 
   useEffect(() => {
     if (!selectedDress) return;
+    // Picking a piece directly reveals which design it belongs to.
+    if (selectedDress.designId && selectedDress.designId !== designId) {
+      setDesignId(selectedDress.designId);
+    }
     setValue('depositAmount', selectedDress.depositAmount, { shouldValidate: true });
     // The agreed price starts at the catalogue price; lowering it records a discount.
     setValue('rentalPrice', selectedDress.rentalPrice, { shouldValidate: true });
-  }, [selectedDress, setValue]);
+  }, [selectedDress, setValue, designId]);
 
   const closeModal = () => {
     setSubmissionKey(createSubmissionKey('rsv'));
@@ -139,34 +237,96 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
           <UserFacingErrorAlert error={submitError} fallback="تعذر إنشاء الحجز. حاولي مرة أخرى." />
         )}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor={`${fieldId}-customer`} className={FORM_LABEL_CLASS_NAME}>العميلة</label>
-            <select id={`${fieldId}-customer`} {...register('customerId')} className={FORM_FIELD_CLASS_NAME}>
-              <option value="">اختاري العميلة</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id} disabled={customer.status === 'blocked'}>
-                  {customer.name} — {customer.phone}{customer.status === 'blocked' ? ' — محظورة' : ''}
-                </option>
-              ))}
-            </select>
-            {errors.customerId && <p className={FORM_ERROR_CLASS_NAME}>{errors.customerId.message}</p>}
-          </div>
+        <SearchableSelect
+          label="العميلة"
+          required
+          value={watch('customerId')}
+          onChange={(customerId) => setValue('customerId', customerId, { shouldValidate: true })}
+          options={customerOptions}
+          placeholder="اختاري العميلة"
+          searchPlaceholder="ابحثي بالاسم أو رقم الهاتف…"
+          error={errors.customerId?.message}
+          unavailableText="لا توجد عميلات مسجلات بعد."
+        />
 
-          <div>
-            <label htmlFor={`${fieldId}-dress`} className={FORM_LABEL_CLASS_NAME}>العنصر</label>
-            <select id={`${fieldId}-dress`} {...register('dressId')} className={FORM_FIELD_CLASS_NAME}>
-              <option value="">اختاري العنصر</option>
-              {dresses.map((dress) => (
-                <option key={dress.id} value={dress.id}>
-                  {dress.code} — {dress.name} — {formatMoneyOMR(dress.rentalPrice)}
-                </option>
-              ))}
-            </select>
-            {errors.dressId && <p className={FORM_ERROR_CLASS_NAME}>{errors.dressId.message}</p>}
-            {dresses.length === 0 && <p className="mt-1 text-xs font-medium text-amber-700">لا توجد فساتين مؤهلة للإيجار حالياً.</p>}
-          </div>
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-stone-50/70 p-3">
+          <SearchableSelect
+            label="التصميم"
+            value={designId}
+            onChange={(nextDesignId) => {
+              // Changing the design invalidates the size, colour and the piece.
+              setDesignId(nextDesignId);
+              setSelectedSize('');
+              setSelectedColor('');
+              setValue('dressId', '', { shouldValidate: true });
+            }}
+            options={designOptions}
+            placeholder="ابحثي عن تصميم"
+            searchPlaceholder="ابحثي باسم التصميم أو كوده…"
+            hint="اختاري التصميم أولاً ثم المقاس واللون المتاحين في هذه الفترة."
+            unavailableText="لا توجد تصاميم مسجلة. يمكنك اختيار قطعة مباشرة بالأسفل."
+          />
+
+          {designId && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SearchableSelect
+                  label="المقاس"
+                  value={selectedSize}
+                  onChange={(size) => { setSelectedSize(size); setValue('dressId', '', { shouldValidate: true }); }}
+                  options={sizeOptions}
+                  placeholder="كل المقاسات"
+                  searchPlaceholder="ابحثي عن مقاس…"
+                  unavailableText="لا توجد مقاسات متاحة في هذه الفترة."
+                />
+                <SearchableSelect
+                  label="اللون"
+                  value={selectedColor}
+                  onChange={(color) => { setSelectedColor(color); setValue('dressId', '', { shouldValidate: true }); }}
+                  options={colorOptions}
+                  placeholder="كل الألوان"
+                  searchPlaceholder="ابحثي عن لون…"
+                  unavailableText="لا توجد ألوان متاحة في هذه الفترة."
+                />
+              </div>
+
+              {variantSummary.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5" aria-label="المتاح من هذا التصميم خلال الفترة">
+                  {variantSummary.map((variant) => {
+                    const free = variant.freeInPeriod ?? 0;
+                    return (
+                      <li
+                        key={`${variant.size}-${variant.color}`}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
+                          free > 0
+                            ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
+                            : 'bg-slate-100 text-slate-500 ring-slate-200'
+                        }`}
+                      >
+                        {variant.size} · {variant.color} — {free > 0 ? `${free} متاحة` : 'غير متاح'}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
         </div>
+
+        <SearchableSelect
+          label="القطعة"
+          required
+          value={watch('dressId')}
+          onChange={(dressId) => setValue('dressId', dressId, { shouldValidate: true })}
+          options={pieceOptions}
+          placeholder="اختاري القطعة"
+          searchPlaceholder="ابحثي بالكود أو الاسم…"
+          error={errors.dressId?.message}
+          hint={designId ? 'القطع المعروضة متاحة فعلياً خلال الفترة المحددة.' : 'اختاري تصميماً بالأعلى لتصفية القطع، أو ابحثي مباشرة.'}
+          unavailableText={designId
+            ? 'لا توجد قطعة متاحة من هذا التصميم بهذا المقاس واللون خلال الفترة.'
+            : 'لا توجد فساتين مؤهلة للإيجار حالياً.'}
+        />
 
         {selectedDress && (
           <div className="grid gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm sm:grid-cols-3">

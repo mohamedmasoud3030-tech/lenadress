@@ -32,7 +32,12 @@ export function Section({
       {(title || action) && (
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            {title && <h2 className="text-base font-bold text-slate-950 sm:text-lg">{title}</h2>}
+            {title && (
+              <h2 className="flex items-center gap-2 text-base font-bold text-slate-950 sm:text-lg">
+                <span aria-hidden="true" className="h-4 w-1 rounded-full bg-amber-500" />
+                {title}
+              </h2>
+            )}
             {description && <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>}
           </div>
           {action && <div className="shrink-0">{action}</div>}
