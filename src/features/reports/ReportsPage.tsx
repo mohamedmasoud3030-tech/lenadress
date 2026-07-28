@@ -50,7 +50,7 @@ export function ReportsPage() {
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي التحصيل</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.totalCollected)}</p></article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">فساتين تحتاج مراجعة</p><p className="mt-2 text-2xl font-bold text-amber-700">{dressesRequiringReview}</p></article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي المصروفات</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.totalExpenses)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">الصافي</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.netAmount)}</p></article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">صافي حركة النقد</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.netAmount)}</p></article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">عميلات عليهن رصيد</p><p className="mt-2 text-2xl font-bold">{summary.customersWithBalance}</p></article>
       </div>
 
@@ -118,8 +118,15 @@ export function ReportsPage() {
           <p>إجمالي التحصيل: <span className="font-bold">{formatReportMoney(financial.totalCollected)}</span></p>
           <p>الاسترجاعات: <span className="font-bold">{formatReportMoney(financial.totalRefunded)}</span></p>
           <p>المصروفات: <span className="font-bold">{formatReportMoney(financial.totalExpenses)}</span></p>
-          <p>الصافي: <span className="font-bold">{formatReportMoney(financial.netAmount)}</span></p>
+          <p>الرسوم المحصلة: <span className="font-bold">{formatReportMoney(financial.feesCollected)}</span></p>
+          <p>عربون محتجز (دخل): <span className="font-bold">{formatReportMoney(financial.depositRetained)}</span></p>
+          <p>عربون مستحق الرد (التزام): <span className="font-bold">{formatReportMoney(financial.depositLiabilityCollected)}</span></p>
+          <p>صافي حركة النقد: <span className="font-bold">{formatReportMoney(financial.netAmount)}</span></p>
+          <p>الدخل المعترف به: <span className="font-bold">{formatReportMoney(financial.recognisedIncome)}</span></p>
         </div>
+        <p className="mt-3 rounded-xl bg-stone-50 p-3 text-xs text-slate-600">
+          العربون القابل للرد ليس إيراداً؛ يبقى التزاماً على المعرض حتى يُرد أو يُحتجز صراحة. المبلغ المحصل ليس ربحاً؛ الدخل المعترف به يستثني العربون المستحق الرد ويخصم المصروفات.
+        </p>
       </article>
     </section>
   );

@@ -153,8 +153,10 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
   - Evidence: `src/features/workflows/dailyCloseCommands.ts`; tests prove expenses and sales are rejected after the close.
 - [ ] **IN PROGRESS — 2.07:** Forced-failure tests after every write boundary proving exact rollback.
   - Done for reservation, payment, delivery, return, sale, sale return, expense and daily close commands.
-- [ ] **NEXT — 2.08:** Separate rental revenue, sale revenue, deposit liability, fees, expenses, net cash movement, and recognized profitability.
-- [ ] **PENDING — 2.09:** Reconcile operational records, reports, daily close, audit, and printed documents for the same scenarios.
+- [x] **2.08:** Separated rental revenue, sale revenue, deposit liability, fees, expenses, net cash movement and recognised profitability.
+  - Evidence: `src/features/finance/finance.service.ts` is now the single money interpretation; reports project it instead of computing their own numbers.
+- [x] **2.09:** Reconciled operational records, reports and daily close for the same scenarios.
+  - Evidence: `tests/finance-reconciliation.test.mjs`; deposits are liabilities, unfulfilled bookings earn nothing, sale returns reduce revenue everywhere, and the close counts the same cash movements.
 
 ## Phase 3 queue — Selective capability recovery
 

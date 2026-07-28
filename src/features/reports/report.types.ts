@@ -50,7 +50,15 @@ export type FinancialSummary = {
   totalCollected: number;
   totalRefunded: number;
   totalExpenses: number;
+  /** Net cash movement, not profit. */
   netAmount: number;
+  /** Refundable deposits still owed to customers: a liability, never revenue. */
+  depositLiabilityCollected: number;
+  /** Deposit amounts explicitly retained, which are income. */
+  depositRetained: number;
+  feesCollected: number;
+  /** Rental + sale + fees + retained deposits (excludes refundable deposits). */
+  recognisedIncome: number;
 };
 
 export type DateRangeFilter = {
