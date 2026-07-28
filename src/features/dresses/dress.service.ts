@@ -2,6 +2,7 @@ import { Dress, DressFilters } from './dress.types';
 import { allocateCode, generateId, migrateLegacyInventoryStorage, readCollection, reconcileCounter, writeCollection } from '../../services/localDatabase';
 import { recordAudit } from '../audit/audit.service';
 import { assertDressCanBeArchived, getDressHardDeleteBlockers } from '../integrity/integrity.service';
+import { generateDressBarcodeValue } from './barcode.utils';
 
 const INVENTORY_COLLECTION = 'dresses';
 const RETIRED_CODES_COLLECTION = 'retired-codes';
@@ -55,14 +56,21 @@ export function getDressByCode(code: string): Dress | undefined {
   return dresses.find(d => d.code === code);
 }
 
-export function addDress(input: Omit<Dress, 'id' | 'code' | 'timesRented'>): Dress {
+type AddDressServiceInput = Omit<Dress, 'id' | 'code' | 'timesRented' | 'barcode'> & {
+  /** Accepted temporarily for compatibility; persisted identity is always derived from the allocated code. */
+  barcode?: string;
+};
+
+export function addDress(input: AddDressServiceInput): Dress {
   const dresses = getDressesFromStorage();
-  
+  const code = allocateInventoryCode();
+
   const newDress: Dress = {
     ...input,
     itemType: input.itemType ?? 'dress',
     id: `dress-${generateId()}`,
-    code: allocateInventoryCode(),
+    code,
+    barcode: generateDressBarcodeValue(code),
     timesRented: 0,
   };
 
@@ -74,7 +82,7 @@ export function addDress(input: Omit<Dress, 'id' | 'code' | 'timesRented'>): Dre
 export function updateDress(code: string, updates: Partial<Dress>): Dress | null {
   const dresses = getDressesFromStorage();
   const index = dresses.findIndex(d => d.code === code);
-  
+
   if (index === -1) return null;
 
   dresses[index] = {
@@ -96,7 +104,7 @@ export function filterDresses(filters?: Partial<DressFilters>): Dress[] {
   if (filters?.search) {
     const normalizedSearch = filters.search.trim().toLowerCase();
     dresses = dresses.filter((dress) =>
-      [dress.name, dress.code, dress.color, dress.size]
+      [dress.name, dress.code, dress.barcode, dress.color, dress.size]
         .some((value) => value.toLowerCase().includes(normalizedSearch)),
     );
   }
@@ -126,7 +134,7 @@ export function filterDresses(filters?: Partial<DressFilters>): Dress[] {
 
 export function summarizeDresses(): { total: number; available: number; rented: number; inService: number } {
   const dresses = getDresses();
-  
+
   return {
     total: dresses.length,
     available: dresses.filter(d => d.status === 'available').length,
