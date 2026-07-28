@@ -22,7 +22,9 @@ function normalizePhone(value: string): string {
 
 function hydrateCustomer(customer: Customer, reservations: Reservation[]): Customer {
   const customerPhone = normalizePhone(customer.phone);
-  const relatedReservations = reservations.filter((reservation) => normalizePhone(reservation.customerPhone) === customerPhone);
+  const relatedReservations = reservations.filter((reservation) => (
+    reservation.customerId ? reservation.customerId === customer.id : normalizePhone(reservation.customerPhone) === customerPhone
+  ));
 
   return {
     ...customer,

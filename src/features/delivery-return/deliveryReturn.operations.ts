@@ -31,7 +31,7 @@ function updateReservationStatus(reservationNumber: string, status: Reservation[
 
 function getBaseRecord(reservation: Reservation): DeliveryReturnRecord {
   return getDeliveryReturnRecords().find((item) => item.reservationNumber === reservation.reservationNumber) ?? {
-    id: generateId(), reservationNumber: reservation.reservationNumber, customerName: reservation.customerName,
+    id: generateId(), reservationNumber: reservation.reservationNumber, customerId: reservation.customerId, inventoryItemId: reservation.inventoryItemId, customerName: reservation.customerName,
     customerPhone: reservation.customerPhone, dressCode: reservation.dressCode, dressName: reservation.dressName,
     status: 'pending_delivery', depositAmount: reservation.depositAmount, lateFee: 0, damageFee: 0,
     depositRefundAmount: reservation.depositAmount,

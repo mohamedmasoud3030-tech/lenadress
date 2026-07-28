@@ -3,10 +3,19 @@ export type ReservationStatus = 'pending' | 'confirmed' | 'delivered' | 'returne
 export type Reservation = {
   id: string;
   reservationNumber: string;
+  /** Stable reference to the customer record; never derived from the phone number. */
+  customerId?: string;
+  /** Stable reference to the inventory item; never derived from the item code. */
+  inventoryItemId?: string;
   customerName: string;
   customerPhone: string;
   dressCode: string;
   dressName: string;
+  /** Historical display snapshots captured when the reservation was created. */
+  customerNameSnapshot?: string;
+  customerPhoneSnapshot?: string;
+  dressCodeSnapshot?: string;
+  dressNameSnapshot?: string;
   pickupDate: string;
   returnDate: string;
   status: ReservationStatus;
@@ -36,6 +45,7 @@ export type ReservationSummary = {
 };
 
 export type AvailabilityCheck = {
+  inventoryItemId?: string;
   dressCode: string;
   pickupDate: string;
   returnDate: string;
