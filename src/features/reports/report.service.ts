@@ -10,6 +10,7 @@ import { getSales } from '../dresses/sale.service';
 import { getSaleReturns } from '../dresses/salesLedger.service';
 import { getExpenses } from '../expenses/expense.service';
 import { getPayments } from '../payments/payment.service';
+import { getFinanceTotals, getItemFinance } from '../finance/finance.service';
 import { getAppPreferences } from '../preferences/preferences.service';
 import { getReservations } from '../reservations/reservation.service';
 import type { CloseDayInput, CustomerBalanceRow, DateRangeFilter, DayCloseBreakdown, DayCloseMethodBreakdown, DayCloseRecord, DressPerformanceRow, FinancialSummary, ReportSummary, TodayReport } from './report.types';
@@ -20,7 +21,7 @@ type Method = 'cash' | 'card' | 'bank_transfer' | 'other';
 type LegacyBreakdown = Partial<DayCloseBreakdown> & { cashIncome?: number; cashRefunds?: number; cashExpenses?: number; cardNet?: number; bankTransferNet?: number; otherNet?: number };
 type StoredDayCloseRecord = Omit<DayCloseRecord, 'breakdown' | 'status'> & { breakdown: LegacyBreakdown; status?: DayCloseRecord['status'] };
 
-function isWithinRange(date: string, range?: DateRangeFilter): boolean { return !range || (!range.from || date >= range.from) && (!range.to || date <= range.to); }
+
 function sum(items: Array<{ amount: number }>): number { return items.reduce((total, item) => total + item.amount, 0); }
 function legacyNet(net = 0): DayCloseMethodBreakdown { return createDayCloseMethodBreakdown({ collections: Math.max(net, 0), refunds: Math.max(-net, 0), expenses: 0 }); }
 function normalize(current: DayCloseMethodBreakdown | undefined, collections = 0, refunds = 0, expenses = 0): DayCloseMethodBreakdown { return createDayCloseMethodBreakdown(current ?? { collections, refunds, expenses }); }
@@ -30,16 +31,21 @@ function inactivityDays(date: string | null): number | null { if (!date) return 
 export function formatReportMoney(amount: number): string { return formatMoneyOMR(amount, 2); }
 
 export function getFinancialSummary(range?: DateRangeFilter): FinancialSummary {
-  const payments = getPayments().filter((item) => isWithinRange(item.paymentDate, range));
-  const sales = getSales().filter((item) => isWithinRange(item.saleDate, range));
-  const saleReturns = getSaleReturns().filter((item) => isWithinRange(item.returnDate, range));
-  const expenses = getExpenses().filter((item) => isWithinRange(item.expenseDate, range));
-  const rentalCollected = sum(payments.filter((item) => item.direction === 'income' && item.type === 'rental'));
-  const salesCollected = sum(sales);
-  const totalCollected = sum(payments.filter((item) => item.direction === 'income')) + salesCollected;
-  const totalRefunded = sum(payments.filter((item) => item.direction === 'refund')) + sum(saleReturns);
-  const totalExpenses = sum(expenses);
-  return { rentalCollected, salesCollected, totalCollected, totalRefunded, totalExpenses, netAmount: totalCollected - totalRefunded - totalExpenses };
+  // Single source of truth: reports, daily close and printed documents all read
+  // the same interpretation of money from the finance layer.
+  const totals = getFinanceTotals(range);
+  return {
+    rentalCollected: totals.rentalRevenue,
+    salesCollected: totals.saleRevenue,
+    totalCollected: totals.grossCollected,
+    totalRefunded: totals.refunds,
+    totalExpenses: totals.expenses,
+    netAmount: totals.netCashMovement,
+    depositLiabilityCollected: totals.depositLiabilityCollected,
+    depositRetained: totals.depositRetained,
+    feesCollected: totals.feesCollected,
+    recognisedIncome: totals.recognisedIncome,
+  };
 }
 
 export function getCustomerBalances(): CustomerBalanceRow[] { return getCustomers().filter((item) => item.remainingBalance > 0).map(({ id, name, phone, remainingBalance }) => ({ id, name, phone, remainingBalance })); }
@@ -51,9 +57,11 @@ export function getDressPerformance(): DressPerformanceRow[] {
     const relatedSales = sales.filter((item) => item.dressCode === code);
     const relatedReturns = returns.filter((item) => item.dressCode === code);
     const relatedExpenses = expenses.filter((item) => item.relatedDressCode === code);
-    const rentalRevenue = relatedReservations.reduce((total, item) => total + item.rentalPrice, 0);
-    const salesRevenue = sum(relatedSales) - sum(relatedReturns);
-    const expenseTotal = sum(relatedExpenses); const totalRevenue = rentalRevenue + salesRevenue; const netResult = totalRevenue - purchasePrice - expenseTotal;
+    // Realised money only: a booking that was never paid contributes nothing.
+    const itemFinance = getItemFinance(code);
+    const rentalRevenue = itemFinance.rentalRevenue;
+    const salesRevenue = itemFinance.saleRevenue;
+    const expenseTotal = itemFinance.expenses; const totalRevenue = itemFinance.totalRevenue; const netResult = totalRevenue - purchasePrice - expenseTotal;
     const movements = [...relatedReservations.flatMap((item) => [item.pickupDate, item.returnDate]), ...relatedSales.map((item) => item.saleDate), ...relatedReturns.map((item) => item.returnDate), ...relatedExpenses.map((item) => item.expenseDate)];
     const lastMovementDate = movements.sort((a, b) => b.localeCompare(a))[0] ?? null; const inactiveDays = inactivityDays(lastMovementDate);
     return { id, code, name, timesRented, status, purchasePrice, rentalRevenue, salesRevenue, relatedExpenses: expenseTotal, totalRevenue, netResult, roiPercent: purchasePrice > 0 ? netResult / purchasePrice * 100 : null, recoveredPurchaseCost: totalRevenue >= purchasePrice, maintenanceCostRatio: totalRevenue > 0 ? expenseTotal / totalRevenue * 100 : expenseTotal > 0 ? 100 : null, lastMovementDate, inactivityDays: inactiveDays, requiresReview: (inactiveDays !== null && inactiveDays >= dormantDays) || expenseTotal > totalRevenue };
