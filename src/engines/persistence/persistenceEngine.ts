@@ -14,6 +14,7 @@ import {
 } from './collectionRegistry';
 import { migrateLegacyInventoryStorage } from './inventoryMigration';
 import { migrateLegacyAppointmentStorage } from './appointmentMigration';
+import { migrateStableReferences } from './referenceMigration';
 import { getAllImages, restoreImages, clearAllImages, type StoredImage } from '@platform/images';
 
 export const CURRENT_BACKUP_SCHEMA_VERSION = 2;
@@ -122,6 +123,7 @@ export function initializeLocalDatabase(skipMigrations = false): DatabaseMetadat
     try {
       migrateLegacyInventoryStorage();
       migrateLegacyAppointmentStorage();
+      migrateStableReferences();
     } finally {
       isInitializingDatabase = false;
     }
@@ -261,6 +263,22 @@ export function clearStoredApplicationData(): void {
 
   memoryCollections.clear();
   memoryMetadata = null;
+}
+
+export function removeStoredCollection(collection: string): void {
+  const key = getCollectionKey(collection);
+  memoryCollections.delete(key);
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(key);
+  } catch {
+    // Best-effort removal; a failed delete must never destroy other data.
+  }
+}
+
+export function listStoredCollectionNames(): string[] {
+  return listCollectionNames(getStorage(), memoryCollections.keys());
 }
 
 export function importDatabaseBackup(value: unknown): LocalDatabaseBackup {

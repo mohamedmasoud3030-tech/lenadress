@@ -2,7 +2,8 @@ import {
   exportDatabaseBackup,
   exportDatabaseBackupAsync,
   writeCollection,
-  clearStoredApplicationData,
+  removeStoredCollection,
+  listStoredCollectionNames,
   type LocalDatabaseBackup,
   type DatabaseMetadata,
 } from './persistenceEngine';
@@ -39,22 +40,48 @@ export async function createDatabaseSnapshotAsync(): Promise<PersistenceSnapshot
   return await exportDatabaseBackupAsync();
 }
 
-export function restoreDatabaseSnapshot(snapshot: PersistenceSnapshot): void {
-  const clonedSnapshot = cloneValue(snapshot);
-  clearStoredApplicationData();
-  restoreMetadataDirectly(clonedSnapshot.metadata);
-  Object.entries(clonedSnapshot.collections).forEach(([collection, items]) => {
-    writeCollection(collection, items);
+/**
+ * Restores a snapshot without a destructive pre-clear.
+ *
+ * A previous implementation cleared every application key before rewriting the
+ * snapshot. When the underlying storage was the reason the transaction failed
+ * (quota exceeded, corrupted write), the rewrite failed too and the showroom was
+ * left with no data at all. Restoring now overwrites the snapshot values first
+ * and only removes collections that the snapshot does not contain, so a failing
+ * storage leaves the previous state in place instead of destroying it.
+ */
+function restoreSnapshotCollections(snapshot: PersistenceSnapshot): void {
+  restoreMetadataDirectly(snapshot.metadata);
+
+  const snapshotCollections = Object.keys(snapshot.collections);
+  const snapshotCollectionSet = new Set(snapshotCollections);
+  let writeFailure: unknown = null;
+
+  snapshotCollections.forEach((collection) => {
+    try {
+      writeCollection(collection, snapshot.collections[collection]);
+    } catch (error) {
+      writeFailure = writeFailure ?? error;
+    }
   });
+
+  if (writeFailure) {
+    // Do not prune anything when the storage is already refusing writes.
+    return;
+  }
+
+  listStoredCollectionNames()
+    .filter((collection) => !snapshotCollectionSet.has(collection))
+    .forEach((collection) => removeStoredCollection(collection));
+}
+
+export function restoreDatabaseSnapshot(snapshot: PersistenceSnapshot): void {
+  restoreSnapshotCollections(cloneValue(snapshot));
 }
 
 export async function restoreDatabaseSnapshotAsync(snapshot: PersistenceSnapshot): Promise<void> {
   const clonedSnapshot = cloneValue(snapshot);
-  clearStoredApplicationData();
-  restoreMetadataDirectly(clonedSnapshot.metadata);
-  Object.entries(clonedSnapshot.collections).forEach(([collection, items]) => {
-    writeCollection(collection, items);
-  });
+  restoreSnapshotCollections(clonedSnapshot);
   if (clonedSnapshot.imageBlobs && Array.isArray(clonedSnapshot.imageBlobs)) {
     try {
       await restoreImages(clonedSnapshot.imageBlobs);

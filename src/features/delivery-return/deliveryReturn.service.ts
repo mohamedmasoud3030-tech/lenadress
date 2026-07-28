@@ -22,6 +22,8 @@ function createProjectedRecord(reservation: Reservation): DeliveryReturnRecord {
   return {
     id: `queue-${reservation.id}`,
     reservationNumber: reservation.reservationNumber,
+    customerId: reservation.customerId,
+    inventoryItemId: reservation.inventoryItemId,
     customerName: reservation.customerName,
     customerPhone: reservation.customerPhone,
     dressCode: reservation.dressCode,

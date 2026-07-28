@@ -3,6 +3,7 @@ export * from './persistenceEngine';
 export * from './transactions';
 export * from './inventoryMigration';
 export * from './appointmentMigration';
+export * from './referenceMigration';
 export * from './imageMigration';
 export * from './migrationRunner';
 export * from './demoData';
