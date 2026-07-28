@@ -172,7 +172,7 @@ export function AccessoriesPage() {
       {feedback && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{feedback}</div>}
       {error !== null && <UserFacingErrorAlert error={error} fallback="تعذر تنفيذ العملية على الملحق." />}
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <SummaryCard label="إجمالي الملحقات" value={summary.total} />
         <SummaryCard label="متاحة" value={summary.available} tone="positive" />
         <SummaryCard label="محجوزة أو مسلّمة" value={summary.out} />

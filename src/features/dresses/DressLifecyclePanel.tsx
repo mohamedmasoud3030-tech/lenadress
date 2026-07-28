@@ -25,7 +25,7 @@ export function DressLifecyclePanel({ performance }: DressLifecyclePanelProps) {
         <p className="mt-1 text-sm leading-6 text-slate-500">الأرقام معروضة من طبقة التقارير المالية نفسها، ولا تُعاد حسابها داخل صفحة المخزون.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <div className="min-w-0 rounded-xl bg-stone-50 p-3">
           <CircleDollarSign aria-hidden="true" className="h-5 w-5 text-emerald-700" />
           <p className="mt-2 text-xs text-slate-500">إيراد الإيجار</p>

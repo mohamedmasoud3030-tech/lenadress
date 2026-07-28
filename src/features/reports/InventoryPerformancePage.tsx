@@ -261,7 +261,7 @@ export function InventoryPerformancePage() {
 
       {report && (
         <>
-          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <SummaryCard label="إجمالي الإيراد" value={formatMoneyOMR(report.totals.totalRevenue)} hint="إيراد محقق فقط" />
             <SummaryCard label="صافي العائد" value={formatMoneyOMR(report.totals.netResult)} tone={report.totals.netResult < 0 ? 'danger' : 'positive'} hint="بعد التكاليف المرتبطة" />
             <SummaryCard label="متوسط نسبة الإشغال" value={percent(report.totals.averageUtilisationRate)} hint="أيام الحجز ÷ الأيام المتاحة" />

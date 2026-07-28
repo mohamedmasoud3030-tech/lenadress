@@ -154,7 +154,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <SummaryCard label="عمليات اليوم" value={reservations.today} hint={`${snapshot.pickupsToday.length} تسليم · ${snapshot.returnsToday.length} إرجاع`} />
         <SummaryCard label="محصّل اليوم" value={formatMoneyOMR(money.collectedToday)} hint={`صافي ${formatMoneyOMR(money.netToday)}`} tone="positive" />
         <SummaryCard label="غير محصّل" value={formatMoneyOMR(money.outstandingTotal)} tone={money.outstandingTotal > 0 ? 'warning' : 'default'} hint={`${money.outstandingCount} حجز`} />

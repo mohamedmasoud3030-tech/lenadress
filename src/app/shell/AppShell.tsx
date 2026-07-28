@@ -16,7 +16,7 @@ export function AppShell() {
     desktopSyncStatus.state === 'error' || desktopSyncStatus.state === 'browser-fallback';
 
   return (
-    <div className="min-h-screen overflow-hidden bg-slate-50 text-slate-950" dir="rtl">
+    <div className="min-h-screen overflow-hidden text-slate-950" dir="rtl">
       <a
         href="#main-content"
         className={`fixed right-4 top-4 z-50 -translate-y-24 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-lg transition focus:translate-y-0 ${focusRing}`}
@@ -27,7 +27,7 @@ export function AppShell() {
       <DesktopNavigation />
 
       <main id="main-content" className="relative min-h-screen w-full min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pr-72">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-l from-amber-100/80 via-white/60 to-sky-100/70" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-l from-amber-200/50 via-transparent to-violet-200/40" />
         <AppHeader />
 
         <div className="relative mx-auto w-full min-w-0 max-w-7xl p-4 sm:p-6">
