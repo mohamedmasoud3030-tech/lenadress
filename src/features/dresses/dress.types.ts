@@ -2,6 +2,7 @@ export type DressStatus =
   | 'available'
   | 'reserved'
   | 'rented'
+  | 'inspection'
   | 'laundry'
   | 'maintenance'
   | 'damaged'
@@ -31,6 +32,8 @@ export type Dress = {
   images: string[];
   barcode: string;
   timesRented: number;
+  /** Set when the item is archived instead of deleted; history stays intact. */
+  archivedAt?: string;
   notes?: string;
 };
 

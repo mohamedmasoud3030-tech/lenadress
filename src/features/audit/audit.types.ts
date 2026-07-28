@@ -25,7 +25,10 @@ export type AuditActionType =
   | 'reopen-day'
   | 'import-backup'
   | 'reset-data'
-  | 'migrate-images';
+  | 'migrate-images'
+  | 'archive'
+  | 'restore'
+  | 'delete';
 
 export type AuditLogEntry = {
   id: string;

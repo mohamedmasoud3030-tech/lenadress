@@ -1,24 +1,47 @@
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Trash2 } from 'lucide-react';
+import { Archive, ArrowRight, Trash2 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { DRESS_STATUS_LABELS, DRESS_STATUS_STYLES, INVENTORY_ITEM_TYPE_LABELS } from '../../shared/domain/dressConstants';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { BarcodeGenerator } from './BarcodeGenerator';
 import { getBarcodeEngineEnvironmentNote, getBarcodeRuntimeSupportStatus } from './barcode.utils';
-import { deleteDress, getDresses } from './dress.service';
+import { archiveDress, deleteDress, getDressDeletionBlockers, getDresses } from './dress.service';
 
 export function DressDetailsPage() {
   const { code = '' } = useParams();
   const navigate = useNavigate();
   const dress = getDresses().find((item) => item.code === code);
 
+  const [actionError, setActionError] = useState<string | null>(null);
+  const deletionBlockers = dress ? getDressDeletionBlockers(dress.code) : [];
+  const canHardDelete = Boolean(dress) && deletionBlockers.length === 0;
+
+  const handleArchive = () => {
+    if (!dress) return;
+    setActionError(null);
+    if (!window.confirm(`سيتم أرشفة العنصر "${dress.name}" (${dress.code}) بدل حذفه، مع الاحتفاظ بكامل تاريخه. هل تريدين المتابعة؟`)) return;
+    try {
+      archiveDress(dress.code);
+      navigate('/inventory', { replace: true });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'تعذر أرشفة العنصر.');
+    }
+  };
+
   const handleDelete = () => {
     if (!dress) return;
-    if (!window.confirm(`هل تريدين حذف العنصر "${dress.name}" (${dress.code}) نهائياً؟`)) return;
-    const deleted = deleteDress(dress.code);
-    if (deleted) {
-      navigate('/inventory', { replace: true });
+    setActionError(null);
+    if (!canHardDelete) {
+      setActionError(`${deletionBlockers.join(' ')} استخدمي الأرشفة بدل الحذف.`);
+      return;
+    }
+    if (!window.confirm(`هل تريدين حذف العنصر "${dress.name}" (${dress.code}) نهائياً؟ لا يوجد أي تاريخ مرتبط به، ولن يُعاد استخدام كوده.`)) return;
+    try {
+      if (deleteDress(dress.code)) navigate('/inventory', { replace: true });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'تعذر حذف العنصر.');
     }
   };
 
@@ -63,14 +86,32 @@ export function DressDetailsPage() {
           </Link>
           <button
             type="button"
+            onClick={handleArchive}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm font-bold text-amber-700 shadow-sm transition hover:bg-amber-50"
+          >
+            <Archive className="h-4 w-4" />
+            أرشفة العنصر
+          </button>
+          <button
+            type="button"
             onClick={handleDelete}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-bold text-rose-700 shadow-sm transition hover:bg-rose-50"
+            disabled={!canHardDelete}
+            title={canHardDelete ? 'حذف نهائي متاح لعنصر بلا أي تاريخ.' : `${deletionBlockers.join(' ')} استخدمي الأرشفة بدل الحذف.`}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-bold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Trash2 className="h-4 w-4" />
-            حذف العنصر
+            حذف نهائي
           </button>
         </div>
       </div>
+      {actionError ? (
+        <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{actionError}</p>
+      ) : null}
+      {!canHardDelete && deletionBlockers.length > 0 ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          لا يمكن حذف هذا العنصر نهائياً لأنه مرتبط بتاريخ تشغيلي أو مالي: {deletionBlockers.join(' ')} استخدمي الأرشفة للحفاظ على التقارير والسجل.
+        </p>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard label="كود العنصر" value={dress.code} />

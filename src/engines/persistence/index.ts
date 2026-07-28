@@ -4,6 +4,7 @@ export * from './transactions';
 export * from './inventoryMigration';
 export * from './appointmentMigration';
 export * from './referenceMigration';
+export * from './codeAllocator';
 export * from './imageMigration';
 export * from './migrationRunner';
 export * from './demoData';
