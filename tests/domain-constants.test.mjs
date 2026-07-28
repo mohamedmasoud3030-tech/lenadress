@@ -48,13 +48,22 @@ function assertFilterMatchesLabels(filterOptions, labels) {
   });
 }
 
-test('dress status domain constants expose labels, styles, and options for the same statuses', () => {
-  assertSameMembers(DRESS_STATUS_OPTIONS, Object.keys(DRESS_STATUS_LABELS));
-  assertSameMembers(DRESS_STATUS_OPTIONS, Object.keys(DRESS_STATUS_STYLES));
+test('dress status domain constants expose labels and styles for every status', () => {
+  // Labels and styles must cover every status that can appear in stored data,
+  // including the legacy `reserved` value.
+  assertSameMembers(Object.keys(DRESS_STATUS_LABELS), Object.keys(DRESS_STATUS_STYLES));
+
+  // Selectable options must be a subset: availability is date-derived, so
+  // `reserved` is renderable but must never be offered as a physical state.
   DRESS_STATUS_OPTIONS.forEach((status) => {
     assert.equal(typeof DRESS_STATUS_LABELS[status], 'string');
     assert.equal(typeof DRESS_STATUS_STYLES[status], 'string');
   });
+  assert.equal(DRESS_STATUS_OPTIONS.includes('reserved'), false);
+  assert.equal(typeof DRESS_STATUS_LABELS.reserved, 'string', 'legacy records must still render');
+
+  const nonSelectable = Object.keys(DRESS_STATUS_LABELS).filter((status) => !DRESS_STATUS_OPTIONS.includes(status));
+  assert.deepEqual(nonSelectable, ['reserved'], 'only the legacy reserved status may be non-selectable');
 });
 
 test('reservation status labels and styles stay in lockstep', () => {

@@ -33,7 +33,7 @@ export const mockDresses = [
     rentalPrice: 200,
     salePrice: 800,
     depositAmount: 100,
-    status: 'reserved',
+    status: 'available',
     isForRent: true,
     isForSale: false,
     images: [],

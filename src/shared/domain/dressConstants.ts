@@ -2,7 +2,7 @@ import type { DressCategory, DressStatus, InventoryItemType } from '../../featur
 
 export const DRESS_STATUS_LABELS = {
   available: 'متاح',
-  reserved: 'محجوز',
+  reserved: 'محجوز (قديم)',
   rented: 'مؤجر',
   inspection: 'قيد الفحص',
   laundry: 'في المغسلة',
@@ -36,9 +36,13 @@ export const INVENTORY_ITEM_TYPE_LABELS = {
 export const INVENTORY_ITEM_TYPE_OPTIONS: InventoryItemType[] = ['dress', 'accessory', 'bag', 'shoe', 'veil', 'other'];
 
 export const DRESS_CATEGORIES: DressCategory[] = ['زفاف', 'خطوبة', 'سهرة', 'أطفال', 'إكسسوارات', 'حقائب', 'أحذية', 'طرح وشالات', 'أخرى'];
+/**
+ * Selectable physical states. `reserved` is intentionally absent: future
+ * availability is derived from the reservations and their dates, never stored
+ * on the item. The label is kept only so legacy records still render.
+ */
 export const DRESS_STATUS_OPTIONS: DressStatus[] = [
   'available',
-  'reserved',
   'rented',
   'inspection',
   'laundry',

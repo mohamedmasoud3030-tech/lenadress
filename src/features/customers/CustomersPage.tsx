@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { CircleAlert, Plus, Search } from 'lucide-react';
+import { Archive, CircleAlert, Plus, Search, Trash2 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { AddCustomerModal } from './AddCustomerModal';
-import { filterCustomers, getCustomers, summarizeCustomers } from './customer.service';
+import { archiveCustomer, deleteCustomer, filterCustomers, getCustomerDeletionBlockers, getCustomers, summarizeCustomers } from './customer.service';
 import type { Customer, CustomerFilters, CustomerStatus } from './customer.types';
 
 const statusLabels: Record<CustomerStatus, string> = {
@@ -23,7 +23,10 @@ const statusStyles: Record<CustomerStatus, string> = {
 
 const statuses: Array<'all' | CustomerStatus> = ['all', 'normal', 'trusted', 'warning', 'blocked'];
 
-function CustomerCard({ customer }: { customer: Customer }) {
+function CustomerCard({ customer, onArchive, onDelete }: { customer: Customer; onArchive: (customer: Customer) => void; onDelete: (customer: Customer) => void }) {
+  const deletionBlockers = getCustomerDeletionBlockers(customer.id);
+  const canHardDelete = deletionBlockers.length === 0;
+
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
@@ -61,6 +64,31 @@ function CustomerCard({ customer }: { customer: Customer }) {
         )}
         {customer.notes && <p className="mt-2 rounded-xl bg-amber-50 p-3 text-amber-900">{customer.notes}</p>}
       </div>
+
+      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+        {customer.archivedAt ? (
+          <span className="text-xs font-bold text-slate-500">مؤرشفة — التاريخ محفوظ</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onArchive(customer)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-300 px-3 text-sm font-bold text-amber-700 transition hover:bg-amber-50"
+          >
+            <Archive aria-hidden="true" className="h-4 w-4" />
+            أرشفة
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onDelete(customer)}
+          disabled={!canHardDelete}
+          title={canHardDelete ? 'حذف نهائي متاح لعميلة بلا أي تاريخ.' : `${deletionBlockers.join(' ')} استخدمي الأرشفة بدل الحذف.`}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-rose-300 px-3 text-sm font-bold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Trash2 aria-hidden="true" className="h-4 w-4" />
+          حذف نهائي
+        </button>
+      </div>
     </article>
   );
 }
@@ -70,6 +98,31 @@ export function CustomersPage() {
   const [filters, setFilters] = useState<CustomerFilters>({ search: '', status: 'all', balance: 'all' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleArchive = (customer: Customer) => {
+    setActionError(null);
+    if (!window.confirm(`سيتم أرشفة العميلة "${customer.name}" مع الاحتفاظ بكامل تاريخها. هل تريدين المتابعة؟`)) return;
+    try {
+      archiveCustomer(customer.id);
+      setCustomers(getCustomers());
+      setFeedback(`تمت أرشفة العميلة ${customer.name}.`);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : 'تعذر أرشفة العميلة.');
+    }
+  };
+
+  const handleDelete = (customer: Customer) => {
+    setActionError(null);
+    if (!window.confirm(`حذف نهائي لسجل العميلة "${customer.name}"؟ لا يوجد أي تاريخ مرتبط بها.`)) return;
+    try {
+      deleteCustomer(customer.id);
+      setCustomers(getCustomers());
+      setFeedback(`تم حذف سجل العميلة ${customer.name}.`);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : 'تعذر حذف العميلة.');
+    }
+  };
 
   const filteredCustomers = useMemo(() => filterCustomers(customers, filters), [customers, filters]);
   const summary = useMemo(() => summarizeCustomers(customers), [customers]);
@@ -99,6 +152,12 @@ export function CustomersPage() {
           إضافة عميلة
         </button>
       </div>
+
+      {actionError && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+          {actionError}
+        </div>
+      )}
 
       {feedback && (
         <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
@@ -160,7 +219,7 @@ export function CustomersPage() {
       {filteredCustomers.length > 0 ? (
         <div className="grid gap-5 xl:grid-cols-2">
           {filteredCustomers.map((customer) => (
-            <CustomerCard key={customer.id} customer={customer} />
+            <CustomerCard key={customer.id} customer={customer} onArchive={handleArchive} onDelete={handleDelete} />
           ))}
         </div>
       ) : (
