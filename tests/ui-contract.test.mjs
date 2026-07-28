@@ -116,12 +116,19 @@ test('every icon-only control carries an accessible Arabic label', async () => {
 });
 
 test('destructive and money-changing submits are guarded against double submit', async () => {
+  // Every modal that writes money or stock. A second tap on any of these used to
+  // create a duplicate record; the expense, invoice and appointment forms were
+  // completely unguarded until this was enforced here.
   const guarded = [
     'features/payments/AddPaymentModal.tsx',
     'features/delivery-return/DeliveryReturnModal.tsx',
     'features/dresses/SellDressModal.tsx',
+    'features/dresses/CreateSaleInvoiceModal.tsx',
     'features/service/OpenServiceTaskModal.tsx',
     'features/service/CompleteServiceTaskModal.tsx',
+    'features/expenses/AddExpenseModal.tsx',
+    'features/accessories/AddAccessoryModal.tsx',
+    'features/appointments/AddAppointmentModal.tsx',
   ];
 
   for (const relative of guarded) {
@@ -129,8 +136,24 @@ test('destructive and money-changing submits are guarded against double submit',
     assert.match(content, /isSubmitting/, `${relative} must track submission state`);
     assert.match(content, /isSubmitting\) return;/, `${relative} must ignore a second submit`);
     assert.match(content, /idempotencyKey/, `${relative} must send an idempotency key`);
-    assert.match(content, /disabled=\{[^}]*isSubmitting/, `${relative} must disable its submit button`);
+    const disablesSubmit = /disabled=\{[^}]*isSubmitting/.test(content) || /<FormActions[\s\S]*?isSubmitting=/.test(content);
+    assert.ok(disablesSubmit, `${relative} must disable its submit button while saving`);
   }
+});
+
+test('no persisted identifier is generated from Math.random', async () => {
+  const files = await collectFiles(sourceRoot, (name) => /\.(ts|tsx)$/.test(name));
+  const offenders = [];
+
+  for (const file of files) {
+    const content = await readFile(file, 'utf8');
+    // Strip comments so an explanation of the old defect does not count as one.
+    const code = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    if (/Math\.random\(\)/.test(code)) offenders.push(file.replace(repositoryRoot, ''));
+  }
+
+  // Ids must come from the crypto-backed generator so they cannot collide.
+  assert.deepEqual(offenders, []);
 });
 
 test('the reservation calendar is usable on a phone and labelled for assistive tech', async () => {

@@ -9,6 +9,7 @@ const entityLabels: Record<AuditEntityType, string> = {
   dress: 'عنصر مخزون',
   accessory: 'ملحق',
   reservation: 'حجز',
+  appointment: 'موعد',
   payment: 'حركة مالية',
   expense: 'مصروف',
   sale: 'بيع',
