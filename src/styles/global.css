@@ -31,7 +31,31 @@ body {
   background: #f8fafc;
   /* Mobile-first guard: no page-level horizontal scrolling on 360px phones. */
   overflow-x: hidden;
-  overscroll-behavior-y: none;
+  /*
+   * `overflow-x: hidden` alone does NOT stop a touch drag from rubber-banding
+   * the page sideways on iOS, which is what made the app feel like it was
+   * sliding left and right during normal scrolling. Locking both axes of
+   * overscroll pins the page and also kills pull-to-refresh mid-form.
+   */
+  overscroll-behavior: none;
+  /* Stops iOS from resizing text when the phone is rotated. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/*
+ * iOS Safari force-zooms the viewport whenever a focused form control renders
+ * below 16px. Every field in this app used `text-sm` (14px), so tapping any
+ * input zoomed the page in and left it zoomed — the "screen keeps zooming in
+ * and out" report. Pinning the *rendered* font size to 16px on touch devices
+ * removes the trigger without changing the desktop type scale.
+ */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Long codes, phone numbers and Arabic notes must wrap instead of widening the page. */
@@ -60,6 +84,15 @@ select {
 
 button:not(:disabled) {
   cursor: pointer;
+}
+
+/* Tapping twice quickly must never zoom a control on iOS. */
+button,
+a,
+label,
+summary,
+[role='button'] {
+  touch-action: manipulation;
 }
 
 ::selection {

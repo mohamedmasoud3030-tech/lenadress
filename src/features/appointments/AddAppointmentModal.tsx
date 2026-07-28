@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../../components/shared/Modal';
+import { FormActions, SelectField, TextAreaField, TextField } from '../../components/shared/FormField';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
-import { addAppointment } from './appointment.service';
+import { MAX_NOTES_LENGTH } from '../../shared/domain/businessRules';
+import { getTodayISO } from '../../shared/utils/date';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { getCustomers } from '../customers/customer.service';
+import { bookAppointmentCommand } from '../workflows';
 import type { Appointment, AppointmentStatus } from './appointment.types';
 
 type AddAppointmentModalProps = {
@@ -10,126 +16,169 @@ type AddAppointmentModalProps = {
   onCreated: (appointment: Appointment) => void;
 };
 
-export function AddAppointmentModal({ open, onClose, onCreated }: AddAppointmentModalProps) {
-  const [submitError, setSubmitError] = useState<Error | null>(null);
-  const [customerName, setCustomerName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [appointmentDate, setAppointmentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState('10:00');
-  const [endTime, setEndTime] = useState('11:00');
-  const [notes, setNotes] = useState('');
+type Form = {
+  customerId: string;
+  customerName: string;
+  phone: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  notes: string;
+};
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+function defaults(): Form {
+  return {
+    customerId: '',
+    customerName: '',
+    phone: '',
+    appointmentDate: getTodayISO(),
+    startTime: '10:00',
+    endTime: '11:00',
+    notes: '',
+  };
+}
+
+export function AddAppointmentModal({ open, onClose, onCreated }: AddAppointmentModalProps) {
+  const [form, setForm] = useState<Form>(() => defaults());
+  const [submitError, setSubmitError] = useState<unknown>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('apt'));
+
+  const customers = useMemo(() => getCustomers(), [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(defaults());
     setSubmitError(null);
+    setIsSubmitting(false);
+    setSubmissionKey(createSubmissionKey('apt'));
+  }, [open]);
+
+  const close = () => {
+    setForm(defaults());
+    setSubmitError(null);
+    onClose();
+  };
+
+  // Picking an existing customer fills her stable id and phone, so the
+  // appointment is linked to the record rather than to a retyped name.
+  const selectCustomer = (customerId: string) => {
+    const customer = customers.find((item) => item.id === customerId);
+    setForm((current) => ({
+      ...current,
+      customerId,
+      customerName: customer?.name ?? current.customerName,
+      phone: customer?.phone ?? current.phone,
+    }));
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSubmitting) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
 
     try {
-      const appointment = addAppointment({
-        customerId: '',
-        customerName,
-        phone,
-        appointmentDate,
-        startTime,
-        endTime,
+      const appointment = bookAppointmentCommand({
+        customerId: form.customerId,
+        customerName: form.customerName,
+        phone: form.phone,
+        appointmentDate: form.appointmentDate,
+        startTime: form.startTime,
+        endTime: form.endTime,
         status: 'pending' as AppointmentStatus,
-        notes,
+        notes: form.notes,
+        idempotencyKey: submissionKey,
       });
 
       onCreated(appointment);
-      onClose();
+      close();
     } catch (error: unknown) {
-      setSubmitError(error instanceof Error ? error : new Error('حدث خطأ غير متوقع'));
+      setIsSubmitting(false);
+      setSubmitError(error);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="حجز موعد جديد" className="max-w-lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {submitError !== null && (
-          <UserFacingErrorAlert error={submitError} fallback="تعذر حفظ الموعد." />
+    <Modal open={open} onClose={close} title="حجز موعد جديد" className="max-w-lg">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        {submitError !== null && <UserFacingErrorAlert error={submitError} fallback="تعذر حفظ الموعد." />}
+
+        {customers.length > 0 && (
+          <SelectField
+            label="اختيار عميلة مسجلة (اختياري)"
+            hint="يملأ الاسم والهاتف تلقائياً ويربط الموعد بسجل العميلة."
+            value={form.customerId}
+            onChange={(event) => selectCustomer(event.target.value)}
+          >
+            <option value="">عميلة جديدة أو غير مسجلة</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>{customer.name} — {customer.phone}</option>
+            ))}
+          </SelectField>
         )}
 
-        <div>
-          <label className="block text-sm font-bold text-slate-700">اسم العميلة</label>
-          <input
-            type="text"
+        <TextField
+          label="اسم العميلة"
+          required
+          autoComplete="name"
+          value={form.customerName}
+          onChange={(event) => setForm({ ...form, customerName: event.target.value })}
+        />
+
+        <TextField
+          label="رقم الهاتف"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          dir="ltr"
+          placeholder="9XXXXXXX"
+          value={form.phone}
+          onChange={(event) => setForm({ ...form, phone: event.target.value })}
+        />
+
+        <TextField
+          label="تاريخ الموعد"
+          required
+          type="date"
+          min={getTodayISO()}
+          value={form.appointmentDate}
+          onChange={(event) => setForm({ ...form, appointmentDate: event.target.value })}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            label="وقت البداية"
             required
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 p-2"
+            type="time"
+            value={form.startTime}
+            onChange={(event) => setForm({ ...form, startTime: event.target.value })}
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-bold text-slate-700">رقم الهاتف</label>
-          <input
-            type="tel"
+          <TextField
+            label="وقت النهاية"
             required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 p-2"
+            type="time"
+            value={form.endTime}
+            error={form.endTime <= form.startTime ? 'وقت النهاية يجب أن يكون بعد وقت البداية.' : undefined}
+            onChange={(event) => setForm({ ...form, endTime: event.target.value })}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-bold text-slate-700">التاريخ</label>
-            <input
-              type="date"
-              required
-              value={appointmentDate}
-              onChange={(e) => setAppointmentDate(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 p-2"
-            />
-          </div>
+        <TextAreaField
+          label="ملاحظات"
+          rows={3}
+          maxLength={MAX_NOTES_LENGTH}
+          value={form.notes}
+          onChange={(event) => setForm({ ...form, notes: event.target.value })}
+          placeholder="ملاحظات اختيارية عن القياس أو التفضيلات"
+        />
 
-          <div>
-            <label className="block text-sm font-bold text-slate-700">الوقت</label>
-            <div className="mt-1 flex gap-2">
-              <input
-                type="time"
-                required
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 p-2"
-              />
-              <span className="self-end pb-2">إلى</span>
-              <input
-                type="time"
-                required
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 p-2"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-bold text-slate-700">ملاحظات</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 p-2"
-            rows={3}
-          />
-        </div>
-
-        <div className="flex gap-3 border-t border-slate-100 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-xl border border-slate-300 py-2 text-sm font-bold text-slate-700"
-          >
-            إلغاء
-          </button>
-          <button
-            type="submit"
-            className="flex-1 rounded-xl bg-slate-950 py-2 text-sm font-bold text-white"
-          >
-            حفظ الموعد
-          </button>
-        </div>
+        <FormActions
+          onCancel={close}
+          submitLabel="حفظ الموعد"
+          isSubmitting={isSubmitting}
+          disabled={form.endTime <= form.startTime}
+        />
       </form>
     </Modal>
   );

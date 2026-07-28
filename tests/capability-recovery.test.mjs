@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildCalendarMonth, isItemOccupiedOn, shiftMonth, WEEKDAY_LABELS } from '../src/features/reservations/reservationCalendar.ts';
 import { buildRentalContractHtml, printRentalContract, PrintRentalContractError } from '../src/features/reservations/printRentalContract.ts';
-import { printDocument, PrintDocumentError, escapeHtml } from '../src/platform/printing/index.ts';
+import { closePrintOverlay, printDocument, PrintDocumentError, escapeHtml } from '../src/platform/printing/index.ts';
+import { getOverlayButton, getPrintFrameDocument, getPrintOverlay, installDom, uninstallDom } from './helpers/dom.mjs';
 
 function installStorage() {
   const store = new Map();
@@ -32,6 +33,7 @@ function installStorage() {
 }
 
 function cleanup() {
+  uninstallDom();
   delete globalThis.window;
 }
 
@@ -141,45 +143,127 @@ test('contract values are HTML escaped', () => {
   }
 });
 
-test('a blocked popup produces an actionable Arabic error, not a silent failure', () => {
+test('printing never strands the operator in a window with no way back', () => {
   installStorage();
-  globalThis.window.open = () => null;
+  installDom();
   try {
-    assert.throws(() => printDocument('عنوان', '<p>محتوى</p>'), (error) => {
-      assert.equal(error instanceof PrintDocumentError, true);
-      assert.match(error.message, /النوافذ المنبثقة/);
-      return true;
-    });
+    printRentalContract(reservation());
 
-    assert.throws(() => printRentalContract(reservation()), (error) => {
-      assert.equal(error instanceof PrintRentalContractError, true);
-      assert.match(error.message, /النوافذ المنبثقة/);
-      return true;
-    });
+    const overlay = getPrintOverlay();
+    assert.ok(overlay, 'the document must render inside the app, not in a detached popup');
+    assert.equal(overlay.getAttribute('role'), 'dialog');
+    assert.equal(overlay.getAttribute('aria-modal'), 'true');
+
+    // Three independent ways out: a button, Escape, and the system back gesture.
+    const closeButton = getOverlayButton('إغلاق');
+    assert.ok(closeButton, 'the overlay must expose an explicit Arabic close button');
+
+    closeButton.dispatch('click');
+    assert.equal(getPrintOverlay(), null, 'closing must remove the overlay and reveal the app again');
   } finally {
     cleanup();
   }
 });
 
-test('the shared print boundary emits a well formed RTL Arabic document', () => {
+test('the Escape key and a system back gesture both dismiss the printed document', () => {
   installStorage();
-  const written = [];
-  globalThis.window.open = () => ({
-    document: {
-      write(markup) {
-        written.push(markup);
-      },
-      close() {},
-    },
-    focus() {},
-    print() {},
-  });
-
+  installDom();
   try {
     printRentalContract(reservation());
-    assert.equal(written.length, 1);
-    assert.match(written[0], /<html dir="rtl" lang="ar">/);
-    assert.match(written[0], /RSV-001/);
+    assert.ok(getPrintOverlay());
+    globalThis.document.dispatch('keydown', { key: 'Escape' });
+    assert.equal(getPrintOverlay(), null, 'Escape must close the document view');
+
+    printRentalContract(reservation());
+    assert.ok(getPrintOverlay());
+    globalThis.window.dispatchWindowEvent('popstate');
+    assert.equal(getPrintOverlay(), null, 'a back gesture must close the document, not leave the app');
+  } finally {
+    cleanup();
+  }
+});
+
+test('printing twice never stacks two document views on top of each other', () => {
+  installStorage();
+  installDom();
+  try {
+    printRentalContract(reservation());
+    printRentalContract(reservation());
+
+    const overlays = globalThis.document.querySelectorAll('lena-print-overlay');
+    assert.equal(overlays.length, 1, 'a second print must replace the first view, not stack on it');
+  } finally {
+    cleanup();
+  }
+});
+
+test('the shared print boundary emits a well formed RTL Arabic document and prints it', () => {
+  installStorage();
+  installDom();
+  try {
+    printRentalContract(reservation());
+
+    const frameDocument = getPrintFrameDocument();
+    assert.ok(frameDocument);
+    assert.equal(frameDocument.written.length, 1);
+    assert.match(frameDocument.written[0], /<html dir="rtl" lang="ar">/);
+    assert.match(frameDocument.written[0], /RSV-001/);
+    assert.equal(frameDocument.closeCount, 1, 'the document must be closed after writing');
+    assert.equal(frameDocument.printCount, 1, 'the print dialog is offered immediately');
+
+    // The explicit button re-sends it, for platforms that block the automatic call.
+    getOverlayButton('طباعة').dispatch('click');
+    assert.equal(frameDocument.printCount, 2);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a print failure surfaces an actionable Arabic error instead of a silent break', () => {
+  installStorage();
+  installDom();
+  try {
+    // A platform that refuses to give the frame a document must not fail silently.
+    const originalCreate = globalThis.document.createElement;
+    globalThis.document.createElement = (tagName) => {
+      const element = originalCreate(tagName);
+      if (element.tagName === 'IFRAME') {
+        element.contentDocument = null;
+        element.contentWindow = null;
+      }
+      return element;
+    };
+
+    assert.throws(() => printDocument('عنوان', '<p>محتوى</p>'), (error) => {
+      assert.equal(error instanceof PrintDocumentError, true);
+      assert.match(error.message, /تعذر تجهيز المستند للطباعة/);
+      return true;
+    });
+    assert.equal(getPrintOverlay(), null, 'a failed print must not leave a dead overlay behind');
+
+    // The same failure is wrapped in the feature-level error for the contract path.
+    assert.throws(() => printRentalContract(reservation()), (error) => {
+      assert.equal(error instanceof PrintRentalContractError, true);
+      assert.match(error.message, /تعذر/);
+      return true;
+    });
+
+    globalThis.document.createElement = originalCreate;
+  } finally {
+    closePrintOverlay();
+    cleanup();
+  }
+});
+
+test('the print boundary keeps the app behind it out of the printed page', () => {
+  installStorage();
+  installDom();
+  try {
+    printRentalContract(reservation());
+    const styles = globalThis.document.head.children.map((child) => child.textContent).join('');
+    assert.match(styles, /@media print/);
+    assert.match(styles, /body>\*:not\(\.lena-print-overlay\)/, 'the app must not print behind the document');
+    assert.match(styles, /__bar\{display:none/, 'the overlay chrome must not reach the paper');
   } finally {
     cleanup();
   }

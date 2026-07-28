@@ -10,6 +10,7 @@ import { buildBarcodeLabelHtml, printBarcodeLabel } from '../src/features/dresse
 import { getDressLifecycleRecommendations } from '../src/features/dresses/dressLifecycle.utils.ts';
 import { resetCountersForTesting } from '../src/engines/persistence/index.ts';
 import { PrintDocumentError } from '../src/platform/printing/index.ts';
+import { getPrintFrameDocument, getPrintOverlay, installDom, uninstallDom } from './helpers/dom.mjs';
 
 function installStorage() {
   const store = new Map();
@@ -28,6 +29,7 @@ function installStorage() {
 
 function cleanup() {
   resetCountersForTesting();
+  uninstallDom();
   delete globalThis.window;
 }
 
@@ -86,18 +88,44 @@ test('barcode label values are escaped while generated SVG markup remains printa
   assert.match(html, /<svg role="img"><rect \/><\/svg>/);
 });
 
-test('barcode label printing uses the shared popup boundary and actionable blocked-popup error', () => {
+test('barcode label printing renders in a dismissible in-app view, not a trapping popup', () => {
   installStorage();
-  globalThis.window.open = () => null;
+  installDom();
   try {
+    printBarcodeLabel({ value: 'D-001', itemCode: 'D-001', itemName: 'فستان', svgMarkup: '<svg />' });
+
+    const overlay = getPrintOverlay();
+    assert.ok(overlay, 'the label must render inside the app so the operator can get back');
+    assert.match(getPrintFrameDocument().written[0], /D-001/);
+    assert.equal(getPrintFrameDocument().printCount, 1);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a platform that cannot host the print frame reports an actionable Arabic error', () => {
+  installStorage();
+  installDom();
+  try {
+    const originalCreate = globalThis.document.createElement;
+    globalThis.document.createElement = (tagName) => {
+      const element = originalCreate(tagName);
+      if (element.tagName === 'IFRAME') {
+        element.contentDocument = null;
+        element.contentWindow = null;
+      }
+      return element;
+    };
+
     assert.throws(
       () => printBarcodeLabel({ value: 'D-001', itemCode: 'D-001', itemName: 'فستان', svgMarkup: '<svg />' }),
       (error) => {
         assert.equal(error instanceof PrintDocumentError, true);
-        assert.match(error.message, /النوافذ المنبثقة/);
+        assert.match(error.message, /تعذر تجهيز المستند للطباعة/);
         return true;
       },
     );
+    globalThis.document.createElement = originalCreate;
   } finally {
     cleanup();
   }

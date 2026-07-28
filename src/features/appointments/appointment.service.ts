@@ -1,5 +1,6 @@
 import { Appointment, AppointmentStatus } from './appointment.types';
-import { migrateLegacyAppointmentStorage, readCollection, writeCollection } from '../../services/localDatabase';
+import { generateId, migrateLegacyAppointmentStorage, readCollection, writeCollection } from '../../services/localDatabase';
+import { recordAudit } from '../audit/audit.service';
 
 const APPOINTMENTS_COLLECTION = 'appointments';
 
@@ -18,13 +19,35 @@ export function addAppointment(input: Omit<Appointment, 'id' | 'createdAt' | 'up
   
   const newAppointment: Appointment = {
     ...input,
-    id: `apt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    // Crypto-backed, like every other persisted id. `Math.random()` was both a
+    // collision risk and a flagged weak-randomness source.
+    id: `apt-${generateId()}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
+  if (!input.customerName?.trim()) throw new Error('اسم العميلة مطلوب.');
+  if (!input.appointmentDate) throw new Error('تاريخ الموعد مطلوب.');
+  if (!input.startTime || !input.endTime) throw new Error('وقت بداية ونهاية الموعد مطلوبان.');
+  if (input.endTime <= input.startTime) throw new Error('وقت النهاية يجب أن يكون بعد وقت البداية.');
+
+  // Two appointments cannot occupy the same room at the same time.
+  const clash = appointments.find((appointment) => appointment.status !== 'cancelled'
+    && appointment.appointmentDate === input.appointmentDate
+    && Boolean(input.roomId) && appointment.roomId === input.roomId
+    && appointment.startTime < input.endTime
+    && input.startTime < appointment.endTime);
+  if (clash) throw new Error(`تتعارض الغرفة مع موعد آخر من ${clash.startTime} إلى ${clash.endTime}.`);
+
   appointments.push(newAppointment);
   saveAppointments(appointments);
+  recordAudit({
+    action: 'create',
+    entityType: 'appointment',
+    entityId: newAppointment.id,
+    summary: `تم حجز موعد للعميلة ${newAppointment.customerName} بتاريخ ${newAppointment.appointmentDate}.`,
+    nextValues: { appointmentDate: newAppointment.appointmentDate, startTime: newAppointment.startTime },
+  });
   return newAppointment;
 }
 

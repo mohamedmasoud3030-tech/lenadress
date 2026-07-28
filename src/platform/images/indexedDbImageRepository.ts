@@ -1,3 +1,24 @@
+/**
+ * Image ids must be collision-safe like every other persisted id, so they come
+ * from the platform crypto source rather than `Math.random()`. The platform
+ * layer owns this because it is the only layer allowed to touch browser APIs.
+ */
+function generateImageId(): string {
+  const runtimeCrypto = globalThis.crypto;
+  if (runtimeCrypto && typeof runtimeCrypto.randomUUID === 'function') {
+    try {
+      return `img-${runtimeCrypto.randomUUID()}`;
+    } catch {
+      // Fall through to the counter-based identifier below.
+    }
+  }
+
+  imageIdCounter = (imageIdCounter + 1) % Number.MAX_SAFE_INTEGER;
+  return `img-${Date.now().toString(36)}-${imageIdCounter.toString(36)}`;
+}
+
+let imageIdCounter = 0;
+
 const DB_NAME = 'dress-roomshow-images';
 const DB_VERSION = 1;
 const STORE_NAME = 'images';
@@ -25,7 +46,7 @@ export type StoredImage = {
 
 export async function saveImage(dressId: string, dataUrl: string): Promise<string> {
   const db = await openDB();
-  const id = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const id = generateImageId();
   const record: StoredImage = { id, dressId, dataUrl, createdAt: new Date().toISOString() };
 
   return new Promise((resolve, reject) => {

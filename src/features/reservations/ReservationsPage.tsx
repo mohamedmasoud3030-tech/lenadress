@@ -69,7 +69,16 @@ function ReservationCard({ reservation, onCancel, onPrint }: { reservation: Rese
 export function ReservationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [reservations, setReservations] = useState<Reservation[]>(() => getReservations());
-  const [filters, setFilters] = useState<ReservationFilters>({ search: '', status: 'all', timing: 'all' });
+  // `?search=` and `?timing=` let the dashboard and the calendar link straight
+  // to a specific booking instead of dropping the operator on an unfiltered list.
+  const [filters, setFilters] = useState<ReservationFilters>(() => {
+    const timing = searchParams.get('timing');
+    return {
+      search: searchParams.get('search') ?? '',
+      status: 'all',
+      timing: timing === 'today' || timing === 'upcoming' || timing === 'overdue' ? timing : 'all',
+    };
+  });
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null);
 
   const showCreateModal = searchParams.get('new') === '1';
