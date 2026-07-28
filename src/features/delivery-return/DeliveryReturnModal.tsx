@@ -17,6 +17,7 @@ import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
 import { completeDeliveryCommand, completeReturnCommand, type ReturnItemStatus } from '../workflows';
 import type { DeliveryReturnRecord } from './deliveryReturn.types';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
 
 type Props = { open: boolean; onClose: () => void; onCompleted: (record: DeliveryReturnRecord) => void };
 type Operation = 'delivery' | 'return';
@@ -111,7 +112,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   // One key per opened form instance: a double click reuses it and the command
   // layer rejects the second write instead of duplicating the operation.
-  const [submissionKey, setSubmissionKey] = useState(() => `dr-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('dr'));
   const lateFee = parseAmount(form.lateFee);
   const damageFee = parseAmount(form.damageFee);
   const reservations = useMemo(() => getEligibleReservations(form.operation), [open, form.operation]);
@@ -126,7 +127,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     setForm(defaults());
     setError(null);
     setIsSubmitting(false);
-    setSubmissionKey(`dr-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    setSubmissionKey(createSubmissionKey('dr'));
   }, [open]);
 
   const updateOperation = (operation: Operation) => {

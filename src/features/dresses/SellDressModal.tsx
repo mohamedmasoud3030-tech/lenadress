@@ -10,6 +10,7 @@ import { BASIC_PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from '../payments/paymen
 import { getSaleableDresses, type SalePaymentMethod } from './sale.service';
 import { quickSaleCommand } from '../workflows';
 import type { SaleInvoice } from './salesLedger.service';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
 
 type Props = { open: boolean; onClose: () => void; onCreated: (invoice: SaleInvoice) => void };
 type Form = { dressCode: string; saleDate: string; customerName: string; customerPhone: string; amount: string; paymentMethod: SalePaymentMethod; notes: string };
@@ -19,11 +20,11 @@ export function SellDressModal({ open, onClose, onCreated }: Props) {
   const [form, setForm] = useState<Form>(() => defaults());
   const [error, setError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submissionKey, setSubmissionKey] = useState(() => `sale-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('sale'));
   const dresses = useMemo(() => getSaleableDresses(), [open]);
   const selected = dresses.find((dress) => dress.code === form.dressCode);
 
-  useEffect(() => { if (open) { setForm(defaults()); setError(null); setIsSubmitting(false); setSubmissionKey(`sale-${Date.now()}-${Math.random().toString(36).slice(2)}`); } }, [open]);
+  useEffect(() => { if (open) { setForm(defaults()); setError(null); setIsSubmitting(false); setSubmissionKey(createSubmissionKey('sale')); } }, [open]);
   const close = () => { setForm(defaults()); setError(null); onClose(); };
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

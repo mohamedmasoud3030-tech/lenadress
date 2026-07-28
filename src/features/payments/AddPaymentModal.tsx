@@ -17,6 +17,7 @@ import { MANUAL_PAYMENT_TYPES, PAYMENT_METHODS } from './payment.constants';
 import { recordPaymentCommand } from '../workflows';
 import { formatPaymentMethodLabel, formatPaymentTypeLabel } from './payment.service';
 import type { ManualPaymentType, PaymentMethod, PaymentRecord } from './payment.types';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
 
 type AddPaymentModalProps = {
   open: boolean;
@@ -112,7 +113,7 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
   const [submitError, setSubmitError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Stable per-form key so a double click never posts the same money twice.
-  const [submissionKey, setSubmissionKey] = useState(() => `pay-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('pay'));
   const amount = parseAmount(form.amount);
   const reservations = useMemo(() => getReservations().filter((item) => isEligible(item, form.type)), [open, form.type]);
   const selected = reservations.find((item) => item.reservationNumber === form.reservationNumber);
@@ -124,7 +125,7 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
     setForm(getDefaultForm());
     setSubmitError(null);
     setIsSubmitting(false);
-    setSubmissionKey(`pay-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    setSubmissionKey(createSubmissionKey('pay'));
   }, [open]);
 
   const updateType = (type: ManualPaymentType) => {
