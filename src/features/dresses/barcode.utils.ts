@@ -1,5 +1,34 @@
-export function generateDressBarcodeValue(): string {
-  return `DRESS-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+export type BarcodeIdentity = {
+  code: string;
+  barcode?: string;
+};
+
+/**
+ * Normalises scanner and stored values without changing the human item code.
+ * The same rule is used for generation and lookup so spaces/case cannot make a
+ * valid label appear missing.
+ */
+export function normalizeDressBarcodeValue(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, '');
+}
+
+/**
+ * Persisted barcodes are derived from the monotonic, never-reused item code.
+ * This makes label regeneration stable across reload, backup and restore.
+ */
+export function generateDressBarcodeValue(code: string): string {
+  const normalizedCode = normalizeDressBarcodeValue(code);
+  if (!normalizedCode) throw new Error('كود العنصر مطلوب لتوليد الباركود.');
+  return normalizedCode;
+}
+
+export function dressMatchesBarcode(dress: BarcodeIdentity, scannedValue: string): boolean {
+  const normalizedScan = normalizeDressBarcodeValue(scannedValue);
+  if (!normalizedScan) return false;
+
+  return [dress.barcode, dress.code]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => normalizeDressBarcodeValue(value) === normalizedScan);
 }
 
 export function getBarcodeRuntimeSupportStatus(): { supported: boolean; message: string } {
@@ -31,5 +60,5 @@ export function getBarcodeRuntimeSupportStatus(): { supported: boolean; message:
 }
 
 export function getBarcodeEngineEnvironmentNote(): string {
-  return 'مكتبة ZXing الحالية أظهرت تحذير توافق مع Node 24+ أثناء التثبيت، لكن البناء والاختبارات ما زالت ناجحة في البيئة الحالية.';
+  return 'المسح يدعم CODE 128 وEAN-13 وEAN-8 مع إدخال يدوي عند رفض الإذن أو غياب الكاميرا.';
 }
