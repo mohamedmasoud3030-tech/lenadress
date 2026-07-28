@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Banknote, Barcode, Loader2, Plus, Search, Shirt } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Banknote, Barcode, Layers, Plus, Search, Shirt } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { DRESS_CATEGORIES, DRESS_STATUS_LABELS, DRESS_STATUS_OPTIONS, DRESS_STATUS_STYLES, INVENTORY_ITEM_TYPE_LABELS, INVENTORY_ITEM_TYPE_OPTIONS } from '../../shared/domain/dressConstants';
@@ -8,6 +8,12 @@ import { formatMoneyOMR } from '../../shared/utils/format';
 import { AddDressModal } from './AddDressModal';
 import { filterDresses, getDressByCode, getDresses, getDressesAsync, summarizeDresses } from './dress.service';
 import { SellDressModal } from './SellDressModal';
+import { AddDesignModal } from './AddDesignModal';
+import { summarizeAllDesigns } from './design.service';
+import { EmptyState, LoadingState } from '../../components/shared/StateViews';
+import { ViewModeToggle, useViewMode } from '../../components/shared/ViewModeToggle';
+import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
+import type { DressDesign } from './design.types';
 import type { SaleInvoice } from './salesLedger.service';
 import type { Dress, DressFilters } from './dress.types';
 
@@ -97,10 +103,97 @@ function DressCard({ dress }: { dress: Dress }) {
   );
 }
 
+/** Compact row: scanning forty codes should not mean scrolling forty photos. */
+function DressRow({ dress, highlighted }: { dress: Dress; highlighted: boolean }) {
+  return (
+    <Link
+      to={`/inventory/${dress.code}`}
+      className={`flex items-center gap-3 rounded-xl border bg-white p-3 transition hover:bg-stone-50 ${AMBER_FOCUS_RING_CLASS_NAME} ${
+        highlighted ? 'border-amber-400 ring-2 ring-amber-300' : 'border-slate-200'
+      }`}
+    >
+      {dress.images[0] ? (
+        <img src={dress.images[0]} alt="" aria-hidden="true" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+          <Shirt className="h-5 w-5" />
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-slate-900">{dress.name}</span>
+        <span className="block truncate text-xs text-slate-500">
+          <span dir="ltr">{dress.code}</span> · {dress.size} · {dress.color}
+          {dress.designCode ? <> · <span dir="ltr">{dress.designCode}</span></> : null}
+        </span>
+      </span>
+      <span className="shrink-0 text-left">
+        <span className={`block rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ${DRESS_STATUS_STYLES[dress.status]}`}>
+          {DRESS_STATUS_LABELS[dress.status]}
+        </span>
+        <span className="mt-1 block text-xs font-bold text-slate-700">{formatMoneyOMR(dress.rentalPrice)}</span>
+      </span>
+    </Link>
+  );
+}
+
+/** One design with its stocked sizes and colours. */
+function DesignCard({ summary }: { summary: ReturnType<typeof summarizeAllDesigns>[number] }) {
+  return (
+    <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-slate-400" dir="ltr">{summary.design.code}</p>
+          <h3 className="mt-0.5 truncate text-base font-bold text-slate-950">{summary.design.name}</h3>
+          <p className="mt-0.5 text-xs text-slate-500">{summary.design.category}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200">
+          {summary.availableCount} / {summary.pieceCount} متاحة
+        </span>
+      </div>
+
+      {summary.variants.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5" aria-label={`المقاسات والألوان المتوفرة من ${summary.design.name}`}>
+          {summary.variants.map((variant) => (
+            <li
+              key={`${variant.size}-${variant.color}`}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
+                variant.available > 0
+                  ? 'bg-stone-50 text-slate-700 ring-slate-200'
+                  : 'bg-slate-100 text-slate-400 ring-slate-200'
+              }`}
+            >
+              {variant.size} · {variant.color} — {variant.available}/{variant.total}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Link
+        to={`/inventory?design=${encodeURIComponent(summary.design.id)}`}
+        className={`mt-3 inline-flex min-h-10 items-center rounded-xl border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+      >
+        عرض قطع التصميم
+      </Link>
+    </article>
+  );
+}
+
 export function DressesPage() {
   const [dresses, setDresses] = useState<Dress[]>(() => getDresses());
-  const [filters, setFilters] = useState<DressFilters>({ search: '', status: 'all', itemType: 'all', category: 'all', usage: 'all' });
+  // `?design=` lets a design card link straight to its own pieces.
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<DressFilters>(() => ({
+    search: '',
+    status: 'all',
+    itemType: 'all',
+    category: 'all',
+    usage: 'all',
+    designId: searchParams.get('design') ?? undefined,
+  }));
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDesignModal, setShowDesignModal] = useState(false);
+  const [groupByDesign, setGroupByDesign] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('inventory');
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [highlightedDressCode, setHighlightedDressCode] = useState<string | null>(null);
@@ -119,11 +212,18 @@ export function DressesPage() {
   }, []);
 
   const filteredDresses = useMemo(() => filterDresses(filters), [dresses, filters]);
+  const designSummaries = useMemo(() => summarizeAllDesigns(), [dresses]);
   const summary = useMemo(() => summarizeDresses(), [dresses]);
 
   const handleCreated = (dress: Dress) => {
     setDresses((current) => [dress, ...current]);
     setFeedback(`تمت إضافة العنصر ${dress.code} بنجاح.`);
+  };
+
+  const handleDesignCreated = (design: DressDesign, pieces: number) => {
+    setDresses(getDresses());
+    setGroupByDesign(true);
+    setFeedback(`تمت إضافة التصميم ${design.code} بعدد ${pieces} قطعة.`);
   };
 
   const handleSold = (invoice: SaleInvoice) => {
@@ -200,6 +300,14 @@ export function DressesPage() {
           >
             <Plus aria-hidden="true" className="h-5 w-5" />
             إضافة عنصر مخزون
+          </button>
+          <button
+            type="button"
+            onClick={() => { setFeedback(null); setShowDesignModal(true); }}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+          >
+            <Layers aria-hidden="true" className="h-5 w-5" />
+            تصميم بمقاسات وألوان
           </button>
         </div>
       </div>
@@ -291,28 +399,79 @@ export function DressesPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div role="group" aria-label="تجميع العرض" className="inline-flex rounded-xl border border-slate-300 bg-white p-1 text-xs font-bold">
+          <button
+            type="button"
+            aria-pressed={!groupByDesign}
+            onClick={() => setGroupByDesign(false)}
+            className={`min-h-10 rounded-lg px-3 transition ${AMBER_FOCUS_RING_CLASS_NAME} ${!groupByDesign ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-stone-100'}`}
+          >
+            كل القطع ({filteredDresses.length})
+          </button>
+          <button
+            type="button"
+            aria-pressed={groupByDesign}
+            onClick={() => setGroupByDesign(true)}
+            className={`min-h-10 rounded-lg px-3 transition ${AMBER_FOCUS_RING_CLASS_NAME} ${groupByDesign ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-stone-100'}`}
+          >
+            حسب التصميم ({designSummaries.length})
+          </button>
+        </div>
+        {!groupByDesign && <ViewModeToggle mode={viewMode} onChange={setViewMode} />}
+      </div>
+
       {loading ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-10 shadow-sm">
-          <Loader2 aria-hidden="true" className="h-8 w-8 animate-spin text-amber-600" />
-          <p className="mt-3 text-sm font-bold text-slate-500">جاري تحميل المخزون…</p>
-        </div>
+        <LoadingState label="جاري تحميل المخزون…" />
+      ) : groupByDesign ? (
+        designSummaries.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            {designSummaries.map((summary) => <DesignCard key={summary.design.id} summary={summary} />)}
+          </div>
+        ) : (
+          <EmptyState
+            icon={<Layers className="h-10 w-10" />}
+            title="لا توجد تصاميم بعد"
+            description="أنشئي تصميماً واحداً بعدة مقاسات وألوان بدلاً من إضافة كل قطعة على حدة."
+            action={
+              <button
+                type="button"
+                onClick={() => setShowDesignModal(true)}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white ${AMBER_FOCUS_RING_CLASS_NAME}`}
+              >
+                <Layers aria-hidden="true" className="h-4 w-4" />
+                إضافة أول تصميم
+              </button>
+            }
+          />
+        )
       ) : filteredDresses.length > 0 ? (
-        <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
-          {filteredDresses.map((dress) => (
-            <Link
-              key={dress.id}
-              to={`/inventory/${dress.code}`}
-              className={highlightedDressCode === dress.code ? 'block rounded-3xl ring-2 ring-amber-400 ring-offset-4 ring-offset-slate-50' : 'block'}
-            >
-              <DressCard dress={dress} />
-            </Link>
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+            {filteredDresses.map((dress) => (
+              <Link
+                key={dress.id}
+                to={`/inventory/${dress.code}`}
+                className={highlightedDressCode === dress.code ? 'block rounded-3xl ring-2 ring-amber-400 ring-offset-4 ring-offset-slate-50' : 'block'}
+              >
+                <DressCard dress={dress} />
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredDresses.map((dress) => (
+              <DressRow key={dress.id} dress={dress} highlighted={highlightedDressCode === dress.code} />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
-          <p className="text-lg font-semibold text-slate-900">لا توجد عناصر مطابقة</p>
-          <p className="mt-2 text-sm text-slate-500">غيّري البحث أو الفلاتر الحالية لعرض نتائج أخرى.</p>
-        </div>
+        <EmptyState
+          title={dresses.length === 0 ? 'لا توجد عناصر في المخزون بعد' : 'لا توجد عناصر مطابقة'}
+          description={dresses.length === 0
+            ? 'أضيفي أول قطعة، أو أنشئي تصميماً كاملاً بعدة مقاسات وألوان.'
+            : 'غيّري البحث أو الفلاتر الحالية لعرض نتائج أخرى.'}
+        />
       )}
 
       {showScanner && (
@@ -334,6 +493,7 @@ export function DressesPage() {
       )}
 
       <AddDressModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreated={handleCreated} />
+      <AddDesignModal open={showDesignModal} onClose={() => setShowDesignModal(false)} onCreated={handleDesignCreated} />
       <SellDressModal open={showSaleModal} onClose={() => setShowSaleModal(false)} onCreated={handleSold} />
     </section>
   );

@@ -14,4 +14,5 @@ export * from './dailyCloseCommands';
 export * from './serviceCommands';
 export * from './accessoryCommands';
 export * from './appointmentCommands';
+export * from './designCommands';
 export * from './reservationScheduleCommands';
