@@ -408,6 +408,25 @@ test('inventory offers grid and list views and design grouping', async () => {
   assert.match(toggle, /getBrowserLocalStorage/, 'storage must go through the platform port');
 });
 
+test('every long-list picker is searchable, not a native wheel', async () => {
+  // A native select is fine for five options and unusable for four hundred on a
+  // phone: no typing, and no way to undo a choice.
+  const pickerScreens = [
+    'features/reservations/CreateReservationModal.tsx',
+    'features/payments/AddPaymentModal.tsx',
+    'features/delivery-return/DeliveryReturnModal.tsx',
+    'features/dresses/SellDressModal.tsx',
+    'features/dresses/CreateSaleInvoiceModal.tsx',
+  ];
+
+  for (const relative of pickerScreens) {
+    const content = await readFile(join(sourceRoot, relative), 'utf8');
+    assert.match(content, /<SearchableSelect/, `${relative} must use the searchable picker`);
+    // A raw option list for records is exactly what was replaced.
+    assert.doesNotMatch(content, /<option value="">اختاري (الحجز|العنصر|العميلة)</, `${relative} must not keep a raw record select`);
+  }
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');

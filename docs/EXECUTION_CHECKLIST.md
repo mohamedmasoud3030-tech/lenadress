@@ -239,6 +239,25 @@ Full analysis: `docs/UX_HARDENING_REPORT.md`.
 - [x] **8.07:** Eleven unreported defects found by auditing the same paths were fixed.
   - Including three unguarded write modals, two `Math.random()` identifier sources, missing appointment validation, and unlabelled filter controls. Each has a guardrail test.
 
+## Phase 9 queue — Designs, variants and interface depth
+
+Completed by [PR #113](https://github.com/mohamedmasoud3030-tech/lenadress/pull/113) (merge `ca61067f8f07cb44c0d5bf8bf38d2b672e41c386`, Build #256 + Verify #228).
+Full analysis: `docs/DRESS_DESIGNS_AND_VARIANTS.md`.
+
+- [x] **9.01:** Model the same design existing in several sizes and colours.
+  - The piece stays the unit of truth; a design is a grouping above it with its own separate code counter. Evidence: `tests/dress-designs.test.mjs` (20 tests).
+- [x] **9.02:** Design availability resolves through the existing central conflict rule.
+  - No second definition of an occupied period was introduced; buffers, damaged pieces and per-period checks all fall out of the shared rule.
+- [x] **9.03:** No migration required for existing inventory.
+  - The design link is optional, so one-off and pre-existing pieces keep working untouched. Covered by test.
+- [x] **9.04:** Searchable, clearable pickers replace native selects for long lists.
+  - Reservations, payments, delivery/return, quick sale and the sale invoice.
+- [x] **9.05:** Grid/list view switching and group-by-design on the inventory page.
+- [x] **9.06:** Visual pass — tinted surfaces, a deeper canvas, visible form fields.
+  - Root cause of the "pale, all white" report: every tile faded `to-white` on a near-white page.
+- [x] **9.07:** Summary tiles are 2-up on phones on every page.
+  - `ReportsPage` was the remaining single-column page. Enforced by a contract test.
+
 ## Phase 4 queue — Runtime QA
 
 - [x] **4.01:** Desktop browser workflow evidence.
@@ -306,3 +325,4 @@ Full analysis: `docs/UX_HARDENING_REPORT.md`.
 | Phase 6 calendar and accessories | PR #107 / `a1ac39d7035ac786473f9a506148634ec432f8fe` | Build #244 + Verify #216 | Month/week/day calendar on local time, central conflict rule enforced in the service layer, accessory catalogue with derived barcodes, accessory delivery/return/partial-return/damage/loss, backup coverage; real-device evidence remains 4.02/4.04/4.05 | Complete |
 | Phase 7 inventory performance reports | PR #108 / `901e12dffc4f065fde16a21ae77ac9c4d59d102c` | Build #246 + Verify #218 | Per-item realised-money metrics with documented formulas, provable discounts via price snapshots, ranked lists, per-item detail, CSV with BOM and injection guard, escaped print through the shared boundary | Complete |
 | Phase 8 UX hardening | PR #110 / `044b0cc`, PR #111 / `16599a7` | Build #250 + Verify #222, Build #252 + Verify #224 | In-app print overlay, 16px touch controls, pinned overscroll, viewport-aware dialogs, operational dashboard with uncollected money, shared form/filter primitives, eleven audit fixes | Complete (device confirmation remains 4.02) |
+| Phase 9 designs and variants | PR #113 / `ca61067f8f07cb44c0d5bf8bf38d2b672e41c386` | Build #256 + Verify #228 | Design/variant model resolved through the shared conflict rule, no migration needed, searchable pickers, grid/list views, visual system pass, 2-up tiles everywhere | Complete (device confirmation remains 4.02) |

@@ -22,6 +22,7 @@ import { getAccessoryByBarcode } from '../accessories/accessory.service';
 import { getReservationAccessoryViews, type ReservationAccessoryView } from '../accessories/reservationAccessory.service';
 import type { AccessoryReturnEntry } from '../accessories/reservationAccessory.service';
 import { DeliveryAccessoryChecklist, type AccessoryReturnState } from './DeliveryAccessoryChecklist';
+import { SearchableSelect, type SearchableOption } from '../../components/shared/SearchableSelect';
 
 const DEFAULT_ACCESSORY_RETURN_STATE: AccessoryReturnState = { selected: false, condition: 'intact', charge: '0' };
 
@@ -137,6 +138,12 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     () => getReturnPreview(selectedReservation, lateFee, damageFee),
     [selectedReservation, lateFee, damageFee],
   );
+
+  const reservationOptions = useMemo<SearchableOption[]>(() => reservations.map((item) => ({
+    value: item.reservationNumber,
+    label: `${item.reservationNumber} — ${item.customerName}`,
+    hint: `${item.dressCode} · ${item.dressName}`,
+  })), [reservations]);
 
   useEffect(() => {
     if (!open) return;
@@ -284,22 +291,16 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
         </div>
 
         <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
-          <label className={STACKED_FORM_LABEL_CLASS_NAME}>
-            الحجز
-            <select
-              required
-              value={form.reservationNumber}
-              onChange={(event) => setForm((current) => ({ ...current, reservationNumber: event.target.value }))}
-              className={STACKED_FORM_FIELD_CLASS_NAME}
-            >
-              <option value="">اختاري الحجز</option>
-              {reservations.map((item) => (
-                <option key={item.id} value={item.reservationNumber}>
-                  {item.reservationNumber} - {item.customerName} - {item.dressCode}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SearchableSelect
+            label="الحجز"
+            required
+            value={form.reservationNumber}
+            onChange={(reservationNumber) => setForm((current) => ({ ...current, reservationNumber }))}
+            options={reservationOptions}
+            placeholder="اختاري الحجز"
+            searchPlaceholder="ابحثي برقم الحجز أو العميلة أو الكود…"
+            unavailableText="لا توجد حجوزات مؤهلة لهذه العملية حالياً."
+          />
 
           <label className={STACKED_FORM_LABEL_CLASS_NAME}>
             التاريخ والوقت

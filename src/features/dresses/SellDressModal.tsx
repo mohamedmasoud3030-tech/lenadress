@@ -11,6 +11,7 @@ import { getSaleableDresses, type SalePaymentMethod } from './sale.service';
 import { quickSaleCommand } from '../workflows';
 import type { SaleInvoice } from './salesLedger.service';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { SearchableSelect, type SearchableOption } from '../../components/shared/SearchableSelect';
 
 type Props = { open: boolean; onClose: () => void; onCreated: (invoice: SaleInvoice) => void };
 type Form = { dressCode: string; saleDate: string; customerName: string; customerPhone: string; amount: string; paymentMethod: SalePaymentMethod; notes: string };
@@ -23,6 +24,12 @@ export function SellDressModal({ open, onClose, onCreated }: Props) {
   const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('sale'));
   const dresses = useMemo(() => getSaleableDresses(), [open]);
   const selected = dresses.find((dress) => dress.code === form.dressCode);
+  const dressOptions = useMemo<SearchableOption[]>(() => dresses.map((dress) => ({
+    value: dress.code,
+    label: `${dress.code} — ${dress.name}`,
+    hint: `${INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress']} · ${dress.size} · ${dress.color}`,
+    badge: formatMoneyOMR(dress.salePrice),
+  })), [dresses]);
 
   useEffect(() => { if (open) { setForm(defaults()); setError(null); setIsSubmitting(false); setSubmissionKey(createSubmissionKey('sale')); } }, [open]);
   const close = () => { setForm(defaults()); setError(null); onClose(); };
@@ -38,8 +45,17 @@ export function SellDressModal({ open, onClose, onCreated }: Props) {
 
   return <Modal open={open} onClose={close} title="بيع عنصر" className="max-w-2xl"><form onSubmit={submit} className="space-y-4">
     {error !== null && <UserFacingErrorAlert error={error} fallback="تعذر تسجيل البيع." />}
-    <label className={STACKED_FORM_LABEL_CLASS_NAME}>العنصر<select required value={form.dressCode} onChange={(e)=>setForm({...form,dressCode:e.target.value,amount:dresses.find((dress)=>dress.code===e.target.value)?.salePrice.toString() ?? ''})} className={STACKED_FORM_FIELD_CLASS_NAME}><option value="">اختاري العنصر</option>{dresses.map((dress)=><option key={dress.id} value={dress.code}>{INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress']} — {dress.code} — {dress.name}</option>)}</select></label>
-    {selected && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><p>سعر البيع المسجل: <b>{formatMoneyOMR(selected.salePrice)}</b></p><p className="mt-1">النوع: <b>{INVENTORY_ITEM_TYPE_LABELS[selected.itemType ?? 'dress']}</b> • الفئة: <b>{selected.category}</b></p></div>}
+    <SearchableSelect
+      label="العنصر"
+      required
+      value={form.dressCode}
+      onChange={(dressCode) => setForm({ ...form, dressCode, amount: dresses.find((dress) => dress.code === dressCode)?.salePrice.toString() ?? '' })}
+      options={dressOptions}
+      placeholder="اختاري العنصر"
+      searchPlaceholder="ابحثي بالكود أو الاسم…"
+      unavailableText="لا توجد عناصر مؤهلة للبيع حالياً."
+    />
+        {selected && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><p>سعر البيع المسجل: <b>{formatMoneyOMR(selected.salePrice)}</b></p><p className="mt-1">النوع: <b>{INVENTORY_ITEM_TYPE_LABELS[selected.itemType ?? 'dress']}</b> • الفئة: <b>{selected.category}</b></p></div>}
     <div className="grid gap-4 md:grid-cols-2"><label className={STACKED_FORM_LABEL_CLASS_NAME}>اسم العميلة<input required value={form.customerName} onChange={(e)=>setForm({...form,customerName:e.target.value})} className={STACKED_FORM_FIELD_CLASS_NAME} /></label><label className={STACKED_FORM_LABEL_CLASS_NAME}>رقم الهاتف<input value={form.customerPhone} onChange={(e)=>setForm({...form,customerPhone:e.target.value})} className={STACKED_FORM_FIELD_CLASS_NAME} /></label></div>
     <div className="grid gap-4 md:grid-cols-2"><label className={STACKED_FORM_LABEL_CLASS_NAME}>قيمة البيع<input required type="number" min={MIN_MONEY_AMOUNT} step={MONEY_STEP} value={form.amount} onChange={(e)=>setForm({...form,amount:e.target.value})} className={STACKED_FORM_FIELD_CLASS_NAME} /></label><label className={STACKED_FORM_LABEL_CLASS_NAME}>تاريخ البيع<input required type="date" max={getTodayISO()} value={form.saleDate} onChange={(e)=>setForm({...form,saleDate:e.target.value})} className={STACKED_FORM_FIELD_CLASS_NAME} /></label></div>
     <label className={STACKED_FORM_LABEL_CLASS_NAME}>وسيلة الدفع<select value={form.paymentMethod} onChange={(e)=>setForm({...form,paymentMethod:e.target.value as SalePaymentMethod})} className={STACKED_FORM_FIELD_CLASS_NAME}>{PAYMENT_METHODS.map((method) => <option key={method} value={method}>{BASIC_PAYMENT_METHOD_LABELS[method]}</option>)}</select></label>
