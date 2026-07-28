@@ -19,6 +19,9 @@ export type ExpenseRecord = {
   paymentMethod: ExpensePaymentMethod;
   relatedDressCode?: string;
   relatedDressName?: string;
+  /** Set when the cost belongs to an accessory rather than an inventory item. */
+  relatedAccessoryCode?: string;
+  relatedAccessoryName?: string;
   notes?: string;
 };
 

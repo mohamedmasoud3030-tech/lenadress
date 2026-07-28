@@ -1,6 +1,7 @@
 import { generateId, generateNumber, readCollection, writeCollection } from '../../services/localDatabase';
 import { getTodayISO } from '../../shared/utils/date';
 import { recordAudit } from '../audit/audit.service';
+import { getAccessories } from '../accessories/accessory.service';
 import { getDresses } from '../dresses/dress.service';
 import { assertBusinessDateOpen } from '../integrity/integrity.service';
 import { EXPENSE_CATEGORY_LABELS, EXPENSE_PAYMENT_METHOD_LABELS } from './expense.constants';
@@ -21,6 +22,8 @@ type AddExpenseInput = {
   amount: number;
   paymentMethod: ExpensePaymentMethod;
   relatedDressCode?: string;
+  /** Optional accessory attribution, so accessory costs are reportable per item. */
+  relatedAccessoryCode?: string;
   notes?: string;
 };
 
@@ -39,6 +42,10 @@ export function addExpense(input: AddExpenseInput): ExpenseRecord {
   if (input.expenseDate > getTodayISO()) throw new Error('تاريخ المصروف لا يمكن أن يكون في المستقبل.');
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('قيمة المصروف يجب أن تكون أكبر من صفر.');
   if (input.relatedDressCode && !relatedDress) throw new Error('العنصر المحدد غير موجود.');
+  const relatedAccessory = input.relatedAccessoryCode
+    ? getAccessories().find((accessory) => accessory.code === input.relatedAccessoryCode)
+    : undefined;
+  if (input.relatedAccessoryCode && !relatedAccessory) throw new Error('الملحق المحدد غير موجود.');
   assertBusinessDateOpen(input.expenseDate);
 
   const expense: ExpenseRecord = {
@@ -51,6 +58,8 @@ export function addExpense(input: AddExpenseInput): ExpenseRecord {
     paymentMethod: input.paymentMethod,
     relatedDressCode: relatedDress?.code,
     relatedDressName: relatedDress?.name,
+    relatedAccessoryCode: relatedAccessory?.code,
+    relatedAccessoryName: relatedAccessory?.name,
     notes: input.notes?.trim() || undefined,
   };
 
@@ -75,6 +84,7 @@ export function filterExpenses(expenses: ExpenseRecord[], filters: ExpenseFilter
       expense.expenseNumber.toLowerCase().includes(normalizedSearch) ||
       expense.title.toLowerCase().includes(normalizedSearch) ||
       expense.relatedDressCode?.toLowerCase().includes(normalizedSearch) ||
+      expense.relatedAccessoryCode?.toLowerCase().includes(normalizedSearch) ||
       expense.relatedDressName?.toLowerCase().includes(normalizedSearch) ||
       expense.notes?.toLowerCase().includes(normalizedSearch);
 

@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  PackageSearch,
   CalendarDays,
   ClipboardList,
   Clock3,
@@ -38,6 +39,7 @@ export const navigation: readonly NavigationItem[] = [
   { to: '/daily-closing', label: 'إقفال اليومية', icon: LockKeyhole },
   { to: '/audit-log', label: 'سجل التدقيق', icon: ClipboardList },
   { to: '/reports', label: 'التقارير', icon: BarChart3 },
+  { to: '/inventory-performance', label: 'أداء المخزون', icon: PackageSearch },
   { to: '/preferences', label: 'الإعدادات والنسخ', icon: Settings2 },
 ];
 

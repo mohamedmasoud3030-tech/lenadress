@@ -231,6 +231,38 @@ test('migration markers still travel with a backup that contains accessories', (
   }
 });
 
+test('price snapshots and accessory cost attribution survive a restore', () => {
+  installStorage();
+  try {
+    const { reservation, veil } = seedFullScenario();
+
+    const before = exportDatabaseBackup();
+    const storedReservation = before.collections.reservations.find(
+      (item) => item.reservationNumber === reservation.reservationNumber,
+    );
+    // The list-price snapshot is what makes a discount provable after the fact.
+    assert.equal(typeof storedReservation.listRentalPrice, 'number');
+
+    const accessoryExpense = before.collections.expenses.find((expense) => expense.amount === 9);
+    assert.ok(accessoryExpense, 'the accessory damage charge must be in the expense ledger');
+    assert.equal(accessoryExpense.relatedAccessoryCode, before.collections.accessories.find((item) => item.id === veil.id).code);
+
+    resetDatabase();
+    importDatabaseBackup(before);
+
+    const restoredReservation = readCollection('reservations', []).find(
+      (item) => item.reservationNumber === reservation.reservationNumber,
+    );
+    assert.equal(restoredReservation.listRentalPrice, storedReservation.listRentalPrice);
+    assert.equal(restoredReservation.rentalPrice, storedReservation.rentalPrice);
+
+    const restoredExpense = readCollection('expenses', []).find((expense) => expense.amount === 9);
+    assert.equal(restoredExpense.relatedAccessoryCode, accessoryExpense.relatedAccessoryCode);
+  } finally {
+    cleanup();
+  }
+});
+
 test('a rejected backup leaves the live accessory data untouched', () => {
   installStorage();
   try {

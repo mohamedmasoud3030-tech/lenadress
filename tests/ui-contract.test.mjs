@@ -176,6 +176,37 @@ test('the accessory label print path escapes its values through the shared bound
   assert.doesNotMatch(label, /window\.open/, 'no direct popup access outside the platform layer');
 });
 
+test('the inventory performance report is RTL-safe, mobile-safe and labelled', async () => {
+  const page = await readFile(join(sourceRoot, 'features/reports/InventoryPerformancePage.tsx'), 'utf8');
+
+  assert.match(page, /overflow-x-auto/, 'the detail table must scroll instead of widening the page');
+  assert.match(page, /min-h-11/, 'primary actions must stay tappable on phones');
+  assert.match(page, /className="sr-only"/, 'the table needs a caption for assistive tech');
+  assert.match(page, /aria-label="ترتيب حسب/, 'sortable headers must announce what they sort by');
+  assert.match(page, /aria-label=\{`فتح تفاصيل أداء/, 'row actions must name the item they open');
+  assert.match(page, /no-print/, 'filters and buttons must be excluded from print output');
+  assert.doesNotMatch(page, /#[0-9a-fA-F]{6}/, 'no hardcoded hex colours in the report page');
+
+  const detail = await readFile(join(sourceRoot, 'features/reports/InventoryPerformanceDetailPanel.tsx'), 'utf8');
+  assert.match(detail, /scope="col"/, 'detail tables must use proper header scopes');
+  assert.match(detail, /Modal/, 'the detail view reuses the shared focus-trapping modal');
+
+  const chart = await readFile(join(sourceRoot, 'features/reports/PerformanceTrendChart.tsx'), 'utf8');
+  assert.match(chart, /aria-hidden="true"/, 'decorative bars must be hidden from screen readers');
+  assert.match(chart, /sr-only/, 'every bar needs a readable text equivalent');
+});
+
+test('report exports keep Arabic intact and cannot be turned into a spreadsheet formula', async () => {
+  const csv = await readFile(join(sourceRoot, 'shared/utils/csv.ts'), 'utf8');
+  assert.match(csv, /\\uFEFF/, 'the UTF-8 BOM is required for Arabic in Excel');
+  assert.match(csv, /FORMULA_TRIGGERS/, 'formula injection must be neutralised centrally');
+
+  const exporter = await readFile(join(sourceRoot, 'features/reports/inventoryPerformanceExport.ts'), 'utf8');
+  assert.match(exporter, /from '@platform\/printing'/, 'printing must go through the shared boundary');
+  assert.match(exporter, /escapeHtml\(/);
+  assert.doesNotMatch(exporter, /window\.open/, 'no direct popup access outside the platform layer');
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');
@@ -192,6 +223,7 @@ test('the daily operations journey is reachable from the navigation', async () =
     '/expenses',
     '/daily-closing',
     '/reports',
+    '/inventory-performance',
     '/preferences',
   ];
 

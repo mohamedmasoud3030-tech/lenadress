@@ -13,6 +13,11 @@ export { PaymentsPage } from '../../features/payments/PaymentsPage';
 export { PreferencesPage } from '../../features/preferences/PreferencesPage';
 export { DailyClosingPage } from '../../features/reports/DailyClosingPage';
 export { ReportsPage } from '../../features/reports/ReportsPage';
+
+export const InventoryPerformancePage = lazy(async () => {
+  const module = await import('../../features/reports/InventoryPerformancePage');
+  return { default: module.InventoryPerformancePage };
+});
 export { ReservationsPage } from '../../features/reservations/ReservationsPage';
 export { SalesLedgerPage } from '../../features/dresses/SalesLedgerPage';
 export { ServiceQueuePage } from '../../features/service/ServiceQueuePage';

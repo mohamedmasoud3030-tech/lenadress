@@ -26,6 +26,7 @@ const reservationSchema = z.object({
   returnDate: z.string().min(1, 'حددي تاريخ الإرجاع.'),
   returnTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'وقت الإرجاع غير صالح.'),
   depositAmount: z.coerce.number().finite('قيمة العربون غير صالحة.').min(0, 'قيمة العربون لا يمكن أن تكون سالبة.'),
+  rentalPrice: z.coerce.number().finite('قيمة الإيجار غير صالحة.').min(0, 'قيمة الإيجار لا يمكن أن تكون سالبة.'),
   notes: z.string().max(MAX_NOTES_LENGTH, `الملاحظات يجب ألا تتجاوز ${MAX_NOTES_LENGTH} حرف.`).optional(),
 });
 
@@ -54,6 +55,7 @@ function getDefaultValues(): ReservationFormValues {
     returnDate: addDays(today, DEFAULT_RESERVATION_DAYS),
     returnTime: times.returnTime,
     depositAmount: 0,
+    rentalPrice: 0,
     notes: '',
   };
 }
@@ -85,6 +87,7 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
 
   const selectedDressId = watch('dressId');
   const depositAmount = watch('depositAmount');
+  const rentalPrice = watch('rentalPrice');
   const selectedDress = dresses.find((dress) => dress.id === selectedDressId);
 
   useEffect(() => {
@@ -102,6 +105,8 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
   useEffect(() => {
     if (!selectedDress) return;
     setValue('depositAmount', selectedDress.depositAmount, { shouldValidate: true });
+    // The agreed price starts at the catalogue price; lowering it records a discount.
+    setValue('rentalPrice', selectedDress.rentalPrice, { shouldValidate: true });
   }, [selectedDress, setValue]);
 
   const closeModal = () => {
@@ -123,7 +128,9 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
     }
   };
 
-  const totalAmount = selectedDress ? selectedDress.rentalPrice + Number(depositAmount || 0) : 0;
+  const agreedRentalPrice = Number(rentalPrice || 0);
+  const discountAmount = selectedDress ? Math.max(selectedDress.rentalPrice - agreedRentalPrice, 0) : 0;
+  const totalAmount = selectedDress ? agreedRentalPrice + Number(depositAmount || 0) : 0;
 
   return (
     <Modal open={open} onClose={closeModal} title="إنشاء حجز جديد" className="max-w-2xl">
@@ -206,7 +213,24 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
           يتم حجز مدة التجهيز قبل التسليم ({bufferDays.preparationDaysBeforePickup} يوم) ومدة التنظيف بعد الإرجاع ({bufferDays.cleaningDaysAfterReturn} يوم) تلقائياً، ولا يمكن حجز نفس العنصر خلالها.
         </p>
 
-        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label htmlFor={`${fieldId}-rental`} className={FORM_LABEL_CLASS_NAME}>قيمة الإيجار المتفق عليها (ر.ع)</label>
+            <input
+              id={`${fieldId}-rental`}
+              type="number"
+              min={MIN_ZERO_AMOUNT}
+              max={selectedDress?.rentalPrice}
+              step={MONEY_STEP}
+              inputMode="decimal"
+              {...register('rentalPrice')}
+              className={FORM_FIELD_CLASS_NAME}
+            />
+            {errors.rentalPrice && <p className={FORM_ERROR_CLASS_NAME}>{errors.rentalPrice.message}</p>}
+            {discountAmount > 0 && (
+              <p className="mt-1 text-xs font-bold text-amber-700">خصم مسجل: {formatMoneyOMR(discountAmount)}</p>
+            )}
+          </div>
           <div>
             <label htmlFor={`${fieldId}-deposit`} className={FORM_LABEL_CLASS_NAME}>العربون (ر.ع)</label>
             <input

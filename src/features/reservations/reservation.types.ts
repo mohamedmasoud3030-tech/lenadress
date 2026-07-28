@@ -23,7 +23,14 @@ export type Reservation = {
   /** Local `HH:MM` return time; falls back to the configured default when absent. */
   returnTime?: string;
   status: ReservationStatus;
+  /** Agreed rental price actually charged to the customer. */
   rentalPrice: number;
+  /**
+   * Catalogue rental price at the moment of booking. The difference against
+   * `rentalPrice` is the recorded discount; without this snapshot a later price
+   * change would look like a concession that was never granted.
+   */
+  listRentalPrice?: number;
   depositAmount: number;
   totalAmount: number;
   paidAmount: number;

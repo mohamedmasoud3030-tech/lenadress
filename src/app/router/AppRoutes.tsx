@@ -13,6 +13,7 @@ import {
   DressDetailsPage,
   DressesPage,
   ExpensesPage,
+  InventoryPerformancePage,
   LandingPage,
   NotFoundPage,
   PaymentsPage,
@@ -50,6 +51,14 @@ export function AppRoutes() {
         <Route path="daily-closing" element={<DailyClosingPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route
+          path="inventory-performance"
+          element={
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <InventoryPerformancePage />
+            </Suspense>
+          }
+        />
         <Route path="preferences" element={<PreferencesPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

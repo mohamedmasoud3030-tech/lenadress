@@ -176,23 +176,43 @@ Never merge PR #62 wholesale.
 
 ## Phase 6 queue — Operational calendar and accessories
 
-Branch: `feature/calendar-accessories-20260728`.
+Completed by [PR #107](https://github.com/mohamedmasoud3030-tech/lenadress/pull/107).
+Head SHA: `1def8fb8af41539358bb985eea73489f0e66c652`. Merge SHA: `a1ac39d7035ac786473f9a506148634ec432f8fe`.
+Required checks: Build #244 and Verify #216, both green on the final head.
 
-- [ ] **IN PROGRESS — 6.01:** Operational reservation calendar with month, week and day views.
+- [x] **6.01:** Operational reservation calendar with month, week and day views.
   - Implementation: `src/features/reservations/reservationCalendar.ts` builds every grid from local-time helpers; `ReservationCalendar.tsx` renders the desktop grid and a phone agenda.
-  - Evidence pending merge: `tests/reservation-calendar.test.mjs`.
-- [ ] **IN PROGRESS — 6.02:** Central reservation conflict rule shared by every write path.
+  - Evidence: `tests/reservation-calendar.test.mjs` (12 tests) in the default gate.
+- [x] **6.02:** Central reservation conflict rule shared by every write path.
   - Implementation: `src/features/reservations/reservationConflicts.ts`; create, reschedule, item swap, extension and accessory attach all resolve through it.
-  - Evidence pending merge: `tests/reservation-conflicts.test.mjs`.
-- [ ] **IN PROGRESS — 6.03:** Configurable preparation-before-pickup and cleaning-after-return windows.
+  - Evidence: `tests/reservation-conflicts.test.mjs` (15 tests) in the default gate.
+- [x] **6.03:** Configurable preparation-before-pickup and cleaning-after-return windows.
   - Implementation: `preferences.service.ts` splits the legacy single buffer and keeps existing installations on their stored value.
-- [ ] **IN PROGRESS — 6.04:** Accessory catalogue with stable stock codes, derived barcodes and printable labels.
+- [x] **6.04:** Accessory catalogue with stable stock codes, derived barcodes and printable labels.
   - Implementation: `src/features/accessories/*`, `@platform/printing` label path, `shared/utils/barcode.ts`.
-  - Evidence pending merge: `tests/accessory-lifecycle.test.mjs`.
-- [ ] **IN PROGRESS — 6.05:** Accessories linked to reservations across delivery, return, partial return, damage and loss.
+  - Evidence: `tests/accessory-lifecycle.test.mjs` (17 tests) in the default gate.
+- [x] **6.05:** Accessories linked to reservations across delivery, return, partial return, damage and loss.
   - Implementation: `reservationAccessory.service.ts`; charges post through the existing expense/finance path, never a parallel ledger.
-- [ ] **IN PROGRESS — 6.06:** Backup and restore coverage for accessories, links, handover state, charges and the new settings.
-  - Evidence pending merge: `tests/accessory-backup-integrity.test.mjs`.
+- [x] **6.06:** Backup and restore coverage for accessories, links, handover state, charges and the new settings.
+  - Evidence: `tests/accessory-backup-integrity.test.mjs` (9 tests) in the default gate.
+
+## Phase 7 queue — Inventory performance and profitability reports
+
+Branch: `feature/inventory-performance-reports-20260728`.
+
+- [ ] **IN PROGRESS — 7.01:** Per-item performance metrics for dresses and accessories.
+  - Implementation: `src/features/reports/inventoryPerformance.service.ts` computes rentals, sales, revenue, discounts, service/damage cost, net result, occupied days, utilisation, average transaction value, average rental length, late/damage/loss counts, last use, idle days and turnover.
+  - Every figure is read from the operational and finance layers, never aggregated from a screen.
+- [ ] **IN PROGRESS — 7.02:** Documented, unambiguous definitions for every metric.
+  - Implementation: `docs/INVENTORY_PERFORMANCE_METRICS.md` records the source of truth and the exact formula for each figure.
+- [ ] **IN PROGRESS — 7.03:** Provable discounts through price snapshots.
+  - Implementation: reservations store `listRentalPrice` and sale lines store `listPrice`, so a concession is recorded when it is granted instead of inferred from a later catalogue price.
+- [ ] **IN PROGRESS — 7.04:** Filters, KPI cards, sortable table, trend chart, ranked lists and a per-item detail view.
+  - Implementation: `InventoryPerformancePage.tsx`, `InventoryPerformanceDetailPanel.tsx`, `PerformanceTrendChart.tsx`, reachable at `/inventory-performance`.
+- [ ] **IN PROGRESS — 7.05:** CSV and print export with UTF-8 BOM and formula-injection protection.
+  - Implementation: `src/shared/utils/csv.ts` and `inventoryPerformanceExport.ts`; printing uses the shared boundary with full escaping.
+- [ ] **IN PROGRESS — 7.06:** Accessory costs attributable to the accessory itself.
+  - Implementation: expenses carry `relatedAccessoryCode`; the accessory return workflow now stamps it on every damage and loss charge.
 
 ## Phase 4 queue — Runtime QA
 
@@ -251,3 +271,4 @@ Branch: `feature/calendar-accessories-20260728`.
 | Phase 1.18 immutable references & display snapshots | PR #96 / `b44ee5a` | Build + Verify | Stable `customerId`/`inventoryItemId` on reservations, idempotent backfill migration, non-destructive snapshot rollback | Complete |
 | Phase 2.07 rollback completeness | PR #106 / `7d8eb9c5789f1494bbd9aed831af8a85fece5f9a` | Build #241 + Verify #213 | Forced delivery and sale-return failures restore all linked operational, financial, audit and idempotency state | Complete |
 | Phase 3.05 barcode labels and lifecycle helpers | PR #105 / `9f08b0c38b4d1050af8a481659a781c2ab9035b8` | Build #238 + Verify #210 | Shared-boundary print failure, stable lookup/identity, canonical lifecycle projection; real camera remains 4.05 | Complete |
+| Phase 6 calendar and accessories | PR #107 / `a1ac39d7035ac786473f9a506148634ec432f8fe` | Build #244 + Verify #216 | Month/week/day calendar on local time, central conflict rule enforced in the service layer, accessory catalogue with derived barcodes, accessory delivery/return/partial-return/damage/loss, backup coverage; real-device evidence remains 4.02/4.04/4.05 | Complete |

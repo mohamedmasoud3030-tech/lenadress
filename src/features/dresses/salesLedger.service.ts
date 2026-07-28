@@ -5,7 +5,15 @@ import { assertBusinessDateOpen } from '../integrity/integrity.service';
 import { updateDressStatus } from './dress.service';
 import { getSaleableDresses, getSales, type SalePaymentMethod, type SaleRecord } from './sale.service';
 
-export type SaleInvoiceLine = { id: string; dressCode: string; dressName: string; amount: number };
+export type SaleInvoiceLine = {
+  id: string;
+  dressCode: string;
+  dressName: string;
+  /** Amount actually charged for this line. */
+  amount: number;
+  /** Catalogue sale price at the moment of sale; `amount` below it is a discount. */
+  listPrice?: number;
+};
 export type SaleInvoice = { id: string; invoiceNumber: string; saleDate: string; customerName: string; customerPhone?: string; paymentMethod: SalePaymentMethod; lines: SaleInvoiceLine[]; totalAmount: number; notes?: string };
 export type SaleReturnRecord = { id: string; returnNumber: string; invoiceNumber: string; returnDate: string; dressCode: string; dressName: string; amount: number; paymentMethod: SalePaymentMethod; notes?: string };
 type InvoiceInput = { saleDate: string; customerName: string; customerPhone?: string; paymentMethod: SalePaymentMethod; lines: Array<{ dressCode: string; amount: number }>; notes?: string };
@@ -48,10 +56,10 @@ export function createSaleInvoice(input: InvoiceInput): SaleInvoice {
     if (!dress || codes.has(line.dressCode)) throw new Error('توجد بنود غير متاحة للبيع أو مكررة.');
     if (!Number.isFinite(line.amount) || line.amount <= 0) throw new Error('قيمة أحد بنود الفاتورة غير صالحة.');
     codes.add(line.dressCode);
-    return { id: generateId(), dressCode: dress.code, dressName: dress.name, amount: line.amount };
+    return { id: generateId(), dressCode: dress.code, dressName: dress.name, amount: line.amount, listPrice: dress.salePrice };
   });
   const invoice: SaleInvoice = { id: generateId(), invoiceNumber: generateNumber('INV'), saleDate: input.saleDate, customerName, customerPhone: input.customerPhone?.trim() || undefined, paymentMethod: input.paymentMethod, lines, totalAmount: lines.reduce((sum, line) => sum + line.amount, 0), notes: input.notes?.trim() || undefined };
-  const sales: SaleRecord[] = lines.map((line) => ({ id: generateId(), saleNumber: generateNumber('SAL'), invoiceNumber: invoice.invoiceNumber, saleDate: invoice.saleDate, dressCode: line.dressCode, dressName: line.dressName, customerName: invoice.customerName, customerPhone: invoice.customerPhone, amount: line.amount, paymentMethod: invoice.paymentMethod, notes: invoice.notes }));
+  const sales: SaleRecord[] = lines.map((line) => ({ id: generateId(), saleNumber: generateNumber('SAL'), invoiceNumber: invoice.invoiceNumber, saleDate: invoice.saleDate, dressCode: line.dressCode, dressName: line.dressName, customerName: invoice.customerName, customerPhone: invoice.customerPhone, amount: line.amount, listPrice: line.listPrice, paymentMethod: invoice.paymentMethod, notes: invoice.notes }));
   writeCollection(INVOICE_COLLECTION, [invoice, ...getSaleInvoices()]);
   writeCollection('sales', [...sales, ...getSales()]);
   lines.forEach((line) => updateDressStatus(line.dressCode, 'sold'));
