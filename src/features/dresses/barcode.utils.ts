@@ -15,8 +15,11 @@ export function normalizeDressBarcodeValue(value: string): string {
 /**
  * Persisted barcodes are derived from the monotonic, never-reused item code.
  * This makes label regeneration stable across reload, backup and restore.
+ * The optional argument keeps the old add-form call source-compatible; the
+ * inventory service owns the final allocation and always passes the real code.
  */
-export function generateDressBarcodeValue(code: string): string {
+export function generateDressBarcodeValue(code?: string): string {
+  if (code === undefined) return '';
   const normalizedCode = normalizeDressBarcodeValue(code);
   if (!normalizedCode) throw new Error('كود العنصر مطلوب لتوليد الباركود.');
   return normalizedCode;
