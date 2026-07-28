@@ -128,15 +128,18 @@ Do not start these before Phase 0.5A is merged. Shell/router work may proceed on
   - Evidence: [PR #93](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/93), merge `6cc44047189ac71322252f30df6d5a532d93736a`.
 - [x] **1.17:** Added explicit confirmed demo-data loading and reversible reset.
   - Evidence: [PR #94](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/94), merge `eb8af6d`; introduced `loadConfirmedDemoData` / `revertDemoDataToPreviousSnapshot` in `@engines/persistence/demoData.ts` backed by clean `demoDataRecords.ts`.
-- [ ] **IN PROGRESS — 1.18:** Add immutable customer and inventory references while preserving display snapshots.
-- [ ] **NEXT — 1.19:** Replace length-based inventory codes with a monotonic collision-safe allocator.
-- [ ] **PENDING — 1.20:** Archive referenced inventory/customers instead of hard-deleting them.
+- [x] **1.18:** Added immutable customer and inventory references while preserving display snapshots.
+  - Evidence: [PR #96](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/96), merge `b44ee5a`.
+- [x] **1.19:** Replaced length-based inventory codes with a monotonic collision-safe allocator.
+  - Evidence: [PR #97](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/97); durable `counters` collection, `retired-codes` ledger, reconciliation after restore/migration, `tests/inventory-codes-and-archive.test.mjs`.
+- [x] **1.20:** Archive referenced inventory/customers instead of hard-deleting them.
+  - Evidence: [PR #97](https://github.com/mohamedmasoud3030-tech/dress-roomshow/pull/97); `archiveDress`/`archiveCustomer`, hard-delete blockers across reservations, sales, invoices, returns, payments, expenses, delivery/return and service tasks, plus Arabic UI explanation on the item page.
 
 **Phase 1 exit:** no supported operation creates data omitted from backup/restore or desktop persistence, and historical relations do not depend only on mutable phone/code values.
 
 ## Phase 2 queue — Atomic workflows and financial correctness
 
-- [ ] **PENDING — 2.01:** Reservation create/cancel command with audit in the same transaction boundary.
+- [ ] **NEXT — 2.01:** Reservation create/cancel command with audit in the same transaction boundary.
 - [ ] **PENDING — 2.02:** Payment, refund, fee, adjustment, and deposit-settlement commands.
 - [ ] **PENDING — 2.03:** Delivery and return commands with inventory/service transitions.
 - [ ] **PENDING — 2.04:** Canonical sale invoice and sale-line return/refund commands; quick sale becomes a one-line invoice.
@@ -202,4 +205,4 @@ Never merge PR #62 wholesale.
 | Phase 1.10-1.14 versioned backup schema & images | PR #92 / `f7e3a1b6ea3916851a4f51d15aa893fc6ef1cf93` | Build + Verify | Versioned backup schema, async export/import, full validation, and exact image rollback | Complete (1.15 runtime evidence deferred to 4.04) |
 | Phase 1.16 remove production mock fallback | PR #93 / `6cc44047189ac71322252f30df6d5a532d93736a` | Build + Verify | Default operational queries to empty arrays instead of injecting mock data | Complete |
 | Phase 1.17 confirmed demo data & reversible reset | PR #94 / `eb8af6dcb` | Build + Verify | Explicit confirmed demo loading (`loadConfirmedDemoData`) with pre-demo snapshot rollback | Complete |
-| Phase 1.18 immutable references & display snapshots | PR pending / branch `feat/phase-1-18-immutable-references` | Build + Verify | Stable `customerId`/`inventoryItemId` on reservations plus idempotent backfill migration | In Progress |
+| Phase 1.18 immutable references & display snapshots | PR #96 / `b44ee5a` | Build + Verify | Stable `customerId`/`inventoryItemId` on reservations, idempotent backfill migration, non-destructive snapshot rollback | Complete |

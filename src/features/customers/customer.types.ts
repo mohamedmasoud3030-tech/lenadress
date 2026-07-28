@@ -13,6 +13,8 @@ export type Customer = {
   totalPaid: number;
   remainingBalance: number;
   lastReservationDate?: string;
+  /** Set when the customer is archived instead of deleted; history stays intact. */
+  archivedAt?: string;
 };
 
 export type CustomerFilters = {

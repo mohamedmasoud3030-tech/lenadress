@@ -1,7 +1,35 @@
 import { Dress, DressFilters } from './dress.types';
-import { migrateLegacyInventoryStorage, readCollection, writeCollection } from '../../services/localDatabase';
+import { allocateCode, migrateLegacyInventoryStorage, readCollection, reconcileCounter, writeCollection } from '../../services/localDatabase';
+import { recordAudit } from '../audit/audit.service';
+import { assertDressCanBeArchived, getDressHardDeleteBlockers } from '../integrity/integrity.service';
 
 const INVENTORY_COLLECTION = 'dresses';
+const RETIRED_CODES_COLLECTION = 'retired-codes';
+const INVENTORY_CODE_COUNTER = 'inventory-code';
+const INVENTORY_CODE_PREFIX = 'D';
+
+type RetiredCode = { code: string; retiredAt: string };
+
+function getRetiredCodes(): RetiredCode[] {
+  return readCollection<RetiredCode>(RETIRED_CODES_COLLECTION, []);
+}
+
+/**
+ * Every code the system has ever handed out and can still observe: live items
+ * plus codes retired by deletion. Used so a code is never reused.
+ */
+function getReservedCodes(dresses: Dress[]): string[] {
+  return [...dresses.map((dress) => dress.code), ...getRetiredCodes().map((entry) => entry.code)].filter(Boolean);
+}
+
+/** Raises the durable counter after migration or restore so codes stay monotonic. */
+export function reconcileInventoryCodeCounter(): number {
+  return reconcileCounter(INVENTORY_CODE_COUNTER, INVENTORY_CODE_PREFIX, getReservedCodes(getDressesFromStorage()));
+}
+
+export function allocateInventoryCode(): string {
+  return allocateCode(INVENTORY_CODE_COUNTER, INVENTORY_CODE_PREFIX, getReservedCodes(getDressesFromStorage()));
+}
 
 function getDressesFromStorage(): Dress[] {
   migrateLegacyInventoryStorage();
@@ -34,7 +62,7 @@ export function addDress(input: Omit<Dress, 'id' | 'code' | 'timesRented'>): Dre
     ...input,
     itemType: input.itemType ?? 'dress',
     id: `dress-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    code: `D${String(dresses.length + 1).padStart(3, '0')}`,
+    code: allocateInventoryCode(),
     timesRented: 0,
   };
 
@@ -107,12 +135,78 @@ export function summarizeDresses(): { total: number; available: number; rented: 
   };
 }
 
+/**
+ * Archives an item instead of deleting it. Archived items stay in storage so
+ * reports, invoices and history keep resolving, but they leave the working set.
+ */
+export function archiveDress(code: string): Dress | null {
+  const dresses = getDressesFromStorage();
+  const dress = dresses.find((item) => item.code === code);
+  if (!dress) return null;
+
+  assertDressCanBeArchived(dress.code, dress.status);
+  const archived: Dress = { ...dress, status: 'inactive', archivedAt: new Date().toISOString() };
+  saveDressesToStorage(dresses.map((item) => (item.code === code ? archived : item)));
+  recordAudit({
+    action: 'archive',
+    entityType: 'dress',
+    entityId: dress.id,
+    summary: `تمت أرشفة العنصر ${dress.code} بدلاً من حذفه للحفاظ على تاريخه.`,
+    previousValues: { status: dress.status },
+    nextValues: { status: archived.status },
+  });
+  return archived;
+}
+
+export function restoreArchivedDress(code: string, status: Dress['status'] = 'inspection'): Dress | null {
+  const dresses = getDressesFromStorage();
+  const dress = dresses.find((item) => item.code === code);
+  if (!dress) return null;
+
+  const restored: Dress = { ...dress, status, archivedAt: undefined };
+  saveDressesToStorage(dresses.map((item) => (item.code === code ? restored : item)));
+  recordAudit({
+    action: 'restore',
+    entityType: 'dress',
+    entityId: dress.id,
+    summary: `تمت إعادة تفعيل العنصر ${dress.code} إلى حالة الفحص.`,
+    previousValues: { status: dress.status },
+    nextValues: { status: restored.status },
+  });
+  return restored;
+}
+
+export function getDressDeletionBlockers(code: string): string[] {
+  const dress = getDressesFromStorage().find((item) => item.code === code);
+  if (!dress) return ['العنصر غير موجود.'];
+  return getDressHardDeleteBlockers(dress.code, dress.status);
+}
+
+/**
+ * Hard delete is only permitted for a brand-new item with no operational or
+ * financial history. The code is retired permanently and never reused.
+ */
 export function deleteDress(code: string): boolean {
   const dresses = getDressesFromStorage();
-  const filtered = dresses.filter(d => d.code !== code);
-  
-  if (filtered.length === dresses.length) return false;
+  const dress = dresses.find((item) => item.code === code);
+  if (!dress) return false;
 
-  saveDressesToStorage(filtered);
+  const blockers = getDressHardDeleteBlockers(dress.code, dress.status);
+  if (blockers.length > 0) {
+    throw new Error(`${blockers.join(' ')} استخدمي الأرشفة بدل الحذف.`);
+  }
+
+  writeCollection<RetiredCode>(RETIRED_CODES_COLLECTION, [
+    ...getRetiredCodes(),
+    { code: dress.code, retiredAt: new Date().toISOString() },
+  ]);
+  saveDressesToStorage(dresses.filter((item) => item.code !== code));
+  recordAudit({
+    action: 'delete',
+    entityType: 'dress',
+    entityId: dress.id,
+    summary: `تم حذف العنصر ${dress.code} لعدم وجود أي تاريخ تشغيلي أو مالي مرتبط به.`,
+    previousValues: { code: dress.code, name: dress.name, status: dress.status },
+  });
   return true;
 }
