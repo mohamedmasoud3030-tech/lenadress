@@ -18,6 +18,7 @@ import { recordPaymentCommand } from '../workflows';
 import { formatPaymentMethodLabel, formatPaymentTypeLabel } from './payment.service';
 import type { ManualPaymentType, PaymentMethod, PaymentRecord } from './payment.types';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { SearchableSelect, type SearchableOption } from '../../components/shared/SearchableSelect';
 
 type AddPaymentModalProps = {
   open: boolean;
@@ -120,6 +121,14 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
   const maximum = getMaximumAmount(selected, form.type);
   const preview = getPaymentPreview(selected, form.type, amount, maximum);
 
+  // A showroom with hundreds of bookings cannot use a native wheel to find one.
+  const reservationOptions = useMemo<SearchableOption[]>(() => reservations.map((item) => ({
+    value: item.reservationNumber,
+    label: `${item.reservationNumber} — ${item.customerName}`,
+    hint: `${item.dressCode} · ${item.dressName}`,
+    badge: formatMoneyOMR(item.remainingAmount),
+  })), [reservations]);
+
   useEffect(() => {
     if (!open) return;
     setForm(getDefaultForm());
@@ -179,22 +188,16 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
         </div>
 
         <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
-          <label className={STACKED_FORM_LABEL_CLASS_NAME}>
-            الحجز
-            <select
-              required
-              value={form.reservationNumber}
-              onChange={(event) => setForm((current) => ({ ...current, reservationNumber: event.target.value }))}
-              className={STACKED_FORM_FIELD_CLASS_NAME}
-            >
-              <option value="">اختاري الحجز</option>
-              {reservations.map((item) => (
-                <option key={item.id} value={item.reservationNumber}>
-                  {item.reservationNumber} - {item.customerName} - {item.dressCode}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SearchableSelect
+            label="الحجز"
+            required
+            value={form.reservationNumber}
+            onChange={(reservationNumber) => setForm((current) => ({ ...current, reservationNumber }))}
+            options={reservationOptions}
+            placeholder="اختاري الحجز"
+            searchPlaceholder="ابحثي برقم الحجز أو العميلة أو الكود…"
+            unavailableText="لا توجد حجوزات مؤهلة لهذه الحركة حالياً."
+          />
 
           <label className={STACKED_FORM_LABEL_CLASS_NAME}>
             تاريخ الحركة

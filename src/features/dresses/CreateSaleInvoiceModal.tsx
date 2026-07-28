@@ -9,6 +9,7 @@ import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { getTodayISO } from '../../shared/utils/date';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { SearchableSelect, type SearchableOption } from '../../components/shared/SearchableSelect';
 import { BASIC_PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from '../payments/payment.constants';
 import type { SaleInvoice } from './salesLedger.service';
 import { createSaleInvoiceCommand } from '../workflows';
@@ -32,6 +33,12 @@ export function CreateSaleInvoiceModal({ open, onClose, onCreated }: Props) {
   const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('inv'));
 
   const total = lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+  const dressOptions = useMemo<SearchableOption[]>(() => dresses.map((dress) => ({
+    value: dress.code,
+    label: `${dress.code} — ${dress.name}`,
+    hint: `${dress.size} · ${dress.color}`,
+    badge: formatMoneyOMR(dress.salePrice),
+  })), [dresses]);
 
   useEffect(() => {
     if (!open) return;
@@ -142,19 +149,18 @@ export function CreateSaleInvoiceModal({ open, onClose, onCreated }: Props) {
 
           {lines.map((line, index) => (
             <div key={index} className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[1fr_170px_auto]">
-              <SelectField
+              <SearchableSelect
                 label={`العنصر (بند ${index + 1})`}
                 required
                 value={line.dressCode}
-                onChange={(event) => selectDress(index, event.target.value)}
-              >
-                <option value="">اختاري العنصر</option>
-                {dresses.map((dress) => (
-                  <option key={dress.id} value={dress.code}>{dress.code} — {dress.name}</option>
-                ))}
-              </SelectField>
+                onChange={(dressCode) => selectDress(index, dressCode)}
+                options={dressOptions}
+                placeholder="اختاري العنصر"
+                searchPlaceholder="ابحثي بالكود أو الاسم…"
+                unavailableText="لا توجد عناصر مؤهلة للبيع حالياً."
+              />
 
-              <MoneyField
+                            <MoneyField
                 label={`القيمة (بند ${index + 1})`}
                 required
                 min={MIN_MONEY_AMOUNT}
