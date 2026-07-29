@@ -34,6 +34,12 @@ export type AuditActionType =
 
 export type AuditLogEntry = {
   id: string;
+  /**
+   * Operator this action is attributed to. Optional because every entry written
+   * before attribution existed has none, and rewriting history to invent an
+   * author would be worse than admitting it is unknown.
+   */
+  performedBy?: string;
   action: AuditActionType;
   entityType: AuditEntityType;
   entityId: string;
@@ -47,4 +53,6 @@ export type AuditLogFilters = {
   search: string;
   entityType: AuditEntityType | 'all';
   action: AuditActionType | 'all';
+  /** Narrow the log to one operator. */
+  performedBy?: string;
 };

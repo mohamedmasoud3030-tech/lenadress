@@ -5,6 +5,8 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { AddCustomerModal } from './AddCustomerModal';
+import { CustomerConductPanel } from './CustomerConductPanel';
+import { getCustomerConduct } from './customerConduct.service';
 import { ViewModeToggle, useViewMode } from '../../components/shared/ViewModeToggle';
 import { archiveCustomer, deleteCustomer, filterCustomers, getCustomerDeletionBlockers, getCustomers, summarizeCustomers } from './customer.service';
 import type { Customer, CustomerFilters, CustomerStatus } from './customer.types';
@@ -28,6 +30,9 @@ const statuses: Array<'all' | CustomerStatus> = ['all', 'normal', 'trusted', 'wa
 function CustomerCard({ customer, onArchive, onDelete }: { customer: Customer; onArchive: (customer: Customer) => void; onDelete: (customer: Customer) => void }) {
   const deletionBlockers = getCustomerDeletionBlockers(customer.id);
   const canHardDelete = deletionBlockers.length === 0;
+  const [showConduct, setShowConduct] = useState(false);
+  // A warning must be visible before booking, not hidden behind a click.
+  const conduct = getCustomerConduct(customer);
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -58,6 +63,24 @@ function CustomerCard({ customer, onArchive, onDelete }: { customer: Customer; o
           </p>
         </div>
       </div>
+
+      {conduct.advisories.length > 0 && (
+        <p role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs font-bold text-amber-900">
+          ⚠ {conduct.advisories[0]}
+          {conduct.advisories.length > 1 ? ` (+${conduct.advisories.length - 1})` : ''}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setShowConduct((current) => !current)}
+        aria-expanded={showConduct}
+        className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      >
+        {showConduct ? 'إخفاء سجل التعامل' : `سجل التعامل · التزام ${conduct.reliabilityScore}`}
+      </button>
+
+      {showConduct && <div className="mt-3"><CustomerConductPanel customer={customer} /></div>}
 
       <div className="mt-5 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600">
         <p><span className="font-semibold text-slate-900">المقاسات:</span> {customer.measurements || 'غير مسجلة'}</p>

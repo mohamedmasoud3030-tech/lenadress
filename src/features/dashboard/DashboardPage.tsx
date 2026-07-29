@@ -10,6 +10,7 @@ import {
   Plus,
   Shirt,
   UsersRound,
+  Wallet,
   WalletCards,
   Wrench,
 } from 'lucide-react';
@@ -66,7 +67,7 @@ function TaskList({ tasks, emptyText }: { tasks: DashboardTask[]; emptyText: str
 export function DashboardPage() {
   const snapshot = useMemo(() => getDashboardSnapshot(), []);
   const empty = useMemo(() => isShowroomEmpty(), []);
-  const { money, reservations, service } = snapshot;
+  const { money, reservations, service, depositLiability } = snapshot;
 
   if (empty) {
     return (
@@ -179,6 +180,28 @@ export function DashboardPage() {
         <SummaryCard label="غير محصّل" value={formatMoneyOMR(money.outstandingTotal)} tone={money.outstandingTotal > 0 ? 'warning' : 'default'} hint={`${money.outstandingCount} حجز`} />
         <SummaryCard label="متأخرة" value={reservations.overdue} tone={reservations.overdue > 0 ? 'danger' : 'default'} hint="تجاوزت موعد الإرجاع" />
       </div>
+
+      {depositLiability.held > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50/70 p-4 shadow-sm">
+          <div className="flex min-w-0 items-center gap-3">
+            <Wallet aria-hidden="true" className="h-5 w-5 shrink-0 text-sky-700" />
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold text-sky-900">
+                عرابين محتجزة لديكِ: {formatMoneyOMR(depositLiability.held)}
+              </p>
+              <p className="mt-0.5 text-xs text-sky-800">
+                مبلغ مستحق الرد للعميلات وليس إيراداً. احتفظي بما يغطيه في الصندوق.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/reports"
+            className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-sky-300 bg-white px-4 text-sm font-bold text-sky-900 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+          >
+            تفاصيل الالتزامات
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="تسليمات اليوم" description="الحجوزات المستحقة للتسليم اليوم مرتبة بالوقت." action={<Link to="/delivery-return" className="text-sm font-bold text-amber-700 hover:text-amber-900">فتح الشاشة</Link>}>

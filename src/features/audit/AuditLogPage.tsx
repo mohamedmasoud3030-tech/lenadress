@@ -74,7 +74,9 @@ export function AuditLogPage() {
           {filteredEntries.map((entry) => (
             <article key={entry.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="font-bold text-slate-950">{entry.summary}</p><p className="mt-1 text-xs text-slate-500">{entityLabels[entry.entityType]} · {actionLabels[entry.action]} · {entry.entityId}</p></div>
+                <div><p className="font-bold text-slate-950">{entry.summary}</p><p className="mt-1 text-xs text-slate-500">{entityLabels[entry.entityType]} · {actionLabels[entry.action]} · {entry.entityId}</p>
+                  {/* Attribution is the question this log exists to answer. */}
+                  <p className="mt-1 text-xs font-bold text-slate-600">بواسطة: {entry.performedBy ?? 'غير مسجّل'}</p></div>
                 <time className="text-xs font-semibold text-slate-500">{new Date(entry.timestamp).toLocaleString('ar-OM')}</time>
               </div>
             </article>

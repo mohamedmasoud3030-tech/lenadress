@@ -13,6 +13,7 @@ export { PaymentsPage } from '../../features/payments/PaymentsPage';
 export { PreferencesPage } from '../../features/preferences/PreferencesPage';
 export { DailyClosingPage } from '../../features/reports/DailyClosingPage';
 export { RemindersPage } from '../../features/reminders/RemindersPage';
+export { WaitlistPage } from '../../features/waitlist/WaitlistPage';
 export { ReportsPage } from '../../features/reports/ReportsPage';
 
 export const InventoryPerformancePage = lazy(async () => {
