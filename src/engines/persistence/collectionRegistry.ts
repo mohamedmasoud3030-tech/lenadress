@@ -33,6 +33,8 @@ export const REGISTERED_COLLECTIONS = [
   'counters',
   'command-log',
   'reminder-dismissals',
+  'operators',
+  'customer-conduct-notes',
   'retired-codes',
   'preferences',
   'showroom-profile',
