@@ -20,7 +20,12 @@ export type LandingStep = {
 
 export type LandingContact = {
   phone: string;
+  /** Additional numbers, e.g. a second branch or a sales line. */
+  alternatePhones?: string[];
   whatsapp: string;
+  email: string;
+  /** Secondary mailbox, e.g. accounts or support. */
+  alternateEmail?: string;
   instagram: string;
   address: string;
   workingHours: string;
@@ -114,10 +119,13 @@ export const landingShowroomProfile: LandingShowroomProfile = {
     },
   ],
   contact: {
-    phone: '+968 9000 0000',
-    whatsapp: '+968 9000 0000',
+    phone: '+968 9191 8186',
+    alternatePhones: ['+966 50 868 8213', '+20 121 210 1073'],
+    whatsapp: '+968 9191 8186',
+    email: 'Ahmedmasoud@outlook.com',
+    alternateEmail: 'MohamedMs.oud@outlook.com',
     instagram: '@lena.showroom',
-    address: 'سلطنة عمان - يحدد العميل عنوانه الفعلي هنا',
+    address: 'سلطنة عمان',
     workingHours: 'السبت إلى الخميس — 10 صباحًا إلى 9 مساءً',
   },
 };

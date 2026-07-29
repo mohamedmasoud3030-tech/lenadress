@@ -1,4 +1,17 @@
-import { escapeHtml, printDocument } from '@platform/printing';
+import { escapeHtml, getPaperDefinition, printDocument } from '@platform/printing';
+import { getPrintSettings } from '../preferences/printSettings.service';
+
+/**
+ * A label always prints on label stock.
+ *
+ * The showroom's document paper size (usually A4) must not push an 80mm sticker
+ * onto a full sheet, so only the colour mode and font size are inherited.
+ */
+function getLabelPrintSettings() {
+  const settings = getPrintSettings();
+  const label = getPaperDefinition('label80x45');
+  return { ...settings, paperSize: label.id, margins: label.defaultMargins, density: 'compact' as const };
+}
 import { ACCESSORY_CATEGORY_LABELS } from '../../shared/domain/accessoryConstants';
 import type { Accessory } from './accessory.types';
 
@@ -44,5 +57,5 @@ export function buildAccessoryLabelHtml({ accessory, svgMarkup }: AccessoryLabel
 }
 
 export function printAccessoryLabel(input: AccessoryLabelInput): void {
-  printDocument(`بطاقة الملحق ${input.accessory.code}`, buildAccessoryLabelHtml(input));
+  printDocument(`بطاقة الملحق ${input.accessory.code}`, buildAccessoryLabelHtml(input), getLabelPrintSettings());
 }

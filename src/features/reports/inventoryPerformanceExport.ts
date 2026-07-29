@@ -4,6 +4,7 @@ import { formatMoneyOMR } from '../../shared/utils/format';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
 import { PERFORMANCE_SORT_LABELS } from './inventoryPerformance.service';
 import type { InventoryPerformanceReport, InventoryPerformanceRow } from './inventoryPerformance.types';
+import { getPrintSettings } from '../preferences/printSettings.service';
 
 /**
  * Export and print for the inventory performance report.
@@ -148,5 +149,5 @@ export function buildInventoryPerformanceHtml(report: InventoryPerformanceReport
 }
 
 export function printInventoryPerformanceReport(report: InventoryPerformanceReport): void {
-  printDocument(`تقرير أداء المخزون ${report.filters.from} — ${report.filters.to}`, buildInventoryPerformanceHtml(report));
+  printDocument(`تقرير أداء المخزون ${report.filters.from} — ${report.filters.to}`, buildInventoryPerformanceHtml(report), getPrintSettings());
 }

@@ -6,6 +6,7 @@ import { getDresses } from '../dresses/dress.service';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
 import { getReservationTimes } from './reservation.service';
 import type { Reservation } from './reservation.types';
+import { getPrintSettings } from '../preferences/printSettings.service';
 
 /**
  * Printable rental contract.
@@ -82,7 +83,7 @@ export function buildRentalContractHtml(reservation: Reservation): string {
 
 export function printRentalContract(reservation: Reservation): void {
   try {
-    printDocument(`عقد إيجار ${reservation.reservationNumber}`, buildRentalContractHtml(reservation));
+    printDocument(`عقد إيجار ${reservation.reservationNumber}`, buildRentalContractHtml(reservation), getPrintSettings());
   } catch (error) {
     if (error instanceof PrintDocumentError) {
       throw new PrintRentalContractError(error.message, error);
