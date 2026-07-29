@@ -13,6 +13,7 @@ import { isIndexedDBAvailable } from '../../services/imageStorage.service';
 import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
+import { OperatorSettings } from './OperatorSettings';
 
 const preferenceFieldClassName = 'mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30';
 
@@ -150,6 +151,8 @@ export function PreferencesPage() {
         </p>
         <button type="button" onClick={savePreferences} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"><Save aria-hidden="true" className="h-4 w-4" />حفظ الإعدادات</button>
       </article>
+
+      <OperatorSettings />
 
       <ShowroomProfileEditor />
     </section>
