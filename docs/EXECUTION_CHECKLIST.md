@@ -323,6 +323,46 @@ Analysis: `docs/MEASUREMENTS_AND_PRINTING.md`.
 
 - [ ] **DEFERRED — 12.09:** Automatic backup, device PIN and storage capacity indicator.
   - Moved by explicit decision into the connectivity/Supabase phase, where a server-side backup target exists.
+  - **Partially addressed in Phase 13 without Supabase:** the storage-capacity risk had been misdiagnosed. The
+    cause was not a missing indicator but raw 4-6MB camera photos stored as base64 data URLs; Phase 13 compresses
+    every image to a 1280px WebP before it is persisted, typically an order of magnitude smaller. The indicator and
+    the PIN remain deferred, the PIN by explicit instruction.
+
+## Phase 13 — Operational gaps found by reading the code
+
+Opened by an open question from the owner ("what would you upgrade or add?"), with device PIN and Supabase both
+excluded by explicit instruction. Full reasoning in `docs/PHASE_13_OPERATIONAL_GAPS.md`.
+
+- [x] **13.01:** Arabic-aware search across all 12 search call sites.
+  - Hamza seats, ta marbuta, alef maqsura, tashkeel, tatweel and Arabic-Indic digits folded on both sides of the
+    comparison, plus a digit-joining branch so "91918186" reaches "+968 9191 8186". The defect was creating
+    duplicate customer records and hiding uncollected balances in the copy nobody opens.
+- [x] **13.02:** Reverse-direction availability search at `/availability`.
+  - The period is the primary control. Every refusal carries a reason, the blocking reservation, the next free
+    date for the same duration, and free sibling pieces. Resolved through the central conflict rule, never a
+    stored flag, and asserted by a test that books what the search offered.
+- [x] **13.03:** Condition photo evidence on delivery and return.
+  - Timestamped, capped at 4, validated as `data:image`, stored on the record so they travel inside the backup
+    with the record they prove. Proven by an export/import round-trip test.
+- [x] **13.04:** Image compression in the platform layer.
+  - 1280px long edge, WebP with a JPEG fallback, original returned when compression would enlarge it.
+- [x] **13.05:** Configurable late-fee policy with a suggested, editable figure.
+  - Fixed per day or a percentage of the agreed rental, with a grace allowance and a cap. Ships disabled.
+    Suggests and never imposes, because waiving a fee is a commercial decision the showroom must keep.
+- [x] **13.06:** Periodic stocktake at `/stocktake`.
+  - Additive counting; absence derived at close and classified, so pieces out on a rental or in the laundry are
+    explained rather than reported as loss. Closing never changes an item's status.
+- [x] **13.07:** Batch barcode label printing from the inventory list.
+  - One document, one page break per label. The active filter is the selection.
+- [x] **13.08:** Owner-editable WhatsApp reminder templates with a live preview.
+  - Plain `{{placeholder}}` substitution, never an expression language. Defaults byte-identical to the previous
+    hard-coded wording, proven by the 13 pre-existing reminder tests passing unchanged.
+- [x] **13.09:** Prompted app updates and a visible build version.
+  - `registerType` changed from `autoUpdate` to `prompt`, so a new build cannot replace a half-filled booking
+    form mid-sentence. Version and build date injected at build time and shown in settings.
+- [x] **13.10:** CSV export for payments, expenses, reservations, customers and the audit log.
+  - Filter-respecting, BOM-prefixed, formula-injection guarded, ISO dates. Shared `src/platform/download` helper
+    fixes a copy-pasted defect where the detached anchor's click was ignored by some WebViews.
 
 ## Phase 4 queue — Runtime QA
 
@@ -395,3 +435,4 @@ Analysis: `docs/MEASUREMENTS_AND_PRINTING.md`.
 | Phase 10 designs, reporting and reminders | PR #115 / `a42436864f1da52c6dfc963e410cb3306e43bf3f` | Build #260 + Verify #232 | Design page with period availability, later variants, piece linking, pooled design performance, grid/list everywhere, piece identity on the contract, derived reminders with expiring dismissals, WhatsApp deep-link hand-off | Complete (real-device WhatsApp confirmation outstanding) |
 | Phase 11 conduct, attribution, liability, waitlist | PR #117 / `b535f6e5bd2e9c957dfd1bee722b79b283d69b25` | Build #266 + Verify #238 | Derived customer conduct with authored notes, central audit attribution, deposit liability on the dashboard, waiting list with live availability | Complete |
 | Phase 12 measurements, contacts, printing | PR #119 / `3f5220c4caaea6139565eb991b83971a2c24cdb0` | Build #270 + Verify #242 | Structured measurements with honest size suggestion, contact details on documents, configurable paper/margins/colour/sections, print test page | Complete |
+| Phase 13 operational gaps | PR #121 | Build + Verify per commit | Arabic-aware search, reverse availability search, condition photo evidence, image compression, configurable late-fee policy, periodic stocktake, batch labels, editable reminder templates, prompted updates with a visible version, CSV export for every ledger; 176 new tests plus 6 ui-contract and 2 pwa-build-contract, all wired into the default gate. Two real defects caught before merge: an unrecognised late-fee mode invented a charge, and `@vite-ignore` left the service worker silently unregistered | Complete (device confirmation remains 4.02) |
