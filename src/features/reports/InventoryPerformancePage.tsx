@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Download, Printer } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
@@ -316,6 +317,56 @@ export function InventoryPerformancePage() {
               onOpen={openDetail}
             />
           </div>
+
+          {report.designRows.length > 0 && (
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-slate-950">أداء التصاميم</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                مجمّع من قطع كل تصميم. نسبة الإشغال محسوبة على مجموع أيام القطع، فقطعة مشغولة لا تُخفي قطعاً راكدة.
+              </p>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[46rem] text-right text-sm">
+                  <caption className="sr-only">أداء كل تصميم خلال الفترة المحددة</caption>
+                  <thead className="text-xs text-slate-500">
+                    <tr>
+                      <th scope="col" className="p-2">التصميم</th>
+                      <th scope="col" className="p-2">القطع</th>
+                      <th scope="col" className="p-2">تأجير</th>
+                      <th scope="col" className="p-2">الإيراد</th>
+                      <th scope="col" className="p-2">صافي العائد</th>
+                      <th scope="col" className="p-2">الإشغال</th>
+                      <th scope="col" className="p-2">قطع راكدة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.designRows.map((design) => (
+                      <tr key={design.designId} className="border-t border-slate-100">
+                        <td className="p-2">
+                          <Link
+                            to={`/designs/${encodeURIComponent(design.code)}`}
+                            className={`block font-bold text-slate-900 underline-offset-2 hover:underline ${AMBER_FOCUS_RING_CLASS_NAME}`}
+                          >
+                            {design.code} — {design.name}
+                          </Link>
+                          <span className="block text-xs text-slate-500">{design.category}</span>
+                        </td>
+                        <td className="p-2">{design.pieceCount}</td>
+                        <td className="p-2">{design.rentalCount}</td>
+                        <td className="p-2">{formatMoneyOMR(design.totalRevenue)}</td>
+                        <td className={`p-2 font-bold ${design.netResult < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          {formatMoneyOMR(design.netResult)}
+                        </td>
+                        <td className="p-2">{percent(design.utilisationRate)}</td>
+                        <td className={`p-2 ${design.idlePieceCount > 0 ? 'font-bold text-amber-700' : ''}`}>
+                          {design.idlePieceCount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          )}
 
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-bold text-slate-950">الجدول التفصيلي</h2>

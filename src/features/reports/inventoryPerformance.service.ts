@@ -2,6 +2,7 @@ import { addDaysISO, differenceInDays, getTodayISO } from '../../shared/utils/da
 import { getAccessories } from '../accessories/accessory.service';
 import { getReservationAccessories } from '../accessories/reservationAccessory.service';
 import { getDresses } from '../dresses/dress.service';
+import { getDressDesigns } from '../dresses/design.service';
 import { getSales } from '../dresses/sale.service';
 import { getSaleReturns } from '../dresses/salesLedger.service';
 import { getExpenses } from '../expenses/expense.service';
@@ -17,6 +18,7 @@ import { RESERVATION_STATUS_LABELS } from '../../shared/domain/reservationConsta
 import type { PaymentRecord } from '../payments/payment.types';
 import type { Reservation } from '../reservations/reservation.types';
 import type {
+  DesignPerformanceRow,
   InventoryPerformanceDetail,
   InventoryPerformanceFilters,
   InventoryPerformanceReport,
@@ -519,6 +521,66 @@ function performanceScore(row: InventoryPerformanceRow): number {
   return row.netResult * (0.5 + row.utilisationRate);
 }
 
+/**
+ * Rolls per-piece rows up to their design.
+ *
+ * Every figure is summed from rows the finance layer already produced, so a
+ * design can never report a number its own pieces do not add up to. Designs with
+ * no pieces in the filtered set are omitted rather than shown as empty noise.
+ */
+function summarizeDesignPerformance(rows: InventoryPerformanceRow[]): DesignPerformanceRow[] {
+  const designs = getDressDesigns();
+  if (designs.length === 0) return [];
+
+  // A row is a piece; map it back to its design through the inventory record.
+  const designByPieceId = new Map<string, string>();
+  getDresses().forEach((dress) => {
+    if (dress.designId) designByPieceId.set(dress.id, dress.designId);
+  });
+
+  const grouped = new Map<string, InventoryPerformanceRow[]>();
+  rows.forEach((row) => {
+    const designId = designByPieceId.get(row.id);
+    if (!designId) return;
+    grouped.set(designId, [...(grouped.get(designId) ?? []), row]);
+  });
+
+  return designs
+    .filter((design) => grouped.has(design.id))
+    .map((design) => {
+      const pieceRows = grouped.get(design.id) ?? [];
+      const occupiedDays = pieceRows.reduce((total, row) => total + row.occupiedDays, 0);
+      const availableDays = pieceRows.reduce((total, row) => total + row.availableDays, 0);
+      const best = pieceRows.reduce<InventoryPerformanceRow | null>(
+        (winner, row) => (winner === null || row.totalRevenue > winner.totalRevenue ? row : winner),
+        null,
+      );
+
+      return {
+        designId: design.id,
+        code: design.code,
+        name: design.name,
+        category: design.category,
+        pieceCount: pieceRows.length,
+        rentalCount: pieceRows.reduce((total, row) => total + row.rentalCount, 0),
+        saleCount: pieceRows.reduce((total, row) => total + row.saleCount, 0),
+        totalRevenue: pieceRows.reduce((total, row) => total + row.totalRevenue, 0),
+        discounts: pieceRows.reduce((total, row) => total + row.discounts, 0),
+        totalCost: pieceRows.reduce((total, row) => total + row.totalCost, 0),
+        netResult: pieceRows.reduce((total, row) => total + row.netResult, 0),
+        occupiedDays,
+        availableDays,
+        // Pooled across the design: one busy piece must not hide four idle ones.
+        utilisationRate: availableDays > 0 ? occupiedDays / availableDays : 0,
+        lateCount: pieceRows.reduce((total, row) => total + row.lateCount, 0),
+        bestPieceRevenue: best?.totalRevenue ?? 0,
+        bestPieceCode: best?.code ?? null,
+        idlePieceCount: pieceRows.filter((row) => row.rentalCount === 0 && row.saleCount === 0).length,
+      };
+    })
+    .sort((left, right) => right.netResult - left.netResult);
+}
+
 export function buildInventoryPerformanceReport(filters: InventoryPerformanceFilters): InventoryPerformanceReport {
   if (filters.from > filters.to) throw new Error('تاريخ البداية يجب ألا يكون بعد تاريخ النهاية.');
 
@@ -544,6 +606,7 @@ export function buildInventoryPerformanceReport(filters: InventoryPerformanceFil
       .sort((left, right) => right.totalCost - left.totalCost)
       .slice(0, 10),
     chronicallyLateItems: rows.filter((row) => row.lateCount > 0).sort((left, right) => right.lateCount - left.lateCount).slice(0, 10),
+    designRows: summarizeDesignPerformance(rows),
   };
 }
 
