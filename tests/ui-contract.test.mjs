@@ -487,6 +487,7 @@ test('the daily operations journey is reachable from the navigation', async () =
     '/reminders',
     '/waitlist',
     '/availability',
+    '/stocktake',
     '/inventory-performance',
     '/preferences',
   ];
@@ -533,4 +534,26 @@ test('a piece found free can be booked without being searched for again', async 
   // item silently would be worse than asking the operator to pick again.
   assert.match(modal, /reservable\.find\(\(dress\) => dress\.code === prefill\.dressCode\)/,
     'a prefilled code must be resolved, not trusted');
+});
+
+test('the stocktake loop stays hands-free and explains every absence', async () => {
+  const page = await readFile(join(sourceRoot, 'features/stocktake/StocktakePage.tsx'), 'utf8');
+
+  // Anything that forces the operator to put the phone down between pieces
+  // turns a forty-item count into an hour, and an hour-long count never gets
+  // done twice.
+  assert.match(page, /autoFocus/, 'the scan field must stay focused for a physical scanner');
+  assert.match(page, /onSubmit=\{\(event\) => \{/, 'Enter must submit a scan without a button press');
+  assert.match(page, /BarcodeScanner/, 'the camera scanner must be available on a phone');
+
+  assert.match(page, /<PageHeader/, 'the page must use the shared header');
+  assert.match(page, /<SummaryCard/, 'the page must use the shared summary card');
+  assert.match(page, /<EmptyState/, 'a showroom that never counted must be told why it matters');
+  assert.match(page, /grid-cols-2/, 'summary tiles must be 2-up on phones');
+  assert.match(page, /min-h-11/, 'actions must stay tappable');
+  assert.doesNotMatch(page, /<h1 /, 'the page must not hand-roll its title');
+
+  // A count that flags every rented dress is noise, and noise gets ignored.
+  assert.match(page, /STOCKTAKE_ABSENCE_LABELS/, 'an explained absence must be labelled as such');
+  assert.match(page, /غائبة بعذر/, 'legitimate absence must be separated from loss');
 });

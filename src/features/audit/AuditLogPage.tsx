@@ -14,6 +14,7 @@ const entityLabels: Record<AuditEntityType, string> = {
   expense: 'مصروف',
   sale: 'بيع',
   'delivery-return': 'تسليم أو استرجاع',
+  stocktake: 'جرد المخزون',
   'daily-closing': 'يومية نقدية',
   backup: 'نسخة احتياطية',
   database: 'قاعدة البيانات',

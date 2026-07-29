@@ -8,6 +8,7 @@ export type AuditEntityType =
   | 'expense'
   | 'sale'
   | 'delivery-return'
+  | 'stocktake'
   | 'daily-closing'
   | 'backup'
   | 'database'

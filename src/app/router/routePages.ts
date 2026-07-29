@@ -23,6 +23,7 @@ export const InventoryPerformancePage = lazy(async () => {
 });
 export { ReservationsPage } from '../../features/reservations/ReservationsPage';
 export { SalesLedgerPage } from '../../features/dresses/SalesLedgerPage';
+export { StocktakePage } from '../../features/stocktake/StocktakePage';
 export { ServiceQueuePage } from '../../features/service/ServiceQueuePage';
 export { LandingPage } from '../../pages/landing/LandingPage';
 
