@@ -41,6 +41,7 @@ export const REGISTERED_COLLECTIONS = [
   'preferences',
   'showroom-profile',
   'stocktake-sessions',
+  'message-templates',
   'images',
 ] as const;
 

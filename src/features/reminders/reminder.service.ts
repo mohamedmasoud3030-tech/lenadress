@@ -1,11 +1,11 @@
 import { generateId, readCollection, writeCollection } from '../../services/localDatabase';
 import { addDaysISO, formatTimeLabel, getTodayISO } from '../../shared/utils/date';
-import { formatMoneyOMR } from '../../shared/utils/format';
 import { recordAudit } from '../audit/audit.service';
 import { getAccessoriesForReservation } from '../accessories/reservationAccessory.service';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
 import { getReservationTimes, getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
+import { buildTemplateVariables, getMessageTemplates, renderTemplate } from './messageTemplates';
 import type { Reminder, ReminderDismissal, ReminderKind, ReminderSummary } from './reminder.types';
 
 /**
@@ -85,48 +85,33 @@ export function isReminderHandledToday(reminderRef: string): boolean {
   );
 }
 
-function accessorySuffix(reservationNumber: string): string {
-  const accessories = getAccessoriesForReservation(reservationNumber);
-  if (accessories.length === 0) return '';
-  const names = accessories.map((link) => link.accessoryNameSnapshot).join('، ');
-  return `\nالملحقات المرفقة: ${names}.`;
-}
-
+/**
+ * Renders a reminder from the showroom's own template.
+ *
+ * The four messages used to be hard-coded string concatenations here. They are
+ * now content the owner edits in settings, so this function only gathers the
+ * facts and hands them to the template renderer.
+ */
 function buildMessage(kind: ReminderKind, reservation: Reservation): string {
-  const brand = getShowroomProfile().brandName;
   const times = getReservationTimes(reservation);
-  const greeting = `مرحباً ${reservation.customerName}`;
+  const accessoryNames = getAccessoriesForReservation(reservation.reservationNumber)
+    .map((link) => link.accessoryNameSnapshot)
+    .filter((name): name is string => Boolean(name));
 
-  switch (kind) {
-    case 'pickup_tomorrow':
-      return `${greeting}،\nنذكّركِ بموعد استلام ${reservation.dressName} غداً ${reservation.pickupDate} الساعة ${formatTimeLabel(times.pickupTime)}.`
-        + `${accessorySuffix(reservation.reservationNumber)}`
-        + `\nرقم الحجز: ${reservation.reservationNumber}`
-        + `${reservation.remainingAmount > 0 ? `\nالمبلغ المتبقي: ${formatMoneyOMR(reservation.remainingAmount)}.` : ''}`
-        + `\n\n${brand}`;
+  const variables = buildTemplateVariables({
+    customerName: reservation.customerName,
+    dressName: reservation.dressName,
+    reservationNumber: reservation.reservationNumber,
+    pickupDate: reservation.pickupDate,
+    pickupTime: formatTimeLabel(times.pickupTime),
+    returnDate: reservation.returnDate,
+    returnTime: formatTimeLabel(times.returnTime),
+    remainingAmount: reservation.remainingAmount,
+    accessoryNames,
+    brandName: getShowroomProfile().brandName,
+  });
 
-    case 'return_tomorrow':
-      return `${greeting}،\nنذكّركِ بموعد إرجاع ${reservation.dressName} غداً ${reservation.returnDate} الساعة ${formatTimeLabel(times.returnTime)}.`
-        + `${accessorySuffix(reservation.reservationNumber)}`
-        + `\nرقم الحجز: ${reservation.reservationNumber}`
-        + `\n\n${brand}`;
-
-    case 'overdue_return':
-      return `${greeting}،\nنودّ تذكيركِ بأن موعد إرجاع ${reservation.dressName} كان ${reservation.returnDate} ولم نستلم القطعة بعد.`
-        + `${accessorySuffix(reservation.reservationNumber)}`
-        + `\nنرجو التواصل معنا لترتيب الإرجاع وتفادي رسوم التأخير.`
-        + `\nرقم الحجز: ${reservation.reservationNumber}`
-        + `\n\n${brand}`;
-
-    case 'outstanding_balance':
-      return `${greeting}،\nنذكّركِ بوجود مبلغ متبقٍ على الحجز ${reservation.reservationNumber}`
-        + ` بقيمة ${formatMoneyOMR(reservation.remainingAmount)}.`
-        + `\nيسعدنا استقبالكِ لتسوية المبلغ في أي وقت خلال ساعات العمل.`
-        + `\n\n${brand}`;
-
-    default:
-      return `${greeting}،\n${brand}`;
-  }
+  return renderTemplate(getMessageTemplates()[kind], variables);
 }
 
 function createReminder(kind: ReminderKind, reservation: Reservation, urgency: Reminder['urgency'], dueDate: string): Reminder {
