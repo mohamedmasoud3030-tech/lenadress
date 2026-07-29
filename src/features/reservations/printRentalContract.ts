@@ -1,4 +1,4 @@
-import { escapeHtml, printDocument, PrintDocumentError } from '@platform/printing';
+import { escapeHtml, isSectionVisible, printDocument, PrintDocumentError } from '@platform/printing';
 import { formatMoneyOMR } from '../../shared/utils/format.js';
 import { formatTimeLabel } from '../../shared/utils/date';
 import { getAccessoriesForReservation } from '../accessories/reservationAccessory.service';
@@ -6,6 +6,7 @@ import { getDresses } from '../dresses/dress.service';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
 import { getReservationTimes } from './reservation.service';
 import type { Reservation } from './reservation.types';
+import { getPrintSettings } from '../preferences/printSettings.service';
 
 /**
  * Printable rental contract.
@@ -33,6 +34,8 @@ const CONTRACT_TERMS = [
 
 export function buildRentalContractHtml(reservation: Reservation): string {
   const profile = getShowroomProfile();
+  // The operator can switch off blocks that waste paper on a filing copy.
+  const settings = getPrintSettings();
   const customerName = reservation.customerNameSnapshot ?? reservation.customerName;
   const customerPhone = reservation.customerPhoneSnapshot ?? reservation.customerPhone;
   const itemCode = reservation.dressCodeSnapshot ?? reservation.dressCode;
@@ -44,6 +47,12 @@ export function buildRentalContractHtml(reservation: Reservation): string {
   const pieceDetails = piece ? `${piece.size} · ${piece.color}` : '';
 
   const terms = CONTRACT_TERMS.map((term) => `<li>${escapeHtml(term)}</li>`).join('');
+  const contactLines = [
+    profile.contact.address,
+    profile.contact.phone,
+    ...(profile.contact.alternatePhones ?? []),
+    profile.contact.email,
+  ].filter(Boolean).map((value) => escapeHtml(String(value))).join(' · ');
   const times = getReservationTimes(reservation);
   const accessories = getAccessoriesForReservation(reservation.reservationNumber);
   // Every printed value is escaped; an accessory name is operator-entered text.
@@ -57,8 +66,8 @@ export function buildRentalContractHtml(reservation: Reservation): string {
       + `<tbody>${accessoryRows}</tbody></table></div>`
     : '';
 
-  return `<h1>${escapeHtml(profile.brandName)} — عقد إيجار</h1>`
-    + `<p class="muted">${escapeHtml(profile.contact.address ?? '')} · ${escapeHtml(profile.contact.phone ?? '')}</p>`
+  return (isSectionVisible(settings, 'logo') ? `<h1>${escapeHtml(profile.brandName)} — عقد إيجار</h1>` : '')
+    + (isSectionVisible(settings, 'contact') ? `<p class="muted">${contactLines}</p>` : '')
     + `<div class="section">`
     + `<p><b>رقم الحجز:</b> ${escapeHtml(reservation.reservationNumber)}</p>`
     + `<p><b>العميلة:</b> ${escapeHtml(customerName)} — ${escapeHtml(customerPhone)}</p>`
@@ -68,7 +77,7 @@ export function buildRentalContractHtml(reservation: Reservation): string {
     + `<td>${escapeHtml(pieceDetails || '—')}</td>`
     + `<td>${escapeHtml(`${reservation.pickupDate} — ${formatTimeLabel(times.pickupTime)}`)}</td>`
     + `<td>${escapeHtml(`${reservation.returnDate} — ${formatTimeLabel(times.returnTime)}`)}</td></tr></tbody></table>`
-    + accessorySection
+    + (isSectionVisible(settings, 'accessories') ? accessorySection : '')
     + `<table><thead><tr><th>قيمة الإيجار</th><th>العربون (مسترد)</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr></thead>`
     + `<tbody><tr><td>${escapeHtml(formatMoneyOMR(reservation.rentalPrice))}</td>`
     + `<td>${escapeHtml(formatMoneyOMR(reservation.depositAmount))}</td>`
@@ -76,13 +85,18 @@ export function buildRentalContractHtml(reservation: Reservation): string {
     + `<td>${escapeHtml(formatMoneyOMR(reservation.paidAmount))}</td>`
     + `<td>${escapeHtml(formatMoneyOMR(reservation.remainingAmount))}</td></tr></tbody></table>`
     + `<p class="muted">العربون مبلغ تأمين مسترد ولا يُحتسب ضمن قيمة الإيجار.</p>`
-    + `<div class="terms"><b>الشروط والأحكام</b><ol>${terms}</ol></div>`
-    + `<div class="signatures"><span>توقيع المعرض: ______________</span><span>توقيع العميلة: ______________</span></div>`;
+    + (isSectionVisible(settings, 'terms') ? `<div class="terms"><b>الشروط والأحكام</b><ol>${terms}</ol></div>` : '')
+    + (isSectionVisible(settings, 'signatures')
+      ? `<div class="signatures"><span>توقيع المعرض: ______________</span><span>توقيع العميلة: ______________</span></div>`
+      : '')
+    + (isSectionVisible(settings, 'footer')
+      ? `<div class="doc-footer">${escapeHtml(profile.brandName)} · ${contactLines}</div>`
+      : '');
 }
 
 export function printRentalContract(reservation: Reservation): void {
   try {
-    printDocument(`عقد إيجار ${reservation.reservationNumber}`, buildRentalContractHtml(reservation));
+    printDocument(`عقد إيجار ${reservation.reservationNumber}`, buildRentalContractHtml(reservation), getPrintSettings());
   } catch (error) {
     if (error instanceof PrintDocumentError) {
       throw new PrintRentalContractError(error.message, error);

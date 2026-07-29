@@ -14,6 +14,7 @@ import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { OperatorSettings } from './OperatorSettings';
+import { PrintSettingsEditor } from './PrintSettingsEditor';
 
 const preferenceFieldClassName = 'mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30';
 
@@ -153,6 +154,8 @@ export function PreferencesPage() {
       </article>
 
       <OperatorSettings />
+
+      <PrintSettingsEditor />
 
       <ShowroomProfileEditor />
     </section>

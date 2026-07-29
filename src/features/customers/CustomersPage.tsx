@@ -6,6 +6,7 @@ import { SummaryCard } from '../../components/shared/SummaryCard';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { AddCustomerModal } from './AddCustomerModal';
 import { CustomerConductPanel } from './CustomerConductPanel';
+import { MeasurementsPanel } from './MeasurementsPanel';
 import { getCustomerConduct } from './customerConduct.service';
 import { ViewModeToggle, useViewMode } from '../../components/shared/ViewModeToggle';
 import { archiveCustomer, deleteCustomer, filterCustomers, getCustomerDeletionBlockers, getCustomers, summarizeCustomers } from './customer.service';
@@ -31,6 +32,7 @@ function CustomerCard({ customer, onArchive, onDelete }: { customer: Customer; o
   const deletionBlockers = getCustomerDeletionBlockers(customer.id);
   const canHardDelete = deletionBlockers.length === 0;
   const [showConduct, setShowConduct] = useState(false);
+  const [showMeasurements, setShowMeasurements] = useState(false);
   // A warning must be visible before booking, not hidden behind a click.
   const conduct = getCustomerConduct(customer);
 
@@ -80,7 +82,17 @@ function CustomerCard({ customer, onArchive, onDelete }: { customer: Customer; o
         {showConduct ? 'إخفاء سجل التعامل' : `سجل التعامل · التزام ${conduct.reliabilityScore}`}
       </button>
 
+      <button
+        type="button"
+        onClick={() => setShowMeasurements((current) => !current)}
+        aria-expanded={showMeasurements}
+        className="mt-2 mr-2 inline-flex min-h-10 items-center rounded-xl border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      >
+        {showMeasurements ? 'إخفاء المقاسات' : 'المقاسات واقتراح المقاس'}
+      </button>
+
       {showConduct && <div className="mt-3"><CustomerConductPanel customer={customer} /></div>}
+      {showMeasurements && <div className="mt-3"><MeasurementsPanel customer={customer} /></div>}
 
       <div className="mt-5 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600">
         <p><span className="font-semibold text-slate-900">المقاسات:</span> {customer.measurements || 'غير مسجلة'}</p>

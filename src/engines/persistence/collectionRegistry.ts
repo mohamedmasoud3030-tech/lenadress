@@ -36,6 +36,7 @@ export const REGISTERED_COLLECTIONS = [
   'operators',
   'customer-conduct-notes',
   'waitlist',
+  'print-settings',
   'retired-codes',
   'preferences',
   'showroom-profile',

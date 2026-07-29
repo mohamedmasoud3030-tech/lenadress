@@ -31,6 +31,15 @@ export function escapeHtml(value: string): string {
   ));
 }
 
+import { DEFAULT_PRINT_SETTINGS, buildPrintStyles, type PrintSettings } from './printSettings';
+
+/**
+ * Legacy fixed stylesheet.
+ *
+ * Kept only so an older caller that has not passed settings still prints
+ * something sane. New documents go through `buildPrintStyles`, which honours the
+ * showroom's paper size, margins and colour mode.
+ */
 export const PRINT_BASE_STYLES = `
 body{font-family:'Noto Sans Arabic',Arial,sans-serif;padding:32px;color:#0f172a;direction:rtl}
 h1{margin:0 0 4px}
@@ -47,10 +56,12 @@ th,td{border:1px solid #cbd5e1;padding:10px;text-align:right}
 /** Class applied to the host element so tests and styles can find the overlay. */
 export const PRINT_OVERLAY_CLASS = 'lena-print-overlay';
 
-export function buildPrintDocumentMarkup(title: string, bodyHtml: string): string {
+export function buildPrintDocumentMarkup(title: string, bodyHtml: string, settings?: PrintSettings): string {
+  // Settings-driven styles win; the legacy sheet is the fallback for old callers.
+  const styles = settings ? buildPrintStyles(settings) : PRINT_BASE_STYLES;
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">`
     + `<meta name="viewport" content="width=device-width, initial-scale=1">`
-    + `<title>${escapeHtml(title)}</title><style>${PRINT_BASE_STYLES}</style></head>`
+    + `<title>${escapeHtml(title)}</title><style>${styles}</style></head>`
     + `<body>${bodyHtml}</body></html>`;
 }
 
@@ -94,7 +105,7 @@ export function closePrintOverlay(): void {
  * browser/system back gesture (the overlay listens for `popstate`) all return
  * to the app with the application state untouched.
  */
-export function printDocument(title: string, bodyHtml: string): void {
+export function printDocument(title: string, bodyHtml: string, settings: PrintSettings = DEFAULT_PRINT_SETTINGS): void {
   try {
     if (typeof document === 'undefined') {
       throw new PrintDocumentError('الطباعة غير متاحة في هذه البيئة.');
@@ -140,7 +151,7 @@ export function printDocument(title: string, bodyHtml: string): void {
     // The page behind must not scroll while the document is open.
     document.body.style.overflow = 'hidden';
 
-    const markup = buildPrintDocumentMarkup(title, bodyHtml);
+    const markup = buildPrintDocumentMarkup(title, bodyHtml, settings);
     const frameDocument = frame.contentDocument ?? frame.contentWindow?.document ?? null;
     if (!frameDocument) {
       closePrintOverlay();
