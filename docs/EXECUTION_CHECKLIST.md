@@ -258,6 +258,24 @@ Full analysis: `docs/DRESS_DESIGNS_AND_VARIANTS.md`.
 - [x] **9.07:** Summary tiles are 2-up on phones on every page.
   - `ReportsPage` was the remaining single-column page. Enforced by a contract test.
 
+## Phase 10 queue — Design management, design reporting and customer follow-up
+
+Completed by [PR #115](https://github.com/mohamedmasoud3030-tech/lenadress/pull/115) (merge `a42436864f1da52c6dfc963e410cb3306e43bf3f`, Build #260 + Verify #232).
+Analysis: `docs/DRESS_DESIGNS_AND_VARIANTS.md`, `docs/CUSTOMER_REMINDERS.md`.
+
+- [x] **10.01:** Design detail page with period-aware availability at `/designs/:code`.
+- [x] **10.02:** Add sizes, colours and copies to a design after it was created.
+- [x] **10.03:** Link an already-existing piece to a design, so current stock can be grouped.
+  - The command existed and was tested in Phase 9 but had no UI, so the feature only helped stock added afterwards.
+- [x] **10.04:** Design performance in the reports, summed from per-piece rows.
+  - Utilisation is pooled across pieces so one busy piece cannot hide idle ones. Evidence: `tests/design-performance.test.mjs` (6 tests).
+- [x] **10.05:** Grid/list view switching extended to accessories and customers.
+- [x] **10.06:** The printed contract identifies the exact piece by size and colour.
+- [x] **10.07:** Customer reminders for pickup, return, overdue items and unpaid balances.
+  - Derived, never stored; dismissals expire daily. Evidence: `tests/reminders-whatsapp.test.mjs` (13 tests).
+- [x] **10.08:** WhatsApp hand-off with prepared Arabic messages and number normalisation.
+  - Deliberately a reviewed hand-off, not an automatic send: see `docs/CUSTOMER_REMINDERS.md` section 4.
+
 ## Phase 4 queue — Runtime QA
 
 - [x] **4.01:** Desktop browser workflow evidence.
@@ -326,3 +344,4 @@ Full analysis: `docs/DRESS_DESIGNS_AND_VARIANTS.md`.
 | Phase 7 inventory performance reports | PR #108 / `901e12dffc4f065fde16a21ae77ac9c4d59d102c` | Build #246 + Verify #218 | Per-item realised-money metrics with documented formulas, provable discounts via price snapshots, ranked lists, per-item detail, CSV with BOM and injection guard, escaped print through the shared boundary | Complete |
 | Phase 8 UX hardening | PR #110 / `044b0cc`, PR #111 / `16599a7` | Build #250 + Verify #222, Build #252 + Verify #224 | In-app print overlay, 16px touch controls, pinned overscroll, viewport-aware dialogs, operational dashboard with uncollected money, shared form/filter primitives, eleven audit fixes | Complete (device confirmation remains 4.02) |
 | Phase 9 designs and variants | PR #113 / `ca61067f8f07cb44c0d5bf8bf38d2b672e41c386` | Build #256 + Verify #228 | Design/variant model resolved through the shared conflict rule, no migration needed, searchable pickers, grid/list views, visual system pass, 2-up tiles everywhere | Complete (device confirmation remains 4.02) |
+| Phase 10 designs, reporting and reminders | PR #115 / `a42436864f1da52c6dfc963e410cb3306e43bf3f` | Build #260 + Verify #232 | Design page with period availability, later variants, piece linking, pooled design performance, grid/list everywhere, piece identity on the contract, derived reminders with expiring dismissals, WhatsApp deep-link hand-off | Complete (real-device WhatsApp confirmation outstanding) |

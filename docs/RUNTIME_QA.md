@@ -32,6 +32,8 @@ Status vocabulary:
 | Inventory performance | `npm run test:inventory-performance` | Realised-money metrics, utilisation, idleness, ranking, date ranges, reconciliation against the finance layer |
 | Report export | `npm run test:inventory-performance-export` | UTF-8 BOM, formula-injection protection, escaping, print contract and failure recovery |
 | Designs and variants | `npm run test:designs` | Piece identity under a design, booking one size leaving others free, per-period availability with buffers, atomic creation with no orphan pieces, backup/restore with counter monotonicity |
+| Design performance | `npm run test:design-performance` | Design totals equal the sum of their piece rows, pooled utilisation, cost and discount roll-up |
+| Reminders and WhatsApp | `npm run test:reminders` | Number normalisation, safe link encoding, each follow-up rule, dismissal expiry |
 | Daily operations board | `npm run test:dashboard` | Today's pickups and returns ordered by time, uncollected money totalled and ordered for collection, cash matching the finance layer, overdue returns, accessory counts |
 | PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback |
 
