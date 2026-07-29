@@ -2,8 +2,19 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { createRequire } from 'node:module';
+
+const { version } = createRequire(import.meta.url)('./package.json') as { version: string };
 
 export default defineConfig({
+  /**
+   * Build identity, so the running bundle can state which version it is.
+   * Support was impossible while the interface named no version at all.
+   */
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: {
       '@app': fileURLToPath(new URL('./src/app', import.meta.url)),
@@ -16,7 +27,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      /**
+       * `prompt`, not `autoUpdate`. Auto-updating swaps the running app the
+       * moment a new build is cached, which in a showroom can replace a
+       * half-filled booking form mid-sentence while a customer waits. The new
+       * build now waits until the operator chooses to reload.
+       */
+      registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       workbox: {
         // The bundled Arabic font must be precached, otherwise an offline reload

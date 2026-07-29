@@ -102,5 +102,29 @@ test('the service worker precaches the shell and the Arabic font for offline rel
 test('the built document stays Arabic-first and RTL', runIf, async () => {
   const html = await readFile(join(distRoot, 'index.html'), 'utf8');
   assert.match(html, /<html lang="ar" dir="rtl">/);
-  assert.match(html, /registerSW\.js|serviceWorker/, 'the service worker must be registered');
+});
+
+test('the built bundle actually registers the service worker', runIf, async () => {
+  // Registration moved out of an inline snippet in index.html and into the
+  // application bundle when the app took control of *when* an update applies.
+  // It is asserted against the built assets rather than the HTML, because an
+  // earlier attempt used `@vite-ignore` on the virtual module: the app still
+  // built and still looked correct, but the specifier was never resolved and
+  // the service worker was silently never registered — the PWA simply stopped
+  // working offline.
+  const assetsRoot = join(distRoot, 'assets');
+  const files = await readdir(assetsRoot);
+  const scripts = files.filter((name) => name.endsWith('.js'));
+
+  const contents = await Promise.all(scripts.map((name) => readFile(join(assetsRoot, name), 'utf8')));
+  const registersWorker = contents.some((content) => /serviceWorker/.test(content));
+  assert.ok(registersWorker, 'the service worker registration must survive into the build');
+});
+
+test('the service worker waits for the operator instead of self-applying', runIf, async () => {
+  const config = await readFile(join(repositoryRoot, 'vite.config.ts'), 'utf8');
+  // autoUpdate swapped the running app the moment a build was cached, which can
+  // replace a half-filled booking form while a customer waits.
+  assert.match(config, /registerType: 'prompt'/, 'updates must be prompted, not forced');
+  assert.doesNotMatch(config, /registerType: 'autoUpdate'/);
 });

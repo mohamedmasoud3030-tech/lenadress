@@ -14,6 +14,7 @@ import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { OperatorSettings } from './OperatorSettings';
+import { getAppBuildInfo } from '@platform/app-update';
 import { MessageTemplatesEditor } from './MessageTemplatesEditor';
 import { PrintSettingsEditor } from './PrintSettingsEditor';
 
@@ -31,6 +32,7 @@ function downloadJson(filename: string, value: unknown): void {
 
 export function PreferencesPage() {
   const [preferences, setPreferences] = useState<AppPreferences>(() => getAppPreferences());
+  const buildInfo = getAppBuildInfo();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const importInput = useRef<HTMLInputElement>(null);
@@ -239,6 +241,25 @@ export function PreferencesPage() {
       </article>
 
       <OperatorSettings />
+
+      {/* Named here because support is impossible while the operator cannot
+          answer "which version are you on?". */}
+      <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold">عن التطبيق</h2>
+        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500">الإصدار</dt>
+            <dd className="font-bold text-slate-950" dir="ltr">{buildInfo.version}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">تاريخ النسخة</dt>
+            <dd className="font-bold text-slate-950" dir="ltr">{buildInfo.buildTime ? buildInfo.buildTime.slice(0, 10) : '—'}</dd>
+          </div>
+        </dl>
+        <p className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-slate-600">
+          اذكري رقم الإصدار عند طلب الدعم. التحديثات لا تُطبّق تلقائياً أثناء العمل؛ سيظهر لكِ تنبيه لاختيار وقت التحديث.
+        </p>
+      </article>
 
       <MessageTemplatesEditor />
 

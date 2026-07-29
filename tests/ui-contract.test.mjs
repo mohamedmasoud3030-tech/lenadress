@@ -557,3 +557,28 @@ test('the stocktake loop stays hands-free and explains every absence', async () 
   assert.match(page, /STOCKTAKE_ABSENCE_LABELS/, 'an explained absence must be labelled as such');
   assert.match(page, /غائبة بعذر/, 'legitimate absence must be separated from loss');
 });
+
+test('an app update waits for the operator and never reloads on its own', async () => {
+  const notice = await readFile(join(sourceRoot, 'components/shared/AppUpdateNotice.tsx'), 'utf8');
+  const shell = await readFile(join(sourceRoot, 'app/shell/AppShell.tsx'), 'utf8');
+
+  assert.match(shell, /<AppUpdateNotice \/>/, 'the notice must be mounted in the shell');
+  assert.match(notice, /applyPendingUpdate/, 'applying an update must be an explicit action');
+  // The registration was changed from autoUpdate precisely so the operator
+  // decides when it is safe to lose the current screen; a timer would undo it.
+  assert.doesNotMatch(notice, /setTimeout|setInterval/, 'no timed automatic reload');
+  assert.match(notice, /لاحقاً/, 'the operator must be able to defer');
+  assert.match(notice, /min-h-11/, 'both actions must stay tappable');
+  // The bottom tab bar is the operator's escape from any screen.
+  assert.match(notice, /bottom-\[calc\(env\(safe-area-inset-bottom/, 'the banner must clear the mobile navigation');
+});
+
+test('the running build states its own version for support', async () => {
+  const page = await readFile(join(sourceRoot, 'features/preferences/PreferencesPage.tsx'), 'utf8');
+  const version = await readFile(join(sourceRoot, 'platform/app-update/appVersion.ts'), 'utf8');
+
+  assert.match(page, /getAppBuildInfo/, 'settings must display the version');
+  // Reading package.json at runtime would describe the repository, not the
+  // bundle the showroom is actually running.
+  assert.match(version, /__APP_VERSION__/, 'the version must be injected at build time');
+});
