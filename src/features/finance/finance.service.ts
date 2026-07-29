@@ -4,6 +4,7 @@ import { getExpenses } from '../expenses/expense.service';
 import { getPayments } from '../payments/payment.service';
 import type { PaymentRecord } from '../payments/payment.types';
 import { getReservations } from '../reservations/reservation.service';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 import type { DateRangeFilter } from '../reports/report.types';
 
 /**
@@ -119,7 +120,12 @@ export type ItemFinance = {
 export function getItemFinance(itemCode: string): ItemFinance {
   const reservationNumbers = new Set(
     getReservations()
-      .filter((reservation) => reservation.dressCode === itemCode && reservation.status !== 'cancelled')
+      .filter((reservation) => {
+        // Check top-level and multi-item lines
+        if (reservation.dressCode === itemCode && reservation.status !== 'cancelled') return true;
+        const lines = getReservationLines(reservation);
+        return lines.some((line) => line.dressCodeSnapshot === itemCode) && reservation.status !== 'cancelled';
+      })
       .map((reservation) => reservation.reservationNumber),
   );
 

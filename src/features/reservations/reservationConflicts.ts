@@ -2,6 +2,7 @@ import { addDaysISO } from '../../shared/utils/date';
 import { getAppPreferences } from '../preferences/preferences.service';
 import type { Reservation, ReservationStatus } from './reservation.types';
 import type { ReservationAccessory } from '../accessories/accessory.types';
+import { getReservationLines } from './contractLineHelpers';
 
 /**
  * One central conflict rule for the whole application.
@@ -18,6 +19,7 @@ import type { ReservationAccessory } from '../accessories/accessory.types';
  * - The blocked window is widened by the configured preparation days before the
  *   pickup and cleaning days after the return.
  * - A reservation never conflicts with itself, so editing dates in place works.
+ * - For multi-item contracts, each line is checked independently.
  */
 
 export const ACTIVE_RESERVATION_STATUSES: ReadonlySet<ReservationStatus> = new Set<ReservationStatus>([
@@ -68,13 +70,6 @@ export type ItemConflictCheck = {
   excludeReservationNumber?: string;
 };
 
-function sameItem(reservation: Reservation, check: ItemConflictCheck): boolean {
-  if (check.inventoryItemId && reservation.inventoryItemId) {
-    return reservation.inventoryItemId === check.inventoryItemId;
-  }
-  return reservation.dressCode === check.dressCode;
-}
-
 export type ConflictDetail = {
   reservationNumber: string;
   pickupDate: string;
@@ -82,22 +77,46 @@ export type ConflictDetail = {
   message: string;
 };
 
-/** Every active reservation whose buffered window overlaps the requested one. */
+/**
+ * Every active reservation whose buffered window overlaps the requested one.
+ *
+ * For multi-item contracts, each line's dates and item are checked independently.
+ */
 export function findItemConflicts(check: ItemConflictCheck, reservations: Reservation[]): ConflictDetail[] {
   const buffers = getBufferSettings();
   const requested: DatePeriod = { pickupDate: check.pickupDate, returnDate: check.returnDate };
 
-  return reservations
+  const conflicts: ConflictDetail[] = [];
+
+  reservations
     .filter((reservation) => reservation.reservationNumber !== check.excludeReservationNumber)
     .filter(isActiveReservation)
-    .filter((reservation) => sameItem(reservation, check))
-    .filter((reservation) => periodsOverlap(expandPeriodWithBuffers(reservation, buffers), requested))
-    .map((reservation) => ({
-      reservationNumber: reservation.reservationNumber,
-      pickupDate: reservation.pickupDate,
-      returnDate: reservation.returnDate,
-      message: `العنصر محجوز ضمن الحجز ${reservation.reservationNumber} من ${reservation.pickupDate} إلى ${reservation.returnDate} بعد احتساب أيام التجهيز والتنظيف.`,
-    }));
+    .forEach((reservation) => {
+      // Check each line independently
+      const lines = getReservationLines(reservation);
+      lines.forEach((line) => {
+        // Check if this line's item matches
+        const itemMatches = (check.inventoryItemId && line.inventoryItemId && line.inventoryItemId === check.inventoryItemId)
+          || (!check.inventoryItemId || !line.inventoryItemId) && line.dressCodeSnapshot === check.dressCode;
+
+        if (!itemMatches) return;
+
+        const linePeriod: DatePeriod = { pickupDate: line.pickupDate, returnDate: line.returnDate };
+        if (periodsOverlap(expandPeriodWithBuffers(linePeriod, buffers), requested)) {
+          // Avoid duplicate conflicts from the same reservation
+          if (!conflicts.some((c) => c.reservationNumber === reservation.reservationNumber)) {
+            conflicts.push({
+              reservationNumber: reservation.reservationNumber,
+              pickupDate: line.pickupDate,
+              returnDate: line.returnDate,
+              message: `العنصر محجوز ضمن الحجز ${reservation.reservationNumber} من ${line.pickupDate} إلى ${line.returnDate} بعد احتساب أيام التجهيز والتنظيف.`,
+            });
+          }
+        }
+      });
+    });
+
+  return conflicts;
 }
 
 export function hasItemConflict(check: ItemConflictCheck, reservations: Reservation[]): boolean {

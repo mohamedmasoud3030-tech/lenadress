@@ -4,6 +4,7 @@ import { recordAudit } from '../audit/audit.service';
 import { getAccessoriesForReservation } from '../accessories/reservationAccessory.service';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
 import { getReservationTimes, getReservations } from '../reservations/reservation.service';
+import { getReservationLines, isMultiItemReservation } from '../reservations/contractLineHelpers';
 import type { Reservation } from '../reservations/reservation.types';
 import { buildTemplateVariables, getMessageTemplates, renderTemplate } from './messageTemplates';
 import type { Reminder, ReminderDismissal, ReminderKind, ReminderSummary } from './reminder.types';
@@ -98,9 +99,15 @@ function buildMessage(kind: ReminderKind, reservation: Reservation): string {
     .map((link) => link.accessoryNameSnapshot)
     .filter((name): name is string => Boolean(name));
 
+  // For multi-item reservations, list all item names
+  const lines = getReservationLines(reservation);
+  const dressName = isMultiItemReservation(reservation)
+    ? lines.map((line) => line.dressNameSnapshot).join('، ')
+    : reservation.dressName;
+
   const variables = buildTemplateVariables({
     customerName: reservation.customerName,
-    dressName: reservation.dressName,
+    dressName,
     reservationNumber: reservation.reservationNumber,
     pickupDate: reservation.pickupDate,
     pickupTime: formatTimeLabel(times.pickupTime),
