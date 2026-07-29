@@ -32,6 +32,7 @@ export const REGISTERED_COLLECTIONS = [
   'daily-closings',
   'counters',
   'command-log',
+  'reminder-dismissals',
   'retired-codes',
   'preferences',
   'showroom-profile',
