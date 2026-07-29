@@ -24,6 +24,7 @@ import {
   ReservationsPage,
   SalesLedgerPage,
   ServiceQueuePage,
+  WaitlistPage,
 } from './routePages';
 
 export function AppRoutes() {
@@ -61,6 +62,7 @@ export function AppRoutes() {
         <Route path="daily-closing" element={<DailyClosingPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="reminders" element={<RemindersPage />} />
+        <Route path="waitlist" element={<WaitlistPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route
           path="inventory-performance"
