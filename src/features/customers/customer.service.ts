@@ -13,6 +13,7 @@ type AddCustomerInput = {
   phone: string;
   address?: string;
   measurements?: string;
+  bodyMeasurements?: Customer['bodyMeasurements'];
   notes?: string;
   status: Customer['status'];
 };
@@ -94,6 +95,7 @@ export function addCustomer(input: AddCustomerInput): Customer {
     phone,
     address: input.address?.trim() || '',
     measurements: input.measurements?.trim() || '',
+    bodyMeasurements: input.bodyMeasurements,
     notes: input.notes?.trim() || undefined,
     status: input.status,
     totalReservations: 0,
@@ -123,6 +125,47 @@ export function getCustomerDeletionBlockers(id: string): string[] {
  * Archives a customer instead of deleting her. The record stays available so
  * reservations, payments and reports keep resolving her history.
  */
+/**
+ * Updates a customer's editable details.
+ *
+ * Identity and derived totals are never taken from the caller: the id is fixed,
+ * and reservation counts and balances are recomputed from the reservations on
+ * every read, so accepting them here would let a stale screen overwrite the
+ * truth.
+ */
+export function updateCustomer(id: string, updates: Partial<Pick<Customer, 'name' | 'phone' | 'address' | 'measurements' | 'bodyMeasurements' | 'notes' | 'status'>>): Customer {
+  const customers = readCollection<Customer>(COLLECTION, []);
+  const customer = customers.find((item) => item.id === id);
+  if (!customer) throw new Error('العميلة المحددة غير موجودة.');
+
+  if (updates.phone !== undefined) {
+    const normalizedPhone = normalizePhone(updates.phone);
+    if (normalizedPhone.length < 7) throw new Error('رقم الهاتف غير صالح.');
+    const duplicate = customers.some((item) => item.id !== id && normalizePhone(item.phone) === normalizedPhone);
+    if (duplicate) throw new Error('يوجد سجل عميلة بنفس رقم الهاتف.');
+  }
+  if (updates.name !== undefined && !updates.name.trim()) throw new Error('اسم العميلة مطلوب.');
+
+  const next: Customer = {
+    ...customer,
+    ...updates,
+    id: customer.id,
+    name: updates.name?.trim() ?? customer.name,
+    phone: updates.phone?.trim() ?? customer.phone,
+  };
+
+  writeCollection(COLLECTION, customers.map((item) => (item.id === id ? next : item)));
+  recordAudit({
+    action: 'update',
+    entityType: 'customer',
+    entityId: customer.id,
+    summary: `تم تحديث بيانات العميلة ${next.name}.`,
+    previousValues: { status: customer.status },
+    nextValues: { status: next.status },
+  });
+  return next;
+}
+
 export function archiveCustomer(id: string): Customer | null {
   const customers = readCollection<Customer>(COLLECTION, []);
   const customer = customers.find((item) => item.id === id);
