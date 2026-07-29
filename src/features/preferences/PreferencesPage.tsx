@@ -15,20 +15,11 @@ import { getAppPreferences, saveAppPreferences, type AppPreferences } from './pr
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { OperatorSettings } from './OperatorSettings';
 import { getAppBuildInfo } from '@platform/app-update';
+import { downloadJson } from '@platform/download';
 import { MessageTemplatesEditor } from './MessageTemplatesEditor';
 import { PrintSettingsEditor } from './PrintSettingsEditor';
 
 const preferenceFieldClassName = 'mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30';
-
-function downloadJson(filename: string, value: unknown): void {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 export function PreferencesPage() {
   const [preferences, setPreferences] = useState<AppPreferences>(() => getAppPreferences());

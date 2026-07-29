@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
+import { downloadCsv } from '@platform/download';
+import { buildPaymentsCsv, ledgerFileName } from '../reports/ledgerExports';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { EmptyState } from '../../components/shared/StateViews';
@@ -105,6 +107,15 @@ export function PaymentsPage() {
     setFeedback(`تم تسجيل الدفعة ${payment.paymentNumber} بنجاح.`);
   };
 
+  /**
+   * Exports exactly what the filters show. The accountant asks for a period or
+   * a type, and exporting the unfiltered ledger would make her redo the
+   * narrowing in the spreadsheet.
+   */
+  const handleExport = () => {
+    downloadCsv(ledgerFileName('سجل-المدفوعات'), buildPaymentsCsv(filteredPayments));
+  };
+
   return (
     <section className="min-w-0 space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -113,6 +124,14 @@ export function PaymentsPage() {
           title="إدارة المدفوعات"
           description="متابعة التحصيل النقدي والاسترجاعات والتسويات غير النقدية المرتبطة بالحجوزات."
         />
+        <button
+          type="button"
+          onClick={handleExport}
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+        >
+          <Download aria-hidden="true" className="h-5 w-5" />
+          تصدير CSV
+        </button>
         <button
           type="button"
           onClick={() => { setFeedback(null); setShowCreateModal(true); }}

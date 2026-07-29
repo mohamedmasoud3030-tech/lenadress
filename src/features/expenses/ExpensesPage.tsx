@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
+import { downloadCsv } from '@platform/download';
+import { buildExpensesCsv, ledgerFileName } from '../reports/ledgerExports';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { EmptyState } from '../../components/shared/StateViews';
@@ -60,6 +62,14 @@ export function ExpensesPage() {
     setFeedback(`تم تسجيل المصروف ${expense.expenseNumber} بنجاح.`);
   };
 
+  /**
+   * Exports exactly what the filters show: the accountant asks for a period or
+   * a category, and an unfiltered dump makes her redo the narrowing.
+   */
+  const handleExport = () => {
+    downloadCsv(ledgerFileName('سجل-المصروفات'), buildExpensesCsv(filteredExpenses));
+  };
+
   return (
     <section className="min-w-0 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -68,6 +78,14 @@ export function ExpensesPage() {
           title="إدارة المصروفات"
           description="متابعة مصروفات التشغيل والعناية بالفساتين والملحقات داخل المعرض."
         />
+        <button
+          type="button"
+          onClick={handleExport}
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+        >
+          <Download aria-hidden="true" className="h-5 w-5" />
+          تصدير CSV
+        </button>
         <button
           type="button"
           onClick={() => { setFeedback(null); setShowCreateModal(true); }}
