@@ -12,7 +12,7 @@ import type { PaymentMethod } from '../payments/payment.types';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
 import { getDeliveryReturnRecords, saveDeliveryReturnRecord } from './deliveryReturn.service';
-import type { DeliveryReturnRecord } from './deliveryReturn.types';
+import type { ConditionPhoto, DeliveryReturnRecord } from './deliveryReturn.types';
 
 const RESERVATION_COLLECTION = 'reservations';
 
@@ -20,6 +20,8 @@ type CompleteDeliveryInput = {
   reservationNumber: string;
   deliveryDateTime: string;
   deliveryCondition?: string;
+  /** Condition evidence captured at the counter. */
+  deliveryPhotos?: ConditionPhoto[];
   /** Accessory ids physically handed over with the dress. */
   deliveredAccessoryIds?: string[];
   notes?: string;
@@ -28,6 +30,8 @@ type CompleteReturnInput = {
   reservationNumber: string;
   returnDateTime: string;
   returnCondition?: string;
+  /** Condition evidence captured at the counter. */
+  returnPhotos?: ConditionPhoto[];
   lateFee: number;
   damageFee: number;
   refundMethod: PaymentMethod;
@@ -36,6 +40,26 @@ type CompleteReturnInput = {
   accessoryReturns?: AccessoryReturnEntry[];
   notes?: string;
 };
+
+/**
+ * Caps and validates the evidence attached to one handover.
+ *
+ * A limit exists because these live inside the record and therefore inside
+ * every backup: unbounded photos would make the backup file itself the next
+ * storage problem. Four is enough for front, back, and two close-ups of a
+ * disputed area.
+ */
+const MAX_CONDITION_PHOTOS = 4;
+
+function normalizeConditionPhotos(photos?: ConditionPhoto[]): ConditionPhoto[] | undefined {
+  if (!photos || photos.length === 0) return undefined;
+  const valid = photos.filter((photo) => typeof photo.dataUrl === 'string' && photo.dataUrl.startsWith('data:image/'));
+  if (valid.length === 0) return undefined;
+  if (valid.length > MAX_CONDITION_PHOTOS) {
+    throw new Error(`لا يمكن إرفاق أكثر من ${MAX_CONDITION_PHOTOS} صور لحالة القطعة.`);
+  }
+  return valid;
+}
 
 function validateDateTime(value: string, label: string): number {
   const timestamp = new Date(value).getTime();
@@ -68,7 +92,7 @@ export function completeDelivery(input: CompleteDeliveryInput): DeliveryReturnRe
   if (!['pending', 'confirmed'].includes(reservation.status)) throw new Error('الحجز غير مؤهل للتسليم حالياً.');
   validateDateTime(input.deliveryDateTime, 'تاريخ ووقت التسليم');
   const base = getBaseRecord(reservation);
-  const record = saveDeliveryReturnRecord({ ...base, status: 'delivered', deliveryDateTime: input.deliveryDateTime, deliveryCondition: input.deliveryCondition?.trim() || undefined, notes: input.notes?.trim() || base.notes });
+  const record = saveDeliveryReturnRecord({ ...base, status: 'delivered', deliveryDateTime: input.deliveryDateTime, deliveryCondition: input.deliveryCondition?.trim() || undefined, deliveryPhotos: normalizeConditionPhotos(input.deliveryPhotos), notes: input.notes?.trim() || base.notes });
   updateReservationStatus(reservation.reservationNumber, 'delivered');
   updateDressStatus(reservation.dressCode, 'rented');
   // Accessories are part of the same handover, inside the same command boundary.
@@ -77,7 +101,7 @@ export function completeDelivery(input: CompleteDeliveryInput): DeliveryReturnRe
     deliveredAccessoryIds: input.deliveredAccessoryIds ?? [],
     deliveredAt: input.deliveryDateTime,
   });
-  recordAudit({ action: 'deliver', entityType: 'delivery-return', entityId: record.id, summary: `تم تسليم العنصر ${reservation.dressCode} للحجز ${reservation.reservationNumber}.`, nextValues: { deliveryDateTime: record.deliveryDateTime, status: record.status, deliveredAccessories: deliveredAccessories.length } });
+  recordAudit({ action: 'deliver', entityType: 'delivery-return', entityId: record.id, summary: `تم تسليم العنصر ${reservation.dressCode} للحجز ${reservation.reservationNumber}.`, nextValues: { deliveryDateTime: record.deliveryDateTime, status: record.status, deliveredAccessories: deliveredAccessories.length, deliveryPhotos: record.deliveryPhotos?.length ?? 0 } });
   return record;
 }
 
@@ -100,9 +124,9 @@ export function completeReturn(input: CompleteReturnInput): DeliveryReturnRecord
 
   const settlement = recordReturnSettlement({ reservationNumber: reservation.reservationNumber, paymentDate: input.returnDateTime.slice(0, 10), refundMethod: input.refundMethod, lateFee: input.lateFee, damageFee: input.damageFee });
   const status = input.damageFee > 0 || input.nextDressStatus === 'damaged' ? 'damaged' : input.lateFee > 0 ? 'late' : 'returned';
-  const record = saveDeliveryReturnRecord({ ...base, status, returnDateTime: input.returnDateTime, returnCondition: input.returnCondition?.trim() || undefined, lateFee: input.lateFee, damageFee: input.damageFee, depositRefundAmount: settlement.refundAmount, notes: input.notes?.trim() || base.notes });
+  const record = saveDeliveryReturnRecord({ ...base, status, returnDateTime: input.returnDateTime, returnCondition: input.returnCondition?.trim() || undefined, returnPhotos: normalizeConditionPhotos(input.returnPhotos), lateFee: input.lateFee, damageFee: input.damageFee, depositRefundAmount: settlement.refundAmount, notes: input.notes?.trim() || base.notes });
   updateReservationStatus(reservation.reservationNumber, 'returned');
   updateDressStatus(reservation.dressCode, input.nextDressStatus);
-  recordAudit({ action: 'return', entityType: 'delivery-return', entityId: record.id, summary: `تم استرجاع العنصر ${reservation.dressCode} من الحجز ${reservation.reservationNumber}.`, nextValues: { returnDateTime: record.returnDateTime, status: record.status, lateFee: record.lateFee, damageFee: record.damageFee, depositRefundAmount: record.depositRefundAmount, accessoriesStillOut: stillOut.length } });
+  recordAudit({ action: 'return', entityType: 'delivery-return', entityId: record.id, summary: `تم استرجاع العنصر ${reservation.dressCode} من الحجز ${reservation.reservationNumber}.`, nextValues: { returnDateTime: record.returnDateTime, status: record.status, lateFee: record.lateFee, damageFee: record.damageFee, depositRefundAmount: record.depositRefundAmount, accessoriesStillOut: stillOut.length, returnPhotos: record.returnPhotos?.length ?? 0 } });
   return record;
 }

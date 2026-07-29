@@ -14,6 +14,7 @@ import type {
   WaitlistOpportunity,
   WaitlistSummary,
 } from './waitlist.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 /**
  * The waiting list.
@@ -170,13 +171,17 @@ export function getWaitlistOpportunities(): WaitlistOpportunity[] {
 }
 
 export function filterWaitlist(entries: WaitlistEntry[], filters: WaitlistFilters): WaitlistEntry[] {
-  const search = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
 
   return entries.filter((entry) => {
     const matchesStatus = filters.status === 'all' || entry.status === filters.status;
-    if (!search) return matchesStatus;
-    const haystack = `${entry.customerName} ${entry.customerPhone} ${entry.designName ?? ''} ${entry.designCode ?? ''} ${entry.dressCode ?? ''}`;
-    return matchesStatus && haystack.toLowerCase().includes(search);
+    return matchesStatus && matchesQuery([
+      entry.customerName,
+      entry.customerPhone,
+      entry.designName,
+      entry.designCode,
+      entry.dressCode,
+    ]);
   });
 }
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { AppUpdateNotice } from '../../components/shared/AppUpdateNotice';
 import { PersistenceErrorBoundary } from '../../components/shared/PersistenceErrorBoundary';
 import { AppHeader } from './AppHeader';
 import { DesktopNavigation } from './DesktopNavigation';
@@ -44,6 +45,7 @@ export function AppShell() {
 
       <MobileNavigation onOpenMenu={() => setMobileMenuOpen(true)} />
       <MobileMoreMenu open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <AppUpdateNotice />
     </div>
   );
 }

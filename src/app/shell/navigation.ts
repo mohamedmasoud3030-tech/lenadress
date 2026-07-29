@@ -3,6 +3,8 @@ import {
   BellRing,
   PackageSearch,
   CalendarDays,
+  CalendarSearch,
+  ClipboardCheck,
   ClipboardList,
   Clock3,
   ClockAlert,
@@ -28,6 +30,7 @@ export type NavigationItem = {
 
 export const navigation: readonly NavigationItem[] = [
   { to: '/', label: 'لوحة التحكم', icon: LayoutDashboard },
+  { to: '/availability', label: 'المتاح في فترة', icon: CalendarSearch },
   { to: '/inventory', label: 'المخزون', icon: Shirt },
   { to: '/accessories', label: 'الملحقات', icon: Gem },
   { to: '/customers', label: 'العملاء', icon: UsersRound },
@@ -38,6 +41,7 @@ export const navigation: readonly NavigationItem[] = [
   { to: '/waitlist', label: 'قائمة الانتظار', icon: ClockAlert },
   { to: '/sales', label: 'المبيعات والمرتجعات', icon: Receipt },
   { to: '/service', label: 'طابور الخدمة', icon: Wrench },
+  { to: '/stocktake', label: 'الجرد الدوري', icon: ClipboardCheck },
   { to: '/payments', label: 'المدفوعات', icon: WalletCards },
   { to: '/expenses', label: 'المصروفات', icon: ReceiptText },
   { to: '/daily-closing', label: 'إقفال اليومية', icon: LockKeyhole },

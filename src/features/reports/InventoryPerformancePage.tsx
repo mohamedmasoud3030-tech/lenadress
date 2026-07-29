@@ -8,6 +8,7 @@ import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAle
 import { ACCESSORY_CATEGORY_LABELS, ACCESSORY_CATEGORY_OPTIONS, ACCESSORY_STATUS_LABELS } from '../../shared/domain/accessoryConstants';
 import { DRESS_CATEGORIES, DRESS_STATUS_LABELS, DRESS_STATUS_OPTIONS } from '../../shared/domain/dressConstants';
 import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
+import { downloadCsv } from '@platform/download';
 import { toCsvFileName } from '../../shared/utils/csv';
 import { getTodayISO } from '../../shared/utils/date';
 import { formatMoneyOMR } from '../../shared/utils/format';
@@ -119,15 +120,8 @@ export function InventoryPerformancePage() {
 
   const exportCsv = () => {
     if (!report) return;
-    const csv = buildInventoryPerformanceCsv(report);
-    // The BOM is inside the string; the blob must not re-encode it away.
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = toCsvFileName('تقرير-أداء-المخزون', getTodayISO());
-    anchor.click();
-    URL.revokeObjectURL(url);
+    // The BOM is inside the string; the shared helper must not re-encode it.
+    downloadCsv(toCsvFileName('تقرير-أداء-المخزون', getTodayISO()), buildInventoryPerformanceCsv(report));
     setFeedback('تم تجهيز ملف CSV للتحميل بترميز يدعم العربية.');
   };
 

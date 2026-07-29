@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Archive, CircleAlert, Plus, Search, Trash2 } from 'lucide-react';
+import { Archive, CircleAlert, Download, Plus, Search, Trash2 } from 'lucide-react';
+import { downloadCsv } from '@platform/download';
+import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
+import { buildCustomersCsv, ledgerFileName } from '../reports/ledgerExports';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { formatMoneyOMR } from '../../shared/utils/format';
@@ -170,6 +173,14 @@ export function CustomersPage() {
   };
 
   const filteredCustomers = useMemo(() => filterCustomers(customers, filters), [customers, filters]);
+
+  /**
+   * Exports exactly what the filters show: the accountant asks for a period or
+   * a subset, and an unfiltered dump makes her redo the narrowing.
+   */
+  const handleExport = () => {
+    downloadCsv(ledgerFileName('سجل-العميلات'), buildCustomersCsv(filteredCustomers));
+  };
   const summary = useMemo(() => summarizeCustomers(customers), [customers]);
 
   const handleCreated = (customer: Customer) => {
@@ -185,6 +196,7 @@ export function CustomersPage() {
           title="إدارة العميلات"
           description="حفظ بيانات التواصل والمقاسات وحالة التعامل والأرصدة في سجل واحد واضح."
         />
+        <button type="button" onClick={handleExport} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}><Download aria-hidden="true" className="h-5 w-5" />تصدير CSV</button>
         <button
           type="button"
           onClick={() => {

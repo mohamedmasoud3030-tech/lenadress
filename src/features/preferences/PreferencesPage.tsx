@@ -14,22 +14,16 @@ import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { OperatorSettings } from './OperatorSettings';
+import { getAppBuildInfo } from '@platform/app-update';
+import { downloadJson } from '@platform/download';
+import { MessageTemplatesEditor } from './MessageTemplatesEditor';
 import { PrintSettingsEditor } from './PrintSettingsEditor';
 
 const preferenceFieldClassName = 'mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30';
 
-function downloadJson(filename: string, value: unknown): void {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 export function PreferencesPage() {
   const [preferences, setPreferences] = useState<AppPreferences>(() => getAppPreferences());
+  const buildInfo = getAppBuildInfo();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const importInput = useRef<HTMLInputElement>(null);
@@ -150,10 +144,115 @@ export function PreferencesPage() {
         <p className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-slate-600">
           مدة التجهيز ومدة التنظيف تُوسّعان فترة الحجز المحجوبة تلقائياً، فلا يُقبل حجز جديد لنفس الفستان أو الملحق داخل هذه المدد.
         </p>
+
+        {/* The fee is proposed, never imposed: waiving it for a good customer
+            stays a decision the showroom makes, not the software. */}
+        <h3 className="mt-6 text-base font-bold text-slate-900">سياسة رسوم التأخير</h3>
+        <div className="mt-3 grid gap-4 md:grid-cols-3">
+          <label className="text-sm font-bold text-slate-700">
+            طريقة الاحتساب
+            <select
+              value={preferences.lateFeePolicy.mode}
+              onChange={(event) => setPreferences((current) => ({
+                ...current,
+                lateFeePolicy: { ...current.lateFeePolicy, mode: event.target.value as AppPreferences['lateFeePolicy']['mode'] },
+              }))}
+              className={preferenceFieldClassName}
+            >
+              <option value="none">بدون احتساب تلقائي</option>
+              <option value="fixed_per_day">مبلغ ثابت لكل يوم</option>
+              <option value="percent_of_rental_per_day">نسبة من الإيجار لكل يوم</option>
+            </select>
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            المبلغ اليومي (ر.ع)
+            <input
+              type="number"
+              min="0"
+              step="0.001"
+              inputMode="decimal"
+              disabled={preferences.lateFeePolicy.mode !== 'fixed_per_day'}
+              value={preferences.lateFeePolicy.amountPerDay}
+              onChange={(event) => setPreferences((current) => ({
+                ...current,
+                lateFeePolicy: { ...current.lateFeePolicy, amountPerDay: Number(event.target.value) },
+              }))}
+              className={preferenceFieldClassName}
+            />
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            النسبة اليومية (%)
+            <input
+              type="number"
+              min="0"
+              max="100"
+              inputMode="decimal"
+              disabled={preferences.lateFeePolicy.mode !== 'percent_of_rental_per_day'}
+              value={preferences.lateFeePolicy.percentPerDay}
+              onChange={(event) => setPreferences((current) => ({
+                ...current,
+                lateFeePolicy: { ...current.lateFeePolicy, percentPerDay: Number(event.target.value) },
+              }))}
+              className={preferenceFieldClassName}
+            />
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            مهلة السماح (أيام)
+            <input
+              type="number"
+              min="0"
+              max="30"
+              value={preferences.lateFeePolicy.graceDays}
+              onChange={(event) => setPreferences((current) => ({
+                ...current,
+                lateFeePolicy: { ...current.lateFeePolicy, graceDays: Number(event.target.value) },
+              }))}
+              className={preferenceFieldClassName}
+            />
+          </label>
+          <label className="text-sm font-bold text-slate-700">
+            الحد الأقصى (% من الإيجار)
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              value={preferences.lateFeePolicy.maxPercentOfRental}
+              onChange={(event) => setPreferences((current) => ({
+                ...current,
+                lateFeePolicy: { ...current.lateFeePolicy, maxPercentOfRental: Number(event.target.value) },
+              }))}
+              className={preferenceFieldClassName}
+            />
+          </label>
+        </div>
+        <p className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-slate-600">
+          يقترح النظام قيمة رسوم التأخير عند تسجيل الاسترجاع، ويظل بإمكانك تعديلها أو إلغاؤها. صفر في الحد الأقصى يعني بلا سقف.
+        </p>
         <button type="button" onClick={savePreferences} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"><Save aria-hidden="true" className="h-4 w-4" />حفظ الإعدادات</button>
       </article>
 
       <OperatorSettings />
+
+      {/* Named here because support is impossible while the operator cannot
+          answer "which version are you on?". */}
+      <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold">عن التطبيق</h2>
+        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500">الإصدار</dt>
+            <dd className="font-bold text-slate-950" dir="ltr">{buildInfo.version}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">تاريخ النسخة</dt>
+            <dd className="font-bold text-slate-950" dir="ltr">{buildInfo.buildTime ? buildInfo.buildTime.slice(0, 10) : '—'}</dd>
+          </div>
+        </dl>
+        <p className="mt-3 rounded-xl bg-stone-50 p-3 text-xs leading-5 text-slate-600">
+          اذكري رقم الإصدار عند طلب الدعم. التحديثات لا تُطبّق تلقائياً أثناء العمل؛ سيظهر لكِ تنبيه لاختيار وقت التحديث.
+        </p>
+      </article>
+
+      <MessageTemplatesEditor />
 
       <PrintSettingsEditor />
 

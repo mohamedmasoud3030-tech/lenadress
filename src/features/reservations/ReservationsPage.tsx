@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
-import { CalendarCheck, CircleAlert, Plus, Printer, Search, Shirt, UserRound, XCircle } from 'lucide-react';
+import { CalendarCheck, CircleAlert, Download, Plus, Printer, Search, Shirt, UserRound, XCircle } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { downloadCsv } from '@platform/download';
+import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
+import { buildReservationsCsv, ledgerFileName } from '../reports/ledgerExports';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { EmptyState } from '../../components/shared/StateViews';
 import { SummaryCard } from '../../components/shared/SummaryCard';
@@ -82,6 +85,12 @@ export function ReservationsPage() {
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null);
 
   const showCreateModal = searchParams.get('new') === '1';
+  // Carried in from /availability so the found piece and period land in the form.
+  const createPrefill = useMemo(() => ({
+    dressCode: searchParams.get('dress') ?? undefined,
+    pickupDate: searchParams.get('pickup') ?? undefined,
+    returnDate: searchParams.get('return') ?? undefined,
+  }), [searchParams]);
   const filteredReservations = useMemo(() => filterReservations(reservations, filters), [reservations, filters]);
   const summary = useMemo(() => summarizeReservations(reservations), [reservations]);
   const openCreateModal = () => { setFeedback(null); const nextParams = new URLSearchParams(searchParams); nextParams.set('new', '1'); setSearchParams(nextParams); };
@@ -99,13 +108,21 @@ export function ReservationsPage() {
     setFilters({ search: reservation.reservationNumber, status: 'all', timing: 'all' });
     setFeedback({ tone: 'success', message: `تم فتح الحجز ${reservation.reservationNumber} من التقويم.` });
   };
+  /**
+   * Exports exactly what the filters show: the accountant asks for a period or
+   * a subset, and an unfiltered dump makes her redo the narrowing.
+   */
+  const handleExport = () => {
+    downloadCsv(ledgerFileName('سجل-الحجوزات'), buildReservationsCsv(filteredReservations));
+  };
+
   const handlePrint = (reservation: Reservation) => {
     try { printRentalContract(reservation); }
     catch (error: unknown) { setFeedback({ tone: 'danger', message: error instanceof Error ? error.message : 'تعذر طباعة العقد.' }); }
   };
 
   return <section className="space-y-6">
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><PageHeader eyebrow="الحجوزات" title="إدارة الحجوزات" description="إنشاء الحجوزات، منع التعارضات، ومتابعة مواعيد الاستلام والإرجاع." /><button type="button" onClick={openCreateModal} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"><Plus aria-hidden="true" className="h-5 w-5" />حجز جديد</button></div>
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><PageHeader eyebrow="الحجوزات" title="إدارة الحجوزات" description="إنشاء الحجوزات، منع التعارضات، ومتابعة مواعيد الاستلام والإرجاع." /><button type="button" onClick={openCreateModal} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"><Plus aria-hidden="true" className="h-5 w-5" />حجز جديد</button><button type="button" onClick={handleExport} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}><Download aria-hidden="true" className="h-5 w-5" />تصدير CSV</button></div>
     {feedback && <div role="status" className={`rounded-xl border px-4 py-3 text-sm font-bold ${feedback.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>{feedback.message}</div>}
     <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"><SummaryCard label="إجمالي الحجوزات" value={summary.total} /><SummaryCard label="الحجوزات النشطة" value={summary.active} tone="positive" /><SummaryCard label="عمليات اليوم" value={summary.today} hint="استلام أو إرجاع" /><SummaryCard label="متأخرة" value={summary.overdue} tone={summary.overdue > 0 ? 'danger' : 'default'} /></div>
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="grid gap-3 lg:grid-cols-[1fr_190px_190px]">
@@ -126,6 +143,6 @@ export function ReservationsPage() {
           title="لا توجد حجوزات مطابقة"
           description="غيّري البحث أو الفلاتر الحالية لعرض نتائج أخرى."
         />}
-    <CreateReservationModal open={showCreateModal} onClose={closeCreateModal} onCreated={handleCreated} />
+    <CreateReservationModal open={showCreateModal} onClose={closeCreateModal} onCreated={handleCreated} prefill={createPrefill} />
   </section>;
 }

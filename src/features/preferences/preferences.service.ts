@@ -17,6 +17,36 @@ export type AppPreferences = {
   /** Default return time used when a reservation carries no explicit time. */
   defaultReturnTime: string;
   dormantDressDays: number;
+  /**
+   * Late-fee policy.
+   *
+   * The late fee was a blank number field, so every operator improvised and
+   * roughly half of all late returns were charged nothing at all. The system
+   * now proposes a figure and the operator may still override it: an automatic
+   * non-negotiable charge would be wrong, because waiving a fee for a good
+   * customer is a legitimate commercial decision the showroom must keep.
+   */
+  lateFeePolicy: LateFeePolicy;
+};
+
+export type LateFeeMode = 'none' | 'fixed_per_day' | 'percent_of_rental_per_day';
+
+export type LateFeePolicy = {
+  mode: LateFeeMode;
+  /** OMR per late day when the mode is `fixed_per_day`. */
+  amountPerDay: number;
+  /** Percentage of the agreed rental per late day, 0..100. */
+  percentPerDay: number;
+  /**
+   * Days of lateness forgiven before anything is charged. A customer returning
+   * an hour after closing is not the case a late fee exists for.
+   */
+  graceDays: number;
+  /**
+   * Upper bound as a percentage of the agreed rental, 0 meaning uncapped. A
+   * month-late return would otherwise compute a fee larger than the dress.
+   */
+  maxPercentOfRental: number;
 };
 
 const COLLECTION = 'preferences';
@@ -31,6 +61,16 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   defaultPickupTime: '10:00',
   defaultReturnTime: '20:00',
   dormantDressDays: 90,
+  lateFeePolicy: {
+    // Off by default: a showroom must opt into charging, and inventing a rate
+    // on the operator's behalf would put a number on a real invoice that
+    // nobody agreed to.
+    mode: 'none',
+    amountPerDay: 0,
+    percentPerDay: 10,
+    graceDays: 0,
+    maxPercentOfRental: 100,
+  },
 };
 
 export const MAX_BUFFER_DAYS = 14;
@@ -38,6 +78,28 @@ export const MAX_BUFFER_DAYS = 14;
 function normalizeBufferDays(value: unknown, fallback: number): number {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_BUFFER_DAYS ? parsed : fallback;
+}
+
+const LATE_FEE_MODES: LateFeeMode[] = ['none', 'fixed_per_day', 'percent_of_rental_per_day'];
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
+function normalizeLateFeePolicy(value: unknown): LateFeePolicy {
+  const fallback = DEFAULT_APP_PREFERENCES.lateFeePolicy;
+  const input = (value ?? {}) as Partial<LateFeePolicy>;
+  const mode = LATE_FEE_MODES.includes(input.mode as LateFeeMode) ? (input.mode as LateFeeMode) : fallback.mode;
+
+  return {
+    mode,
+    amountPerDay: clampNumber(input.amountPerDay, fallback.amountPerDay, 0, 10_000),
+    percentPerDay: clampNumber(input.percentPerDay, fallback.percentPerDay, 0, 100),
+    graceDays: Math.round(clampNumber(input.graceDays, fallback.graceDays, 0, 30)),
+    maxPercentOfRental: clampNumber(input.maxPercentOfRental, fallback.maxPercentOfRental, 0, 1000),
+  };
 }
 
 export function isValidTimeValue(value: unknown): value is string {
@@ -68,6 +130,7 @@ function normalizePreferences(value?: Partial<AppPreferences>): AppPreferences {
       Number.isInteger(dormantDressDays) && dormantDressDays >= 1 && dormantDressDays <= 3650
         ? dormantDressDays
         : DEFAULT_APP_PREFERENCES.dormantDressDays,
+    lateFeePolicy: normalizeLateFeePolicy(value?.lateFeePolicy),
   };
 }
 
@@ -92,6 +155,16 @@ export function saveAppPreferences(input: AppPreferences): AppPreferences {
   }
   if (!Number.isInteger(input.dormantDressDays) || input.dormantDressDays < 1 || input.dormantDressDays > 3650) {
     throw new Error('أيام اعتبار العنصر خاملاً يجب أن تكون رقماً موجباً.');
+  }
+  const policy = input.lateFeePolicy;
+  if (policy) {
+    if (!LATE_FEE_MODES.includes(policy.mode)) throw new Error('طريقة احتساب رسوم التأخير غير معروفة.');
+    if (policy.mode === 'fixed_per_day' && !(policy.amountPerDay > 0)) {
+      throw new Error('حددي قيمة رسوم التأخير اليومية قبل تفعيل الاحتساب الثابت.');
+    }
+    if (policy.mode === 'percent_of_rental_per_day' && !(policy.percentPerDay > 0)) {
+      throw new Error('حددي نسبة رسوم التأخير اليومية قبل تفعيل الاحتساب بالنسبة.');
+    }
   }
 
   writeCollection(COLLECTION, [normalized]);

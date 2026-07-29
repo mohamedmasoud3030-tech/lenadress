@@ -31,6 +31,7 @@ import type {
   PerformanceRevenueLine,
   PerformanceSortKey,
 } from './inventoryPerformance.types';
+import { matchesSearchQuery } from '../../shared/utils/search';
 
 /**
  * Inventory performance and profitability.
@@ -359,10 +360,7 @@ function matchesFilters(row: InventoryPerformanceRow, filters: InventoryPerforma
   if (filters.status !== 'all' && rawStatus !== filters.status) return false;
   if (filters.operation === 'rental' && row.rentalCount === 0 && row.rentalRevenue === 0) return false;
   if (filters.operation === 'sale' && row.saleCount === 0 && row.saleRevenue === 0) return false;
-  if (filters.search) {
-    const needle = filters.search.trim().toLowerCase();
-    if (!`${row.code} ${row.name}`.toLowerCase().includes(needle)) return false;
-  }
+  if (filters.search && !matchesSearchQuery(filters.search, [row.code, row.name])) return false;
   return true;
 }
 

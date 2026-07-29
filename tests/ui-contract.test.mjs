@@ -486,6 +486,8 @@ test('the daily operations journey is reachable from the navigation', async () =
     '/reports',
     '/reminders',
     '/waitlist',
+    '/availability',
+    '/stocktake',
     '/inventory-performance',
     '/preferences',
   ];
@@ -497,4 +499,86 @@ test('the daily operations journey is reachable from the navigation', async () =
       `${route} must have a route`,
     );
   }
+});
+
+test('availability search leads with the date and never hides why a piece is out', async () => {
+  const page = await readFile(join(sourceRoot, 'features/availability/AvailabilitySearchPage.tsx'), 'utf8');
+
+  // The whole point of the screen is the reverse query, so the period inputs
+  // must be first-class controls rather than a filter buried in a drawer.
+  assert.match(page, /type="date"/, 'the period must be chosen with real date inputs');
+  assert.match(page, /<PageHeader/, 'the page must use the shared header');
+  assert.match(page, /<SummaryCard/, 'the page must use the shared summary card');
+  assert.match(page, /<FilterBar>/, 'the page must use the shared filter bar');
+  assert.match(page, /<EmptyState/, 'an empty result must be explained, not left blank');
+  assert.match(page, /min-h-11/, 'actions must stay tappable on a phone');
+  assert.match(page, /grid-cols-2/, 'summary tiles must be 2-up on phones');
+  assert.doesNotMatch(page, /<h1 /, 'the page must not hand-roll its title');
+
+  // A bare "not available" sends the operator back to guessing. Every refusal
+  // carries a reason, and a booked piece carries a date to counter-offer.
+  assert.match(page, /REASON_LABELS/, 'unavailability must always state a reason');
+  assert.match(page, /nextFreeDate/, 'a booked piece must offer the next free date');
+  assert.match(page, /alternativePieceCodes/, 'free siblings of the same design must be suggested');
+});
+
+test('a piece found free can be booked without being searched for again', async () => {
+  const page = await readFile(join(sourceRoot, 'features/availability/AvailabilitySearchPage.tsx'), 'utf8');
+  const reservations = await readFile(join(sourceRoot, 'features/reservations/ReservationsPage.tsx'), 'utf8');
+  const modal = await readFile(join(sourceRoot, 'features/reservations/CreateReservationModal.tsx'), 'utf8');
+
+  assert.match(page, /reservations\?new=1&dress=/, 'the result must link straight into the booking form');
+  assert.match(reservations, /createPrefill/, 'the reservations page must read the carried-over values');
+  assert.match(modal, /prefill/, 'the booking form must accept the carried-over values');
+  // The code is resolved against the live reservable list: booking the wrong
+  // item silently would be worse than asking the operator to pick again.
+  assert.match(modal, /reservable\.find\(\(dress\) => dress\.code === prefill\.dressCode\)/,
+    'a prefilled code must be resolved, not trusted');
+});
+
+test('the stocktake loop stays hands-free and explains every absence', async () => {
+  const page = await readFile(join(sourceRoot, 'features/stocktake/StocktakePage.tsx'), 'utf8');
+
+  // Anything that forces the operator to put the phone down between pieces
+  // turns a forty-item count into an hour, and an hour-long count never gets
+  // done twice.
+  assert.match(page, /autoFocus/, 'the scan field must stay focused for a physical scanner');
+  assert.match(page, /onSubmit=\{\(event\) => \{/, 'Enter must submit a scan without a button press');
+  assert.match(page, /BarcodeScanner/, 'the camera scanner must be available on a phone');
+
+  assert.match(page, /<PageHeader/, 'the page must use the shared header');
+  assert.match(page, /<SummaryCard/, 'the page must use the shared summary card');
+  assert.match(page, /<EmptyState/, 'a showroom that never counted must be told why it matters');
+  assert.match(page, /grid-cols-2/, 'summary tiles must be 2-up on phones');
+  assert.match(page, /min-h-11/, 'actions must stay tappable');
+  assert.doesNotMatch(page, /<h1 /, 'the page must not hand-roll its title');
+
+  // A count that flags every rented dress is noise, and noise gets ignored.
+  assert.match(page, /STOCKTAKE_ABSENCE_LABELS/, 'an explained absence must be labelled as such');
+  assert.match(page, /غائبة بعذر/, 'legitimate absence must be separated from loss');
+});
+
+test('an app update waits for the operator and never reloads on its own', async () => {
+  const notice = await readFile(join(sourceRoot, 'components/shared/AppUpdateNotice.tsx'), 'utf8');
+  const shell = await readFile(join(sourceRoot, 'app/shell/AppShell.tsx'), 'utf8');
+
+  assert.match(shell, /<AppUpdateNotice \/>/, 'the notice must be mounted in the shell');
+  assert.match(notice, /applyPendingUpdate/, 'applying an update must be an explicit action');
+  // The registration was changed from autoUpdate precisely so the operator
+  // decides when it is safe to lose the current screen; a timer would undo it.
+  assert.doesNotMatch(notice, /setTimeout|setInterval/, 'no timed automatic reload');
+  assert.match(notice, /لاحقاً/, 'the operator must be able to defer');
+  assert.match(notice, /min-h-11/, 'both actions must stay tappable');
+  // The bottom tab bar is the operator's escape from any screen.
+  assert.match(notice, /bottom-\[calc\(env\(safe-area-inset-bottom/, 'the banner must clear the mobile navigation');
+});
+
+test('the running build states its own version for support', async () => {
+  const page = await readFile(join(sourceRoot, 'features/preferences/PreferencesPage.tsx'), 'utf8');
+  const version = await readFile(join(sourceRoot, 'platform/app-update/appVersion.ts'), 'utf8');
+
+  assert.match(page, /getAppBuildInfo/, 'settings must display the version');
+  // Reading package.json at runtime would describe the repository, not the
+  // bundle the showroom is actually running.
+  assert.match(version, /__APP_VERSION__/, 'the version must be injected at build time');
 });

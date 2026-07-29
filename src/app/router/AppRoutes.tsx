@@ -6,6 +6,7 @@ import {
   AccessoriesPage,
   AppointmentsPage,
   AuditLogPage,
+  AvailabilitySearchPage,
   CustomersPage,
   DailyClosingPage,
   DesignDetailsPage,
@@ -24,6 +25,7 @@ import {
   ReservationsPage,
   SalesLedgerPage,
   ServiceQueuePage,
+  StocktakePage,
   WaitlistPage,
 } from './routePages';
 
@@ -50,6 +52,7 @@ export function AppRoutes() {
             </Suspense>
           }
         />
+        <Route path="availability" element={<AvailabilitySearchPage />} />
         <Route path="accessories" element={<AccessoriesPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="reservations" element={<ReservationsPage />} />
@@ -57,6 +60,7 @@ export function AppRoutes() {
         <Route path="delivery-return" element={<DeliveryReturnPage />} />
         <Route path="sales" element={<SalesLedgerPage />} />
         <Route path="service" element={<ServiceQueuePage />} />
+        <Route path="stocktake" element={<StocktakePage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="expenses" element={<ExpensesPage />} />
         <Route path="daily-closing" element={<DailyClosingPage />} />

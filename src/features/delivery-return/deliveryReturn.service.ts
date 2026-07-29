@@ -6,6 +6,7 @@ import type {
   DeliveryReturnRecord,
   DeliveryReturnSummary,
 } from './deliveryReturn.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 const COLLECTION = 'delivery-return';
 const trackedReservationStatuses = new Set<Reservation['status']>(['pending', 'confirmed', 'delivered', 'overdue']);
@@ -63,20 +64,17 @@ export function filterDeliveryReturnRecords(
   records: DeliveryReturnRecord[],
   filters: DeliveryReturnFilters,
 ): DeliveryReturnRecord[] {
-  const normalizedSearch = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
 
   return records.filter((record) => {
     const matchStatus = filters.status === 'all' || record.status === filters.status;
 
-    if (!normalizedSearch) {
-      return matchStatus;
-    }
-
-    const matchSearch =
-      record.reservationNumber.toLowerCase().includes(normalizedSearch) ||
-      record.customerName.toLowerCase().includes(normalizedSearch) ||
-      record.dressCode.toLowerCase().includes(normalizedSearch) ||
-      record.dressName.toLowerCase().includes(normalizedSearch);
+    const matchSearch = matchesQuery([
+      record.reservationNumber,
+      record.customerName,
+      record.dressCode,
+      record.dressName,
+    ]);
 
     return matchStatus && matchSearch;
   });

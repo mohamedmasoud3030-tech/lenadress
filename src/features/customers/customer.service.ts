@@ -3,6 +3,7 @@ import { recordAudit } from '../audit/audit.service';
 import { getCustomerHardDeleteBlockers } from '../integrity/integrity.service';
 import type { Reservation } from '../reservations/reservation.types';
 import type { Customer, CustomerFilters, CustomerSummary } from './customer.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 const COLLECTION = 'customers';
 const RESERVATION_COLLECTION = 'reservations';
@@ -49,14 +50,13 @@ export function getCustomers(): Customer[] {
 }
 
 export function filterCustomers(customers: Customer[], filters: CustomerFilters): Customer[] {
-  const search = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
 
   return customers.filter((customer) => {
-    const matchesSearch =
-      !search ||
-      customer.name.toLowerCase().includes(search) ||
-      customer.phone.toLowerCase().includes(search) ||
-      customer.address.toLowerCase().includes(search);
+    // Arabic-folded and digit-aware, so "فاطمه" finds "فاطمة" and "91918186"
+    // finds "+968 9191 8186" instead of returning an empty list and tempting
+    // the operator into creating a duplicate customer.
+    const matchesSearch = matchesQuery([customer.name, customer.phone, customer.address, customer.notes]);
 
     const matchesStatus = filters.status === 'all' || customer.status === filters.status;
     const matchesBalance =

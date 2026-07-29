@@ -37,7 +37,14 @@ Status vocabulary:
 | Conduct and waiting list | `npm run test:conduct-waitlist` | Derived conduct, no-show detection, authored notes, audit attribution, waitlist validation and live availability |
 | Measurements and printing | `npm run test:measurements-printing` | Size suggestion honesty, non-standard sizes returning unknown, legacy text parsing, print settings clamping, stylesheet fidelity, hidden sections genuinely absent |
 | Daily operations board | `npm run test:dashboard` | Today's pickups and returns ordered by time, uncollected money totalled and ordered for collection, cash matching the finance layer, overdue returns, accessory counts |
-| PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback |
+| Arabic search | `npm run test:arabic-search` | Hamza seats, ta marbuta, alef maqsura, tashkeel and Arabic-Indic digits folded on both sides; a bare-digit query reaching a formatted phone number; two different customers still separated |
+| Availability search | `npm run test:availability` | Reverse-direction query resolved through the central conflict rule; reasons, next free date and sibling suggestions; a booking created for exactly what the search offered |
+| Condition evidence | `npm run test:condition-evidence` | Photos stored per handover, before-evidence surviving the return, non-image payloads rejected, the cap enforced, evidence surviving a backup round-trip, compression scaling maths |
+| Late-fee policy | `npm run test:late-fee` | Whole-day counting across month boundaries, fixed and percentage modes, grace, cap, rial rounding, disabled-by-default, and an unrecognised stored mode never inventing a charge |
+| Stocktake | `npm run test:stocktake` | Single open session, duplicate scans as no-ops, absence classified against active deliveries and service states, coverage maths, closing never mutating item status, dangling scans surfaced |
+| Labels and templates | `npm run test:labels-templates` | One page break per label with no trailing blank sticker, escaping in label values, template substitution, unknown placeholders left visible, empty templates falling back |
+| Ledger exports | `npm run test:ledger-exports` | BOM on every export, formula-injection guard, quoting, discount derived from the booking snapshot, ISO dates, filter-respecting exports, the download helper attaching its anchor |
+| PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback, service worker actually registered in the built bundle, prompt-mode updates |
 
 ## 2. Browser (desktop)
 
@@ -135,8 +142,27 @@ case.
 ## 8. Release gate summary
 
 Ready: data identity, atomic workflows, financial truth, service workflow,
-backup and restore, UI contract, PWA build output.
+backup and restore, UI contract, PWA build output, Arabic search, availability
+search, condition evidence, late-fee policy, stocktake, ledger exports.
 
 Still required before the release tag: mobile device capture, PWA install and
 offline reload on a device, the full Tauri Windows procedure, real-camera
 barcode checks, and the two outstanding failure-recovery scenarios.
+
+### Added to the device matrix by Phase 13
+
+These cannot be proven by an automated gate and must be confirmed on a real
+device before the tag:
+
+- [ ] Take a condition photo from the rear camera during a real delivery, and
+      confirm the compressed image is legible enough to settle a dispute.
+- [ ] Print a batch of at least ten barcode labels on the real label roll and
+      confirm each label lands on its own sticker with nothing clipped.
+- [ ] Open a CSV export on the device the accountant actually uses and confirm
+      Arabic renders correctly rather than as mojibake.
+- [ ] Confirm the export downloads at all from the installed PWA — the detached
+      anchor defect this phase fixed produced no file and no error.
+- [ ] Deploy a new build and confirm the update banner appears, that the app is
+      NOT swapped underneath an open form, and that reloading applies it.
+- [ ] Run a full stocktake of the real showroom and confirm nothing legitimately
+      out on a rental is reported as missing.

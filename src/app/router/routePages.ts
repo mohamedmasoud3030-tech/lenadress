@@ -3,6 +3,7 @@ import { lazy } from 'react';
 export { NotFoundPage } from '../../components/shared/NotFoundPage';
 export { AccessoriesPage } from '../../features/accessories/AccessoriesPage';
 export { AuditLogPage } from '../../features/audit/AuditLogPage';
+export { AvailabilitySearchPage } from '../../features/availability/AvailabilitySearchPage';
 export { AppointmentsPage } from '../../features/appointments/AppointmentsPage';
 export { CustomersPage } from '../../features/customers/CustomersPage';
 export { DashboardWithClosingAlertPage } from '../../features/dashboard/DashboardWithClosingAlertPage';
@@ -22,6 +23,7 @@ export const InventoryPerformancePage = lazy(async () => {
 });
 export { ReservationsPage } from '../../features/reservations/ReservationsPage';
 export { SalesLedgerPage } from '../../features/dresses/SalesLedgerPage';
+export { StocktakePage } from '../../features/stocktake/StocktakePage';
 export { ServiceQueuePage } from '../../features/service/ServiceQueuePage';
 export { LandingPage } from '../../pages/landing/LandingPage';
 

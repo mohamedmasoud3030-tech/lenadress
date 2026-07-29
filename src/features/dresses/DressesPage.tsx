@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Banknote, Barcode, Layers, Plus, Search, Shirt } from 'lucide-react';
+import { Banknote, Barcode, Layers, Plus, Printer, Search, Shirt } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { DRESS_CATEGORIES, DRESS_STATUS_LABELS, DRESS_STATUS_OPTIONS, DRESS_STATUS_STYLES, INVENTORY_ITEM_TYPE_LABELS, INVENTORY_ITEM_TYPE_OPTIONS } from '../../shared/domain/dressConstants';
@@ -12,6 +12,7 @@ import { AddDesignModal } from './AddDesignModal';
 import { summarizeAllDesigns } from './design.service';
 import { EmptyState, LoadingState } from '../../components/shared/StateViews';
 import { ViewModeToggle, useViewMode } from '../../components/shared/ViewModeToggle';
+import { printLabelsForItems } from './barcodeLabelBatch';
 import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import type { DressDesign } from './design.types';
 import type { SaleInvoice } from './salesLedger.service';
@@ -212,6 +213,28 @@ export function DressesPage() {
   }, []);
 
   const filteredDresses = useMemo(() => filterDresses(filters), [dresses, filters]);
+
+  /**
+   * Prints a label for every item currently visible. The filter is the
+   * selection: the operator has already narrowed to the new delivery or the one
+   * shelf she is relabelling, so a second checkbox selection on top of it would
+   * be the same choice made twice.
+   */
+  const handlePrintLabels = () => {
+    setFeedback(null);
+    try {
+      const result = printLabelsForItems(filteredDresses.map((dress) => ({
+        barcode: dress.barcode,
+        code: dress.code,
+        name: dress.name,
+      })));
+      setFeedback(result.skipped.length > 0
+        ? `تم تجهيز ${result.printed} ملصق. تعذر توليد باركود لـ: ${result.skipped.join('، ')}.`
+        : `تم تجهيز ${result.printed} ملصق للطباعة.`);
+    } catch (caught) {
+      setFeedback(caught instanceof Error ? caught.message : 'تعذر تجهيز الملصقات للطباعة.');
+    }
+  };
   const designSummaries = useMemo(() => summarizeAllDesigns(), [dresses]);
   const summary = useMemo(() => summarizeDresses(), [dresses]);
 
@@ -418,7 +441,21 @@ export function DressesPage() {
             حسب التصميم ({designSummaries.length})
           </button>
         </div>
-        {!groupByDesign && <ViewModeToggle mode={viewMode} onChange={setViewMode} />}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Labelling a delivery of forty pieces used to be forty trips through
+              the print dialog. This prints the whole filtered set at once. */}
+          {!groupByDesign && filteredDresses.length > 0 && (
+            <button
+              type="button"
+              onClick={handlePrintLabels}
+              className={`inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+            >
+              <Printer aria-hidden="true" className="h-4 w-4" />
+              طباعة ملصقات ({filteredDresses.length})
+            </button>
+          )}
+          {!groupByDesign && <ViewModeToggle mode={viewMode} onChange={setViewMode} />}
+        </div>
       </div>
 
       {loading ? (

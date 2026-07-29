@@ -15,6 +15,7 @@ import type {
   PaymentSummary,
   PaymentType,
 } from './payment.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 const COLLECTION = 'payments';
 
@@ -47,21 +48,20 @@ export function getPayments(): PaymentRecord[] {
 }
 
 export function filterPayments(payments: PaymentRecord[], filters: PaymentFilters): PaymentRecord[] {
-  const normalizedSearch = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
 
   return payments.filter((payment) => {
     const matchesType = filters.type === 'all' || payment.type === filters.type;
     const matchesMethod = filters.method === 'all' || payment.method === filters.method;
     const matchesDirection = filters.direction === 'all' || payment.direction === filters.direction;
 
-    if (!normalizedSearch) return matchesType && matchesMethod && matchesDirection;
-
-    const matchesSearch =
-      payment.paymentNumber.toLowerCase().includes(normalizedSearch)
-      || payment.reservationNumber.toLowerCase().includes(normalizedSearch)
-      || payment.customerName.toLowerCase().includes(normalizedSearch)
-      || payment.dressCode.toLowerCase().includes(normalizedSearch)
-      || payment.dressName.toLowerCase().includes(normalizedSearch);
+    const matchesSearch = matchesQuery([
+      payment.paymentNumber,
+      payment.reservationNumber,
+      payment.customerName,
+      payment.dressCode,
+      payment.dressName,
+    ]);
 
     return matchesType && matchesMethod && matchesDirection && matchesSearch;
   });

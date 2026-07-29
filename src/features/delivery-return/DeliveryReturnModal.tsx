@@ -16,7 +16,9 @@ import type { PaymentMethod } from '../payments/payment.types';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
 import { completeDeliveryCommand, completeReturnCommand, type ReturnItemStatus } from '../workflows';
-import type { DeliveryReturnRecord } from './deliveryReturn.types';
+import { ConditionPhotoCapture } from './ConditionPhotoCapture';
+import { suggestLateFee } from './lateFee';
+import type { ConditionPhoto, DeliveryReturnRecord } from './deliveryReturn.types';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
 import { getAccessoryByBarcode } from '../accessories/accessory.service';
 import { getReservationAccessoryViews, type ReservationAccessoryView } from '../accessories/reservationAccessory.service';
@@ -128,6 +130,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
   const [accessoryLinks, setAccessoryLinks] = useState<ReservationAccessoryView[]>([]);
   const [deliveredAccessoryIds, setDeliveredAccessoryIds] = useState<string[]>([]);
   const [returnState, setReturnState] = useState<Record<string, AccessoryReturnState>>({});
+  const [conditionPhotos, setConditionPhotos] = useState<ConditionPhoto[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const lateFee = parseAmount(form.lateFee);
@@ -137,6 +140,16 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
   const returnPreview = useMemo(
     () => getReturnPreview(selectedReservation, lateFee, damageFee),
     [selectedReservation, lateFee, damageFee],
+  );
+
+  // The proposal is recomputed from the booking and the actual return time, but
+  // written into the field only when the operator asks for it: overwriting a
+  // figure she has already typed would be the app arguing with her.
+  const lateFeeSuggestion = useMemo(
+    () => (form.operation === 'return' && selectedReservation
+      ? suggestLateFee(selectedReservation, form.dateTime)
+      : null),
+    [form.operation, form.dateTime, selectedReservation],
   );
 
   const reservationOptions = useMemo<SearchableOption[]>(() => reservations.map((item) => ({
@@ -218,6 +231,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
 
   const close = () => {
     setForm(defaults());
+    setConditionPhotos([]);
     setError(null);
     onClose();
   };
@@ -242,6 +256,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             reservationNumber: form.reservationNumber,
             deliveryDateTime: form.dateTime,
             deliveryCondition: form.condition,
+            deliveryPhotos: conditionPhotos,
             deliveredAccessoryIds,
             notes: form.notes,
             idempotencyKey: submissionKey,
@@ -250,6 +265,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             reservationNumber: form.reservationNumber,
             returnDateTime: form.dateTime,
             returnCondition: form.condition,
+            returnPhotos: conditionPhotos,
             lateFee,
             damageFee,
             refundMethod: form.refundMethod,
@@ -347,6 +363,18 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
           />
         </label>
 
+        {/* Photographic evidence, because free text is one person's word against
+            another's the moment a customer disputes a stain or a tear. */}
+        <ConditionPhotoCapture
+          label={form.operation === 'delivery' ? 'صور القطعة عند التسليم' : 'صور القطعة عند الاسترجاع'}
+          hint={form.operation === 'delivery'
+            ? 'صوّري القطعة أمام العميلة قبل خروجها. هذه الصور هي الدليل إذا اختلفتم لاحقاً على حالتها.'
+            : 'صوّري أي ضرر أو بقعة فور الاستلام، قبل احتساب أي رسوم.'}
+          photos={conditionPhotos}
+          onChange={setConditionPhotos}
+          disabled={isSubmitting}
+        />
+
         {scanFeedback && <p role="status" className="rounded-xl border border-slate-200 bg-stone-50 px-3 py-2 text-sm font-bold text-slate-700">{scanFeedback}</p>}
 
         {selectedReservation && (form.operation === 'delivery'
@@ -383,6 +411,20 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
                   onChange={(event) => setForm((current) => ({ ...current, lateFee: event.target.value }))}
                   className={STACKED_FORM_FIELD_CLASS_NAME}
                 />
+                {lateFeeSuggestion && lateFeeSuggestion.lateDays > 0 && (
+                  <span className="mt-1.5 block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-5 text-amber-900">
+                    {lateFeeSuggestion.explanation}
+                    {lateFeeSuggestion.amount > 0 && parseAmount(form.lateFee) !== lateFeeSuggestion.amount && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((current) => ({ ...current, lateFee: String(lateFeeSuggestion.amount) }))}
+                        className={`mt-2 inline-flex min-h-11 items-center rounded-xl border border-amber-300 bg-white px-3 text-xs font-bold text-amber-900 transition hover:bg-amber-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+                      >
+                        تطبيق {lateFeeSuggestion.amount} ر.ع
+                      </button>
+                    )}
+                  </span>
+                )}
               </label>
               <label className={STACKED_FORM_LABEL_CLASS_NAME}>
                 رسوم الضرر

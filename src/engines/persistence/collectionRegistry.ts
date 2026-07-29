@@ -40,6 +40,8 @@ export const REGISTERED_COLLECTIONS = [
   'retired-codes',
   'preferences',
   'showroom-profile',
+  'stocktake-sessions',
+  'message-templates',
   'images',
 ] as const;
 

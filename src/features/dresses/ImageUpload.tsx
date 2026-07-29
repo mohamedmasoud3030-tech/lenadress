@@ -1,7 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
+import { compressImageFiles } from '@platform/images';
 
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+/**
+ * The accepted size is the size of the file the operator picks, not the size
+ * that gets stored: every photo is downscaled and re-encoded before it reaches
+ * a collection. A phone photograph is routinely 4-6MB, and storing it raw as a
+ * base64 data URL was the real cause of the quota risk in this app.
+ */
+const MAX_IMAGE_SIZE_BYTES = 12 * 1024 * 1024;
 const LOCAL_STORAGE_WARNING_BYTES = 2.5 * 1024 * 1024;
 
 type ImageUploadProps = {
@@ -9,22 +16,6 @@ type ImageUploadProps = {
   onChange: (images: string[]) => void;
   maxImages?: number;
 };
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result;
-      if (typeof result === 'string') {
-        resolve(result);
-        return;
-      }
-      reject(new Error('تعذر قراءة الصورة المرفوعة.'));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error('تعذر قراءة الصورة المرفوعة.'));
-    reader.readAsDataURL(file);
-  });
-}
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) {
@@ -45,6 +36,8 @@ function estimateStoredImageBytes(images: string[]): number {
 export function ImageUpload({ images, onChange, maxImages = 5 }: ImageUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [lastSavedBytes, setLastSavedBytes] = useState<number | null>(null);
   const estimatedStoredBytes = useMemo(() => estimateStoredImageBytes(images), [images]);
   const shouldShowStorageWarning = estimatedStoredBytes >= LOCAL_STORAGE_WARNING_BYTES;
 
@@ -74,11 +67,16 @@ export function ImageUpload({ images, onChange, maxImages = 5 }: ImageUploadProp
     const filesToProcess = imageFiles.slice(0, remainingSlots);
 
     try {
-      const uploadedImages = await Promise.all(filesToProcess.map(readFileAsDataUrl));
-      onChange([...images, ...uploadedImages]);
+      setIsProcessing(true);
+      const compressed = await compressImageFiles(filesToProcess);
+      const savedBytes = compressed.reduce((total, result) => total + (result.originalBytes - result.compressedBytes), 0);
+      setLastSavedBytes(savedBytes > 0 ? savedBytes : null);
+      onChange([...images, ...compressed.map((result) => result.dataUrl)]);
     } catch (error) {
       console.error('Image upload error:', error);
       setUploadError('تعذر رفع الصور المختارة. حاولي مرة أخرى.');
+    } finally {
+      setIsProcessing(false);
     }
   }, [images, maxImages, onChange]);
 
@@ -124,6 +122,18 @@ export function ImageUpload({ images, onChange, maxImages = 5 }: ImageUploadProp
         <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">
           {uploadError}
         </div>
+      )}
+
+      {isProcessing && (
+        <p role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-900">
+          جارٍ ضغط الصور لتقليل مساحة التخزين…
+        </p>
+      )}
+
+      {lastSavedBytes !== null && !isProcessing && (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
+          تم ضغط الصور وتوفير {formatBytes(lastSavedBytes)} من مساحة التخزين.
+        </p>
       )}
 
       {shouldShowStorageWarning && (
@@ -182,7 +192,7 @@ export function ImageUpload({ images, onChange, maxImages = 5 }: ImageUploadProp
               اضغطي هنا أو اسحبي الصور لرفعها
             </p>
             <p className="mt-1 text-xs text-slate-400">
-              (JPG, PNG - حتى {formatBytes(MAX_IMAGE_SIZE_BYTES)} لكل صورة)
+              (JPG, PNG - حتى {formatBytes(MAX_IMAGE_SIZE_BYTES)} لكل صورة، تُضغط تلقائياً قبل الحفظ)
             </p>
           </label>
         </div>

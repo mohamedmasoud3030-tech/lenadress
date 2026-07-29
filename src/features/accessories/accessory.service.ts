@@ -9,6 +9,7 @@ import type {
   AddAccessoryInput,
   UpdateAccessoryInput,
 } from './accessory.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 /**
  * Accessory catalogue.
@@ -154,12 +155,10 @@ export function isAccessoryBookable(accessory: Accessory): boolean {
 }
 
 export function filterAccessories(accessories: Accessory[], filters: AccessoryFilters): Accessory[] {
-  const search = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
 
   return accessories.filter((accessory) => {
-    const matchesSearch = !search
-      || [accessory.code, accessory.barcode, accessory.name, accessory.notes ?? '']
-        .some((value) => value.toLowerCase().includes(search));
+    const matchesSearch = matchesQuery([accessory.code, accessory.barcode, accessory.name, accessory.notes]);
     const matchesCategory = filters.category === 'all' || accessory.category === filters.category;
     const matchesStatus = filters.status === 'all' || accessory.status === filters.status;
     return matchesSearch && matchesCategory && matchesStatus;
