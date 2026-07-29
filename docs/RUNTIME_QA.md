@@ -34,6 +34,7 @@ Status vocabulary:
 | Designs and variants | `npm run test:designs` | Piece identity under a design, booking one size leaving others free, per-period availability with buffers, atomic creation with no orphan pieces, backup/restore with counter monotonicity |
 | Design performance | `npm run test:design-performance` | Design totals equal the sum of their piece rows, pooled utilisation, cost and discount roll-up |
 | Reminders and WhatsApp | `npm run test:reminders` | Number normalisation, safe link encoding, each follow-up rule, dismissal expiry |
+| Conduct and waiting list | `npm run test:conduct-waitlist` | Derived conduct, no-show detection, authored notes, audit attribution, waitlist validation and live availability |
 | Daily operations board | `npm run test:dashboard` | Today's pickups and returns ordered by time, uncollected money totalled and ordered for collection, cash matching the finance layer, overdue returns, accessory counts |
 | PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback |
 
