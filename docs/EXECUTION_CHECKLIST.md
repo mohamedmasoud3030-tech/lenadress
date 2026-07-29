@@ -276,6 +276,31 @@ Analysis: `docs/DRESS_DESIGNS_AND_VARIANTS.md`, `docs/CUSTOMER_REMINDERS.md`.
 - [x] **10.08:** WhatsApp hand-off with prepared Arabic messages and number normalisation.
   - Deliberately a reviewed hand-off, not an automatic send: see `docs/CUSTOMER_REMINDERS.md` section 4.
 
+## Phase 11 queue — Conduct, attribution, liability and waiting list
+
+Completed by [PR #117](https://github.com/mohamedmasoud3030-tech/lenadress/pull/117) (merge `b535f6e5bd2e9c957dfd1bee722b79b283d69b25`, Build #266 + Verify #238).
+Analysis: `docs/CONDUCT_ATTRIBUTION_WAITLIST.md`.
+
+- [x] **11.01:** Customer conduct derived from delivery and reservation records.
+  - Late returns, damages, cancellations and no-shows are computed, never typed. Evidence: `tests/conduct-waitlist.test.mjs` (17 tests).
+- [x] **11.02:** No-show detection uses the absence of a delivery record.
+  - The first implementation missed most no-shows because the reservation layer projects past-due bookings to `overdue`; the tests caught it before merge.
+- [x] **11.03:** Manual conduct notes carry their reason and their author.
+- [x] **11.04:** Operator attribution stamped centrally on every audit entry.
+  - Explicitly not authentication, and the UI says so. Real access protection remains outstanding.
+- [x] **11.05:** Deposit liability surfaced on the dashboard as money owed, not earned.
+- [x] **11.06:** Waiting list with availability recomputed through the shared conflict rule.
+  - Queue ordered by who asked first; a freed period reaches the waiting customer.
+
+### Outstanding from the same audit — not yet started
+
+- [ ] **NEXT — 11.07:** Automatic backup reminder and export on daily close.
+  - Highest remaining risk: all data lives in one browser. A manual-only backup means one cleared browser loses every booking, customer and payment.
+- [ ] **PENDING — 11.08:** Device PIN lock.
+  - Anyone holding the phone currently sees every customer, phone number and profit figure, and can reset the data.
+- [ ] **PENDING — 11.09:** Storage capacity indicator.
+  - The browser quota can fill silently; a failed write in front of a customer is the first symptom.
+
 ## Phase 4 queue — Runtime QA
 
 - [x] **4.01:** Desktop browser workflow evidence.
@@ -345,3 +370,4 @@ Analysis: `docs/DRESS_DESIGNS_AND_VARIANTS.md`, `docs/CUSTOMER_REMINDERS.md`.
 | Phase 8 UX hardening | PR #110 / `044b0cc`, PR #111 / `16599a7` | Build #250 + Verify #222, Build #252 + Verify #224 | In-app print overlay, 16px touch controls, pinned overscroll, viewport-aware dialogs, operational dashboard with uncollected money, shared form/filter primitives, eleven audit fixes | Complete (device confirmation remains 4.02) |
 | Phase 9 designs and variants | PR #113 / `ca61067f8f07cb44c0d5bf8bf38d2b672e41c386` | Build #256 + Verify #228 | Design/variant model resolved through the shared conflict rule, no migration needed, searchable pickers, grid/list views, visual system pass, 2-up tiles everywhere | Complete (device confirmation remains 4.02) |
 | Phase 10 designs, reporting and reminders | PR #115 / `a42436864f1da52c6dfc963e410cb3306e43bf3f` | Build #260 + Verify #232 | Design page with period availability, later variants, piece linking, pooled design performance, grid/list everywhere, piece identity on the contract, derived reminders with expiring dismissals, WhatsApp deep-link hand-off | Complete (real-device WhatsApp confirmation outstanding) |
+| Phase 11 conduct, attribution, liability, waitlist | PR #117 / `b535f6e5bd2e9c957dfd1bee722b79b283d69b25` | Build #266 + Verify #238 | Derived customer conduct with authored notes, central audit attribution, deposit liability on the dashboard, waiting list with live availability | Complete |
