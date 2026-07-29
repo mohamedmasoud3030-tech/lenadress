@@ -198,6 +198,29 @@ export function DeliveryReturnPage() {
                 </div>
               </dl>
 
+              {/* The evidence has to be visible on the record, not just stored:
+                  a dispute is settled by showing the photo, not by knowing one
+                  exists somewhere. */}
+              {(record.deliveryPhotos?.length || record.returnPhotos?.length) ? (
+                <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                  {[
+                    { label: 'صور التسليم', photos: record.deliveryPhotos ?? [] },
+                    { label: 'صور الاسترجاع', photos: record.returnPhotos ?? [] },
+                  ].filter((group) => group.photos.length > 0).map((group) => (
+                    <div key={group.label} className="min-w-0">
+                      <p className="text-xs font-bold text-slate-600">{group.label} ({group.photos.length})</p>
+                      <ul className="mt-1.5 flex flex-wrap gap-2">
+                        {group.photos.map((photo, index) => (
+                          <li key={photo.id} className="h-16 w-16 overflow-hidden rounded-lg border border-slate-200">
+                            <img src={photo.dataUrl} alt={`${group.label} ${index + 1}`} className="h-full w-full object-cover" />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               <RecordAccessories reservationNumber={record.reservationNumber} />
 
               {record.notes ? <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{record.notes}</p> : null}

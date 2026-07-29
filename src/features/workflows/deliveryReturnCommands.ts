@@ -1,7 +1,7 @@
 import { commandBoundary, runCommand } from '@engines/workflows';
 import type { AccessoryReturnEntry } from '../accessories/reservationAccessory.service';
 import { completeDelivery, completeReturn } from '../delivery-return/deliveryReturn.operations';
-import type { DeliveryReturnRecord } from '../delivery-return/deliveryReturn.types';
+import type { ConditionPhoto, DeliveryReturnRecord } from '../delivery-return/deliveryReturn.types';
 import type { PaymentMethod } from '../payments/payment.types';
 
 /**
@@ -26,6 +26,8 @@ export type CompleteDeliveryCommandInput = {
   reservationNumber: string;
   deliveryDateTime: string;
   deliveryCondition?: string;
+  /** Condition evidence photographed at the counter. */
+  deliveryPhotos?: ConditionPhoto[];
   /** Accessories actually handed over; recorded inside the same boundary. */
   deliveredAccessoryIds?: string[];
   notes?: string;
@@ -53,6 +55,8 @@ export type CompleteReturnCommandInput = {
   reservationNumber: string;
   returnDateTime: string;
   returnCondition?: string;
+  /** Condition evidence photographed at the counter. */
+  returnPhotos?: ConditionPhoto[];
   lateFee: number;
   damageFee: number;
   refundMethod: PaymentMethod;

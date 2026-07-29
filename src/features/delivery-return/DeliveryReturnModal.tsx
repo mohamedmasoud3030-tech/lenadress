@@ -16,7 +16,8 @@ import type { PaymentMethod } from '../payments/payment.types';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
 import { completeDeliveryCommand, completeReturnCommand, type ReturnItemStatus } from '../workflows';
-import type { DeliveryReturnRecord } from './deliveryReturn.types';
+import { ConditionPhotoCapture } from './ConditionPhotoCapture';
+import type { ConditionPhoto, DeliveryReturnRecord } from './deliveryReturn.types';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
 import { getAccessoryByBarcode } from '../accessories/accessory.service';
 import { getReservationAccessoryViews, type ReservationAccessoryView } from '../accessories/reservationAccessory.service';
@@ -128,6 +129,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
   const [accessoryLinks, setAccessoryLinks] = useState<ReservationAccessoryView[]>([]);
   const [deliveredAccessoryIds, setDeliveredAccessoryIds] = useState<string[]>([]);
   const [returnState, setReturnState] = useState<Record<string, AccessoryReturnState>>({});
+  const [conditionPhotos, setConditionPhotos] = useState<ConditionPhoto[]>([]);
   const [showScanner, setShowScanner] = useState(false);
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const lateFee = parseAmount(form.lateFee);
@@ -218,6 +220,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
 
   const close = () => {
     setForm(defaults());
+    setConditionPhotos([]);
     setError(null);
     onClose();
   };
@@ -242,6 +245,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             reservationNumber: form.reservationNumber,
             deliveryDateTime: form.dateTime,
             deliveryCondition: form.condition,
+            deliveryPhotos: conditionPhotos,
             deliveredAccessoryIds,
             notes: form.notes,
             idempotencyKey: submissionKey,
@@ -250,6 +254,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             reservationNumber: form.reservationNumber,
             returnDateTime: form.dateTime,
             returnCondition: form.condition,
+            returnPhotos: conditionPhotos,
             lateFee,
             damageFee,
             refundMethod: form.refundMethod,
@@ -346,6 +351,18 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             placeholder={form.operation === 'delivery' ? 'مثال: تم التسليم بحالة ممتازة مع الشال.' : 'مثال: يحتاج تنظيف بسيط عند الذيل.'}
           />
         </label>
+
+        {/* Photographic evidence, because free text is one person's word against
+            another's the moment a customer disputes a stain or a tear. */}
+        <ConditionPhotoCapture
+          label={form.operation === 'delivery' ? 'صور القطعة عند التسليم' : 'صور القطعة عند الاسترجاع'}
+          hint={form.operation === 'delivery'
+            ? 'صوّري القطعة أمام العميلة قبل خروجها. هذه الصور هي الدليل إذا اختلفتم لاحقاً على حالتها.'
+            : 'صوّري أي ضرر أو بقعة فور الاستلام، قبل احتساب أي رسوم.'}
+          photos={conditionPhotos}
+          onChange={setConditionPhotos}
+          disabled={isSubmitting}
+        />
 
         {scanFeedback && <p role="status" className="rounded-xl border border-slate-200 bg-stone-50 px-3 py-2 text-sm font-bold text-slate-700">{scanFeedback}</p>}
 
