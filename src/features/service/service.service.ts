@@ -14,6 +14,7 @@ import type {
   ServiceTaskType,
   ServiceOutcomeStatus,
 } from './service.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 /**
  * Phase 4 — the service workflow.
@@ -86,10 +87,9 @@ export function getServiceTasks(): ServiceTask[] {
 }
 
 export function filterServiceTasks(tasks: ServiceTask[], filters: ServiceTaskFilters): ServiceTask[] {
-  const search = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
   return tasks.filter((task) => {
-    const matchesSearch = !search
-      || [task.taskNumber, task.dressCode, task.dressName].some((value) => value.toLowerCase().includes(search));
+    const matchesSearch = matchesQuery([task.taskNumber, task.dressCode, task.dressName]);
     const matchesType = filters.type === 'all' || task.type === filters.type;
     const matchesStatus = filters.status === 'all' || task.status === filters.status;
     return matchesSearch && matchesType && matchesStatus;

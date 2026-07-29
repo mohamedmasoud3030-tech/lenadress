@@ -20,6 +20,7 @@ import type {
   ReservationSummary,
   RescheduleReservationInput,
 } from './reservation.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 const COLLECTION = 'reservations';
 const activeStatuses = ACTIVE_RESERVATION_STATUSES;
@@ -40,8 +41,8 @@ function normalizeTimeInput(value: string | undefined, label: string): string | 
 export function getReservations(): Reservation[] { return readCollection<Reservation>(COLLECTION, []).map(hydrateOverdueStatus); }
 
 export function filterReservations(reservations: Reservation[], filters: ReservationFilters): Reservation[] {
-  const search = filters.search.trim().toLowerCase(); const today = getTodayISO();
-  return reservations.filter((item) => (!search || [item.reservationNumber, item.customerName, item.customerPhone, item.dressCode, item.dressName].some((value) => value.toLowerCase().includes(search))) && (filters.status === 'all' || item.status === filters.status) && (filters.timing === 'all' || (filters.timing === 'today' && (item.pickupDate === today || item.returnDate === today)) || (filters.timing === 'upcoming' && item.pickupDate > today) || (filters.timing === 'overdue' && item.status === 'overdue')));
+  const matchesQuery = createSearchMatcher(filters.search); const today = getTodayISO();
+  return reservations.filter((item) => matchesQuery([item.reservationNumber, item.customerName, item.customerPhone, item.dressCode, item.dressName]) && (filters.status === 'all' || item.status === filters.status) && (filters.timing === 'all' || (filters.timing === 'today' && (item.pickupDate === today || item.returnDate === today)) || (filters.timing === 'upcoming' && item.pickupDate > today) || (filters.timing === 'overdue' && item.status === 'overdue')));
 }
 export function summarizeReservations(reservations: Reservation[]): ReservationSummary { const today = getTodayISO(); return { total: reservations.length, active: reservations.filter((item) => activeStatuses.has(item.status)).length, today: reservations.filter((item) => item.pickupDate === today || item.returnDate === today).length, overdue: reservations.filter((item) => item.status === 'overdue').length }; }
 /**

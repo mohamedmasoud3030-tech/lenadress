@@ -12,6 +12,7 @@ import type {
   ExpenseRecord,
   ExpenseSummary,
 } from './expense.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 const COLLECTION = 'expenses';
 
@@ -69,24 +70,21 @@ export function addExpense(input: AddExpenseInput): ExpenseRecord {
 }
 
 export function filterExpenses(expenses: ExpenseRecord[], filters: ExpenseFilters): ExpenseRecord[] {
-  const normalizedSearch = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
 
   return expenses.filter((expense) => {
     const matchesCategory = filters.category === 'all' || expense.category === filters.category;
     const matchesPaymentMethod =
       filters.paymentMethod === 'all' || expense.paymentMethod === filters.paymentMethod;
 
-    if (!normalizedSearch) {
-      return matchesCategory && matchesPaymentMethod;
-    }
-
-    const matchesSearch =
-      expense.expenseNumber.toLowerCase().includes(normalizedSearch) ||
-      expense.title.toLowerCase().includes(normalizedSearch) ||
-      expense.relatedDressCode?.toLowerCase().includes(normalizedSearch) ||
-      expense.relatedAccessoryCode?.toLowerCase().includes(normalizedSearch) ||
-      expense.relatedDressName?.toLowerCase().includes(normalizedSearch) ||
-      expense.notes?.toLowerCase().includes(normalizedSearch);
+    const matchesSearch = matchesQuery([
+      expense.expenseNumber,
+      expense.title,
+      expense.relatedDressCode,
+      expense.relatedAccessoryCode,
+      expense.relatedDressName,
+      expense.notes,
+    ]);
 
     return Boolean(matchesCategory && matchesPaymentMethod && matchesSearch);
   });

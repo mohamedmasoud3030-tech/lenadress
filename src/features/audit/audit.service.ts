@@ -1,6 +1,7 @@
 import { generateId, readCollection, writeCollection } from '../../services/localDatabase';
 import { getCurrentOperatorName } from '../operators/operator.service';
 import type { AuditLogEntry, AuditLogFilters } from './audit.types';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 const COLLECTION = 'audit-log';
 
@@ -24,19 +25,13 @@ export function recordAudit(input: RecordAuditInput): AuditLogEntry {
 }
 
 export function filterAuditLog(entries: AuditLogEntry[], filters: AuditLogFilters): AuditLogEntry[] {
-  const search = filters.search.trim().toLowerCase();
+  const matchesQuery = createSearchMatcher(filters.search);
 
   return entries.filter((entry) => {
     const matchesEntity = filters.entityType === 'all' || entry.entityType === filters.entityType;
     const matchesAction = filters.action === 'all' || entry.action === filters.action;
     const matchesOperator = !filters.performedBy || entry.performedBy === filters.performedBy;
-    const matchesSearch =
-      !search ||
-      entry.summary.toLowerCase().includes(search) ||
-      entry.entityId.toLowerCase().includes(search) ||
-      entry.entityType.toLowerCase().includes(search) ||
-      entry.action.toLowerCase().includes(search) ||
-      (entry.performedBy ?? '').toLowerCase().includes(search);
+    const matchesSearch = matchesQuery([entry.summary, entry.entityId, entry.entityType, entry.action, entry.performedBy]);
 
     return matchesEntity && matchesAction && matchesOperator && matchesSearch;
   });

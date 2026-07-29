@@ -3,6 +3,7 @@ import { allocateCode, generateId, migrateLegacyInventoryStorage, readCollection
 import { recordAudit } from '../audit/audit.service';
 import { assertDressCanBeArchived, getDressHardDeleteBlockers } from '../integrity/integrity.service';
 import { dressMatchesBarcode, generateDressBarcodeValue } from './barcode.utils';
+import { createSearchMatcher } from '../../shared/utils/search';
 
 const INVENTORY_COLLECTION = 'dresses';
 const RETIRED_CODES_COLLECTION = 'retired-codes';
@@ -102,10 +103,9 @@ export function filterDresses(filters?: Partial<DressFilters>): Dress[] {
   let dresses = getDresses();
 
   if (filters?.search) {
-    const normalizedSearch = filters.search.trim().toLowerCase();
+    const matchesQuery = createSearchMatcher(filters.search);
     dresses = dresses.filter((dress) =>
-      [dress.name, dress.code, dress.barcode, dress.color, dress.size, dress.designCode ?? '']
-        .some((value) => value.toLowerCase().includes(normalizedSearch)),
+      matchesQuery([dress.name, dress.code, dress.barcode, dress.color, dress.size, dress.designCode]),
     );
   }
 

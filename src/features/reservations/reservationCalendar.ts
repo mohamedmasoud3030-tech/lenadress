@@ -2,6 +2,7 @@ import { addDaysISO, formatTimeLabel, getTodayISO, parseLocalDate } from '../../
 import { isActiveReservation } from './reservationConflicts';
 import { getReservationTimes } from './reservation.service';
 import type { Reservation, ReservationStatus } from './reservation.types';
+import { matchesSearchQuery } from '../../shared/utils/search';
 
 /**
  * Reservation calendar model.
@@ -93,18 +94,14 @@ export function matchesCalendarFilters(reservation: Reservation, filters: Calend
   if (filters.statuses.length > 0 && !filters.statuses.includes(reservation.status)) return false;
 
   if (filters.dress) {
-    const needle = filters.dress.trim().toLowerCase();
     const matchesDress = reservation.inventoryItemId === filters.dress
-      || reservation.dressCode.toLowerCase().includes(needle)
-      || reservation.dressName.toLowerCase().includes(needle);
+      || matchesSearchQuery(filters.dress, [reservation.dressCode, reservation.dressName]);
     if (!matchesDress) return false;
   }
 
   if (filters.customer) {
-    const needle = filters.customer.trim().toLowerCase();
     const matchesCustomer = reservation.customerId === filters.customer
-      || reservation.customerName.toLowerCase().includes(needle)
-      || reservation.customerPhone.toLowerCase().includes(needle);
+      || matchesSearchQuery(filters.customer, [reservation.customerName, reservation.customerPhone]);
     if (!matchesCustomer) return false;
   }
 

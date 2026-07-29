@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { matchesSearchQuery, normalizeSearchText } from '../../shared/utils/search';
 
 /**
  * A searchable picker for long lists.
@@ -67,9 +68,9 @@ export function SearchableSelect({
   const selected = options.find((option) => option.value === value);
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = normalizeSearchText(query);
     if (!needle) return options;
-    return options.filter((option) => `${option.label} ${option.hint ?? ''}`.toLowerCase().includes(needle));
+    return options.filter((option) => matchesSearchQuery(needle, [option.label, option.hint]));
   }, [options, query]);
 
   // Clicking outside closes the list without changing the selection.
