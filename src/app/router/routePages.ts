@@ -12,6 +12,7 @@ export { ExpensesPage } from '../../features/expenses/ExpensesPage';
 export { PaymentsPage } from '../../features/payments/PaymentsPage';
 export { PreferencesPage } from '../../features/preferences/PreferencesPage';
 export { DailyClosingPage } from '../../features/reports/DailyClosingPage';
+export { RemindersPage } from '../../features/reminders/RemindersPage';
 export { ReportsPage } from '../../features/reports/ReportsPage';
 
 export const InventoryPerformancePage = lazy(async () => {
@@ -22,6 +23,11 @@ export { ReservationsPage } from '../../features/reservations/ReservationsPage';
 export { SalesLedgerPage } from '../../features/dresses/SalesLedgerPage';
 export { ServiceQueuePage } from '../../features/service/ServiceQueuePage';
 export { LandingPage } from '../../pages/landing/LandingPage';
+
+export const DesignDetailsPage = lazy(async () => {
+  const module = await import('../../features/dresses/DesignDetailsPage');
+  return { default: module.DesignDetailsPage };
+});
 
 export const DressDetailsPage = lazy(async () => {
   const module = await import('../../features/dresses/DressDetailsPage');

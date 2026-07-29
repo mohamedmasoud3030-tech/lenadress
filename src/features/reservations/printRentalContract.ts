@@ -2,6 +2,7 @@ import { escapeHtml, printDocument, PrintDocumentError } from '@platform/printin
 import { formatMoneyOMR } from '../../shared/utils/format.js';
 import { formatTimeLabel } from '../../shared/utils/date';
 import { getAccessoriesForReservation } from '../accessories/reservationAccessory.service';
+import { getDresses } from '../dresses/dress.service';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
 import { getReservationTimes } from './reservation.service';
 import type { Reservation } from './reservation.types';
@@ -36,6 +37,11 @@ export function buildRentalContractHtml(reservation: Reservation): string {
   const customerPhone = reservation.customerPhoneSnapshot ?? reservation.customerPhone;
   const itemCode = reservation.dressCodeSnapshot ?? reservation.dressCode;
   const itemName = reservation.dressNameSnapshot ?? reservation.dressName;
+  // The size and colour identify which physical piece left the showroom; on a
+  // design with several near-identical pieces the code alone is not enough for
+  // the customer, or for the staff member receiving it back.
+  const piece = getDresses().find((dress) => dress.code === itemCode);
+  const pieceDetails = piece ? `${piece.size} · ${piece.color}` : '';
 
   const terms = CONTRACT_TERMS.map((term) => `<li>${escapeHtml(term)}</li>`).join('');
   const times = getReservationTimes(reservation);
@@ -57,8 +63,9 @@ export function buildRentalContractHtml(reservation: Reservation): string {
     + `<p><b>رقم الحجز:</b> ${escapeHtml(reservation.reservationNumber)}</p>`
     + `<p><b>العميلة:</b> ${escapeHtml(customerName)} — ${escapeHtml(customerPhone)}</p>`
     + `</div>`
-    + `<table><thead><tr><th>الكود</th><th>القطعة</th><th>الاستلام</th><th>الإرجاع</th></tr></thead>`
+    + `<table><thead><tr><th>الكود</th><th>القطعة</th><th>المقاس واللون</th><th>الاستلام</th><th>الإرجاع</th></tr></thead>`
     + `<tbody><tr><td>${escapeHtml(itemCode)}</td><td>${escapeHtml(itemName)}</td>`
+    + `<td>${escapeHtml(pieceDetails || '—')}</td>`
     + `<td>${escapeHtml(`${reservation.pickupDate} — ${formatTimeLabel(times.pickupTime)}`)}</td>`
     + `<td>${escapeHtml(`${reservation.returnDate} — ${formatTimeLabel(times.returnTime)}`)}</td></tr></tbody></table>`
     + accessorySection

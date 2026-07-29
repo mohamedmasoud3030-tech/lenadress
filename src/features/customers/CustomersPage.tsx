@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { AddCustomerModal } from './AddCustomerModal';
+import { ViewModeToggle, useViewMode } from '../../components/shared/ViewModeToggle';
 import { archiveCustomer, deleteCustomer, filterCustomers, getCustomerDeletionBlockers, getCustomers, summarizeCustomers } from './customer.service';
 import type { Customer, CustomerFilters, CustomerStatus } from './customer.types';
 
@@ -105,6 +106,7 @@ export function CustomersPage() {
     balance: 'all',
   }));
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('customers');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -224,12 +226,38 @@ export function CustomersPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-bold text-slate-600">{filteredCustomers.length} عميلة</p>
+        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+      </div>
+
       {filteredCustomers.length > 0 ? (
-        <div className="grid gap-5 xl:grid-cols-2">
-          {filteredCustomers.map((customer) => (
-            <CustomerCard key={customer.id} customer={customer} onArchive={handleArchive} onDelete={handleDelete} />
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid gap-5 xl:grid-cols-2">
+            {filteredCustomers.map((customer) => (
+              <CustomerCard key={customer.id} customer={customer} onArchive={handleArchive} onDelete={handleDelete} />
+            ))}
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {filteredCustomers.map((customer) => (
+              <li key={customer.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-slate-900">{customer.name}</span>
+                  <span className="block truncate text-xs text-slate-500" dir="ltr">{customer.phone}</span>
+                </span>
+                <span className="shrink-0 text-left">
+                  <span className={`block rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ${statusStyles[customer.status]}`}>
+                    {statusLabels[customer.status]}
+                  </span>
+                  {customer.remainingBalance > 0 && (
+                    <span className="mt-1 block text-xs font-bold text-rose-700">{formatMoneyOMR(customer.remainingBalance)}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
           <CircleAlert aria-hidden="true" className="mx-auto h-10 w-10 text-amber-700" />

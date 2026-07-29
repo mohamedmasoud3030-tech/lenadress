@@ -427,6 +427,24 @@ test('every long-list picker is searchable, not a native wheel', async () => {
   }
 });
 
+test('WhatsApp is a reviewed hand-off, not a silent automatic send', async () => {
+  const messaging = await readFile(join(sourceRoot, 'platform/messaging/whatsapp.ts'), 'utf8');
+
+  assert.match(messaging, /wa\.me/, 'a deep link needs no API key, account or subscription');
+  assert.match(messaging, /noopener/, 'an opened tab must not reach back into the app');
+  assert.match(messaging, /encodeURIComponent/, 'the message must survive newlines and ampersands');
+  assert.match(messaging, /defaultCountryCode/, 'a bare local number would be misrouted');
+
+  const page = await readFile(join(sourceRoot, 'features/reminders/RemindersPage.tsx'), 'utf8');
+  assert.match(page, /reminder\.message/, 'the operator must see the exact text before it is sent');
+  assert.match(page, /min-h-11/, 'follow-up actions must stay tappable');
+  assert.doesNotMatch(page, /#[0-9a-fA-F]{6}/, 'no hardcoded hex colours');
+
+  // Reminders are derived; storing them would create a second source of truth.
+  const service = await readFile(join(sourceRoot, 'features/reminders/reminder.service.ts'), 'utf8');
+  assert.match(service, /businessDate/, 'a dismissal must expire so an overdue item is chased again');
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');
@@ -443,6 +461,7 @@ test('the daily operations journey is reachable from the navigation', async () =
     '/expenses',
     '/daily-closing',
     '/reports',
+    '/reminders',
     '/inventory-performance',
     '/preferences',
   ];

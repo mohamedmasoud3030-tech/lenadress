@@ -14,6 +14,7 @@ import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { retireAccessoryCommand } from '../workflows';
 import { AccessoryBarcodeCard } from './AccessoryBarcodeCard';
+import { ViewModeToggle, useViewMode } from '../../components/shared/ViewModeToggle';
 import { AddAccessoryModal } from './AddAccessoryModal';
 import { filterAccessories, getAccessories, getAccessoryByBarcode, summarizeAccessories } from './accessory.service';
 import type { Accessory, AccessoryFilters } from './accessory.types';
@@ -105,6 +106,7 @@ export function AccessoriesPage() {
   const [highlightedCode, setHighlightedCode] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [viewMode, setViewMode] = useViewMode('accessories');
 
   const filtered = useMemo(() => filterAccessories(accessories, filters), [accessories, filters]);
   const summary = useMemo(() => summarizeAccessories(accessories), [accessories]);
@@ -221,17 +223,46 @@ export function AccessoriesPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-bold text-slate-600">{filtered.length} ملحق</p>
+        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+      </div>
+
       {filtered.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {filtered.map((accessory) => (
-            <AccessoryCard
-              key={accessory.id}
-              accessory={accessory}
-              highlighted={accessory.code === highlightedCode}
-              onRetire={handleRetire}
-            />
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {filtered.map((accessory) => (
+              <AccessoryCard
+                key={accessory.id}
+                accessory={accessory}
+                highlighted={accessory.code === highlightedCode}
+                onRetire={handleRetire}
+              />
+            ))}
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {filtered.map((accessory) => (
+              <li
+                key={accessory.id}
+                className={`flex items-center gap-3 rounded-xl border bg-white p-3 ${
+                  accessory.code === highlightedCode ? 'border-amber-400 ring-2 ring-amber-300' : 'border-slate-200'
+                }`}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-slate-900">{accessory.name}</span>
+                  <span className="block truncate text-xs text-slate-500">
+                    <span dir="ltr">{accessory.code}</span> · {ACCESSORY_CATEGORY_LABELS[accessory.category]}
+                    {accessory.rentalPrice ? ` · ${formatMoneyOMR(accessory.rentalPrice)}` : ''}
+                  </span>
+                </span>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ${ACCESSORY_STATUS_STYLES[accessory.status]}`}>
+                  {ACCESSORY_STATUS_LABELS[accessory.status]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
       ) : (
         <EmptyState
           icon={<Gem className="h-10 w-10" />}

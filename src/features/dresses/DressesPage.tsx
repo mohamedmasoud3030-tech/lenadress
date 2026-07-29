@@ -169,10 +169,10 @@ function DesignCard({ summary }: { summary: ReturnType<typeof summarizeAllDesign
       )}
 
       <Link
-        to={`/inventory?design=${encodeURIComponent(summary.design.id)}`}
+        to={`/designs/${encodeURIComponent(summary.design.code)}`}
         className={`mt-3 inline-flex min-h-10 items-center rounded-xl border border-slate-300 px-3 text-xs font-bold text-slate-700 transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}
       >
-        عرض قطع التصميم
+        فتح التصميم
       </Link>
     </article>
   );

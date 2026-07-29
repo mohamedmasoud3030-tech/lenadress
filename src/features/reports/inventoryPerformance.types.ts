@@ -104,6 +104,39 @@ export type PerformancePeriodPoint = {
   netResult: number;
 };
 
+/**
+ * A design's performance, aggregated from its pieces.
+ *
+ * Money and usage are never recomputed here: the figures are summed from the
+ * per-piece rows that the finance layer already produced, so a design can never
+ * report a number its own pieces do not add up to.
+ */
+export type DesignPerformanceRow = {
+  designId: string;
+  code: string;
+  name: string;
+  category: string;
+  pieceCount: number;
+  rentalCount: number;
+  saleCount: number;
+  totalRevenue: number;
+  discounts: number;
+  totalCost: number;
+  netResult: number;
+  /** Occupied days across every piece. */
+  occupiedDays: number;
+  /** Available days across every piece. */
+  availableDays: number;
+  /** Occupied days divided by available days, across the whole design. */
+  utilisationRate: number;
+  lateCount: number;
+  /** Revenue of the single best-earning piece, to expose an unbalanced design. */
+  bestPieceRevenue: number;
+  bestPieceCode: string | null;
+  /** Pieces that earned nothing at all during the period. */
+  idlePieceCount: number;
+};
+
 export type InventoryPerformanceReport = {
   filters: InventoryPerformanceFilters;
   generatedAt: string;
@@ -115,6 +148,8 @@ export type InventoryPerformanceReport = {
   idleItems: InventoryPerformanceRow[];
   serviceHeavyItems: InventoryPerformanceRow[];
   chronicallyLateItems: InventoryPerformanceRow[];
+  /** Per-design roll-up; empty when the showroom uses no designs. */
+  designRows: DesignPerformanceRow[];
 };
 
 export type PerformanceReservationLine = {
