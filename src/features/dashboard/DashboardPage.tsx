@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   BadgeAlert,
+  BellRing,
   CalendarDays,
   Gem,
   PackageCheck,
@@ -140,6 +141,24 @@ export function DashboardPage() {
               <li className="px-3 text-xs font-bold text-amber-800">و{snapshot.outstandingBalances.length - 4} حجزاً آخر…</li>
             )}
           </ul>
+        </div>
+      )}
+
+      {snapshot.reminders.total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
+          <div className="flex min-w-0 items-center gap-3">
+            <BellRing aria-hidden="true" className="h-5 w-5 shrink-0 text-amber-700" />
+            <p className="min-w-0 text-sm font-bold text-amber-900">
+              {snapshot.reminders.total} متابعة مطلوبة مع العميلات اليوم
+              {snapshot.reminders.critical > 0 ? ` · ${snapshot.reminders.critical} عاجلة` : ''}
+            </p>
+          </div>
+          <Link
+            to="/reminders"
+            className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 text-sm font-bold text-amber-900 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+          >
+            فتح التذكيرات
+          </Link>
         </div>
       )}
 

@@ -19,6 +19,7 @@ import {
   NotFoundPage,
   PaymentsPage,
   PreferencesPage,
+  RemindersPage,
   ReportsPage,
   ReservationsPage,
   SalesLedgerPage,
@@ -59,6 +60,7 @@ export function AppRoutes() {
         <Route path="expenses" element={<ExpensesPage />} />
         <Route path="daily-closing" element={<DailyClosingPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
+        <Route path="reminders" element={<RemindersPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route
           path="inventory-performance"

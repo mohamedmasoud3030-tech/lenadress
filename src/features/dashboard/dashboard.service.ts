@@ -5,6 +5,7 @@ import { getCustomers } from '../customers/customer.service';
 import { getDresses, summarizeDresses } from '../dresses/dress.service';
 import { getFinanceTotals, getOutstandingRentalBalances } from '../finance/finance.service';
 import { getReservations, getReservationTimes } from '../reservations/reservation.service';
+import { getReminders, summarizeReminders } from '../reminders/reminder.service';
 import { getServiceTasks, summarizeServiceQueue } from '../service/service.service';
 import type { Reservation } from '../reservations/reservation.types';
 
@@ -60,6 +61,8 @@ export type DashboardSnapshot = {
   service: { open: number; inProgress: number; overdue: number };
   /** Accessories still physically out across every delivered booking. */
   accessoriesOutCount: number;
+  /** Customer follow-ups still outstanding today. */
+  reminders: { total: number; critical: number };
 };
 
 const ACTIVE_STATUSES = new Set<Reservation['status']>(['pending', 'confirmed', 'delivered', 'overdue']);
@@ -167,6 +170,10 @@ export function getDashboardSnapshot(): DashboardSnapshot {
     outstandingBalances,
     service: { open: serviceSummary.open, inProgress: serviceSummary.inProgress, overdue: serviceSummary.overdue },
     accessoriesOutCount,
+    reminders: (() => {
+      const summary = summarizeReminders(getReminders());
+      return { total: summary.total, critical: summary.critical };
+    })(),
   };
 }
 
