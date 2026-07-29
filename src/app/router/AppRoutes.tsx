@@ -8,6 +8,7 @@ import {
   AuditLogPage,
   CustomersPage,
   DailyClosingPage,
+  DesignDetailsPage,
   DashboardWithClosingAlertPage,
   DeliveryReturnPage,
   DressDetailsPage,
@@ -36,6 +37,14 @@ export function AppRoutes() {
           element={
             <Suspense fallback={<RouteLoadingFallback />}>
               <DressDetailsPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="designs/:code"
+          element={
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <DesignDetailsPage />
             </Suspense>
           }
         />

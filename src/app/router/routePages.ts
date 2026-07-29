@@ -23,6 +23,11 @@ export { SalesLedgerPage } from '../../features/dresses/SalesLedgerPage';
 export { ServiceQueuePage } from '../../features/service/ServiceQueuePage';
 export { LandingPage } from '../../pages/landing/LandingPage';
 
+export const DesignDetailsPage = lazy(async () => {
+  const module = await import('../../features/dresses/DesignDetailsPage');
+  return { default: module.DesignDetailsPage };
+});
+
 export const DressDetailsPage = lazy(async () => {
   const module = await import('../../features/dresses/DressDetailsPage');
   return { default: module.DressDetailsPage };

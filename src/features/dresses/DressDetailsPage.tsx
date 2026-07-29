@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Archive, ArrowRight, Trash2 } from 'lucide-react';
+import { Archive, ArrowRight, Layers, Link2, Trash2 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SummaryCard } from '../../components/shared/SummaryCard';
 import { DRESS_STATUS_LABELS, DRESS_STATUS_STYLES, INVENTORY_ITEM_TYPE_LABELS } from '../../shared/domain/dressConstants';
@@ -10,6 +10,7 @@ import { BarcodeGenerator } from './BarcodeGenerator';
 import { DressLifecyclePanel } from './DressLifecyclePanel';
 import { getBarcodeEngineEnvironmentNote, getBarcodeRuntimeSupportStatus } from './barcode.utils';
 import { archiveDress, deleteDress, getDressDeletionBlockers, getDresses } from './dress.service';
+import { AssignToDesignModal } from './AssignToDesignModal';
 
 export function DressDetailsPage() {
   const { code = '' } = useParams();
@@ -17,6 +18,8 @@ export function DressDetailsPage() {
   const dress = getDresses().find((item) => item.code === code);
 
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showAssign, setShowAssign] = useState(false);
+  const [assignFeedback, setAssignFeedback] = useState<string | null>(null);
   const deletionBlockers = dress ? getDressDeletionBlockers(dress.code) : [];
   const canHardDelete = Boolean(dress) && deletionBlockers.length === 0;
 
@@ -112,11 +115,54 @@ export function DressDetailsPage() {
         <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{actionError}</p>
       ) : null}
 
+      {assignFeedback ? (
+        <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{assignFeedback}</p>
+      ) : null}
+
+      {/* Both directions of the design relationship must be walkable. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <Layers aria-hidden="true" className="h-5 w-5 shrink-0 text-violet-700" />
+        {dress.designCode ? (
+          <>
+            <p className="min-w-0 flex-1 text-sm text-slate-700">
+              هذه القطعة جزء من التصميم <span className="font-extrabold text-slate-950" dir="ltr">{dress.designCode}</span>
+            </p>
+            <Link
+              to={`/designs/${encodeURIComponent(dress.designCode)}`}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
+              عرض التصميم والمقاسات الأخرى
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="min-w-0 flex-1 text-sm text-slate-600">
+              هذه القطعة غير مرتبطة بتصميم. اربطيها لتظهر مع بقية المقاسات والألوان.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setAssignFeedback(null); setShowAssign(true); }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
+              <Link2 aria-hidden="true" className="h-4 w-4" />
+              ربط بتصميم
+            </button>
+          </>
+        )}
+      </div>
+
       {!canHardDelete && deletionBlockers.length > 0 ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           لا يمكن حذف هذا العنصر نهائياً لأنه مرتبط بتاريخ تشغيلي أو مالي: {deletionBlockers.join(' ')} استخدمي الأرشفة للحفاظ على التقارير والسجل.
         </p>
       ) : null}
+
+      <AssignToDesignModal
+        open={showAssign}
+        dressCode={dress.code}
+        onClose={() => setShowAssign(false)}
+        onAssigned={(pieceCode) => { setShowAssign(false); setAssignFeedback(`تم ربط القطعة ${pieceCode} بالتصميم. حدّثي الصفحة لعرض الرابط.`); }}
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <SummaryCard label="كود العنصر" value={dress.code} />
