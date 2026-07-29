@@ -35,6 +35,7 @@ Status vocabulary:
 | Design performance | `npm run test:design-performance` | Design totals equal the sum of their piece rows, pooled utilisation, cost and discount roll-up |
 | Reminders and WhatsApp | `npm run test:reminders` | Number normalisation, safe link encoding, each follow-up rule, dismissal expiry |
 | Conduct and waiting list | `npm run test:conduct-waitlist` | Derived conduct, no-show detection, authored notes, audit attribution, waitlist validation and live availability |
+| Measurements and printing | `npm run test:measurements-printing` | Size suggestion honesty, non-standard sizes returning unknown, legacy text parsing, print settings clamping, stylesheet fidelity, hidden sections genuinely absent |
 | Daily operations board | `npm run test:dashboard` | Today's pickups and returns ordered by time, uncollected money totalled and ordered for collection, cash matching the finance layer, overdue returns, accessory counts |
 | PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback |
 

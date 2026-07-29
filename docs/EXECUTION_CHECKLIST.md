@@ -301,6 +301,29 @@ Analysis: `docs/CONDUCT_ATTRIBUTION_WAITLIST.md`.
 - [ ] **PENDING — 11.09:** Storage capacity indicator.
   - The browser quota can fill silently; a failed write in front of a customer is the first symptom.
 
+## Phase 12 queue — Measurements, contacts and document printing
+
+Completed by [PR #119](https://github.com/mohamedmasoud3030-tech/lenadress/pull/119) (merge `3f5220c4caaea6139565eb991b83971a2c24cdb0`, Build #270 + Verify #242).
+Analysis: `docs/MEASUREMENTS_AND_PRINTING.md`.
+
+- [x] **12.01:** Structured customer measurements replacing the single free-text field.
+  - All fields optional; legacy text is parsed on open and preserved verbatim. Evidence: `tests/measurements-printing.test.mjs` (24 tests).
+- [x] **12.02:** Size suggestion weighted on the bust, refusing to guess without it.
+  - A non-standard size label returns `unknown` rather than being mapped to a letter size.
+- [x] **12.03:** Piece fit and gown length assessment, accounting for heel height.
+- [x] **12.04:** Showroom contact details across the profile and printed documents.
+- [x] **12.05:** Configurable paper size, margins, colour mode, density and font size.
+  - A4, A5, Letter, 80mm and 58mm thermal, and label stock; labels always use label stock regardless of the document setting.
+- [x] **12.06:** Per-section content control on printed documents.
+- [x] **12.07:** Print test page proving margins and colour on the real printer.
+- [x] **12.08:** PDF via the browser print dialog, with the same settings applied.
+  - Deliberate: a bundled PDF library would need manual Arabic shaping and font subsetting, the most common source of broken Arabic PDFs.
+
+### Deferred to the Supabase integration phase
+
+- [ ] **DEFERRED — 12.09:** Automatic backup, device PIN and storage capacity indicator.
+  - Moved by explicit decision into the connectivity/Supabase phase, where a server-side backup target exists.
+
 ## Phase 4 queue — Runtime QA
 
 - [x] **4.01:** Desktop browser workflow evidence.
@@ -371,3 +394,4 @@ Analysis: `docs/CONDUCT_ATTRIBUTION_WAITLIST.md`.
 | Phase 9 designs and variants | PR #113 / `ca61067f8f07cb44c0d5bf8bf38d2b672e41c386` | Build #256 + Verify #228 | Design/variant model resolved through the shared conflict rule, no migration needed, searchable pickers, grid/list views, visual system pass, 2-up tiles everywhere | Complete (device confirmation remains 4.02) |
 | Phase 10 designs, reporting and reminders | PR #115 / `a42436864f1da52c6dfc963e410cb3306e43bf3f` | Build #260 + Verify #232 | Design page with period availability, later variants, piece linking, pooled design performance, grid/list everywhere, piece identity on the contract, derived reminders with expiring dismissals, WhatsApp deep-link hand-off | Complete (real-device WhatsApp confirmation outstanding) |
 | Phase 11 conduct, attribution, liability, waitlist | PR #117 / `b535f6e5bd2e9c957dfd1bee722b79b283d69b25` | Build #266 + Verify #238 | Derived customer conduct with authored notes, central audit attribution, deposit liability on the dashboard, waiting list with live availability | Complete |
+| Phase 12 measurements, contacts, printing | PR #119 / `3f5220c4caaea6139565eb991b83971a2c24cdb0` | Build #270 + Verify #242 | Structured measurements with honest size suggestion, contact details on documents, configurable paper/margins/colour/sections, print test page | Complete |
