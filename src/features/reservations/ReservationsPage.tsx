@@ -17,11 +17,37 @@ import { cancelReservationCommand } from '../workflows';
 import { filterReservations, getReservations, summarizeReservations } from './reservation.service';
 import { ReservationCalendar } from './ReservationCalendar';
 import { printRentalContract } from './printRentalContract';
+import { getReservationLines, isMultiItemReservation, getOutstandingLines, getPendingDeliveryLines, getReturnedLines } from './contractLineHelpers';
 import type { Reservation, ReservationFilters } from './reservation.types';
+
+function LineStatusBadge({ deliveryStatus }: { deliveryStatus: string }) {
+  const styles: Record<string, string> = {
+    pending_delivery: 'bg-amber-50 text-amber-800 ring-amber-200',
+    delivered: 'bg-sky-50 text-sky-800 ring-sky-200',
+    returned: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+    late: 'bg-rose-50 text-rose-800 ring-rose-200',
+  };
+  const labels: Record<string, string> = {
+    pending_delivery: 'بانتظار التسليم',
+    delivered: 'مسلَّم',
+    returned: 'مسترجع',
+    late: 'متأخر',
+  };
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${styles[deliveryStatus] ?? 'bg-slate-100 text-slate-600 ring-slate-200'}`}>
+      {labels[deliveryStatus] ?? deliveryStatus}
+    </span>
+  );
+}
 
 function ReservationCard({ reservation, onCancel, onPrint }: { reservation: Reservation; onCancel: (id: string) => void; onPrint: (reservation: Reservation) => void }) {
   const canCancel = ['pending', 'confirmed'].includes(reservation.status) && reservation.paidAmount === 0;
   const times = getReservationTimes(reservation);
+  const lines = getReservationLines(reservation);
+  const isMulti = isMultiItemReservation(reservation);
+  const outstandingLines = getOutstandingLines(reservation);
+  const pendingLines = getPendingDeliveryLines(reservation);
+  const returnedLines = getReturnedLines(reservation);
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -38,19 +64,48 @@ function ReservationCard({ reservation, onCancel, onPrint }: { reservation: Rese
               <UserRound aria-hidden="true" className="h-4 w-4" />
               بيانات العميلة
             </Link>
-            <Link
-              to={`/inventory/${encodeURIComponent(reservation.dressCode)}`}
-              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-stone-100 px-2.5 font-bold text-slate-700 transition hover:bg-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-            >
-              <Shirt aria-hidden="true" className="h-4 w-4" />
-              {reservation.dressCode} — {reservation.dressName}
-            </Link>
           </div>
         </div>
         <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ${RESERVATION_STATUS_STYLES[reservation.status]}`}>
           {RESERVATION_STATUS_LABELS[reservation.status]}
         </span>
       </div>
+
+      {/* ── Contract Lines ─────────────────────────────────────────────── */}
+      <div className="mt-4 space-y-2">
+        {lines.map((line) => (
+          <div key={line.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-stone-50 p-3 ring-1 ring-slate-100">
+            <div className="flex items-center gap-2 min-w-0">
+              <Shirt aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" />
+              <Link
+                to={`/inventory/${encodeURIComponent(line.dressCodeSnapshot)}`}
+                className="text-sm font-bold text-slate-900 hover:underline"
+              >
+                {line.dressCodeSnapshot} — {line.dressNameSnapshot}
+              </Link>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-600">{formatMoneyOMR(line.rentalPrice)}</span>
+              <LineStatusBadge deliveryStatus={line.deliveryStatus} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Line summary ───────────────────────────────────────────────── */}
+      {isMulti && (
+        <div className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-xs sm:grid-cols-3">
+          {pendingLines.length > 0 && (
+            <div><span className="font-bold text-amber-700">{pendingLines.length}</span> <span className="text-slate-600">بانتظار التسليم</span></div>
+          )}
+          {outstandingLines.length > 0 && (
+            <div><span className="font-bold text-sky-700">{outstandingLines.length}</span> <span className="text-slate-600">مسلّمة</span></div>
+          )}
+          {returnedLines.length > 0 && (
+            <div><span className="font-bold text-emerald-700">{returnedLines.length}</span> <span className="text-slate-600">مسترجعة</span></div>
+          )}
+        </div>
+      )}
 
       <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 xl:grid-cols-4">
         <div><p className="text-xs font-bold text-slate-400">الاستلام</p><p className="mt-1 text-sm font-semibold text-slate-800">{reservation.pickupDate} · {formatTimeLabel(times.pickupTime)}</p></div>
@@ -72,8 +127,6 @@ function ReservationCard({ reservation, onCancel, onPrint }: { reservation: Rese
 export function ReservationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [reservations, setReservations] = useState<Reservation[]>(() => getReservations());
-  // `?search=` and `?timing=` let the dashboard and the calendar link straight
-  // to a specific booking instead of dropping the operator on an unfiltered list.
   const [filters, setFilters] = useState<ReservationFilters>(() => {
     const timing = searchParams.get('timing');
     return {
@@ -85,7 +138,6 @@ export function ReservationsPage() {
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null);
 
   const showCreateModal = searchParams.get('new') === '1';
-  // Carried in from /availability so the found piece and period land in the form.
   const createPrefill = useMemo(() => ({
     dressCode: searchParams.get('dress') ?? undefined,
     pickupDate: searchParams.get('pickup') ?? undefined,
@@ -102,16 +154,10 @@ export function ReservationsPage() {
     try { cancelReservationCommand(id); setReservations(getReservations()); setFeedback({ tone: 'success', message: `تم إلغاء الحجز ${reservation.reservationNumber}.` }); }
     catch (error: unknown) { setFeedback({ tone: 'danger', message: error instanceof Error ? error.message : 'تعذر إلغاء الحجز.' }); }
   };
-  // Opening a booking from the calendar focuses the same list card, so the
-  // customer and item details are one tap away without a second data source.
   const handleOpenFromCalendar = (reservation: Reservation) => {
     setFilters({ search: reservation.reservationNumber, status: 'all', timing: 'all' });
     setFeedback({ tone: 'success', message: `تم فتح الحجز ${reservation.reservationNumber} من التقويم.` });
   };
-  /**
-   * Exports exactly what the filters show: the accountant asks for a period or
-   * a subset, and an unfiltered dump makes her redo the narrowing.
-   */
   const handleExport = () => {
     downloadCsv(ledgerFileName('سجل-الحجوزات'), buildReservationsCsv(filteredReservations));
   };

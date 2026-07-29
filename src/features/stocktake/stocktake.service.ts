@@ -5,6 +5,7 @@ import { getAccessories } from '../accessories/accessory.service';
 import { getReservations } from '../reservations/reservation.service';
 import { getReservationAccessories } from '../accessories/reservationAccessory.service';
 import { isActiveReservation } from '../reservations/reservationConflicts';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 import { matchesSearchQuery } from '../../shared/utils/search';
 import type { Dress } from '../dresses/dress.types';
 import type { Accessory } from '../accessories/accessory.types';
@@ -166,7 +167,17 @@ function buildOutOnRentalMap(): { dresses: Map<string, string>; accessories: Map
 
   const dresses = new Map<string, string>();
   delivered.forEach((reservation) => {
-    if (reservation.inventoryItemId) dresses.set(reservation.inventoryItemId, reservation.reservationNumber);
+    // Check each line's inventoryItemId for multi-item support
+    const lines = getReservationLines(reservation);
+    lines.forEach((line) => {
+      if (line.deliveryStatus === 'delivered' || line.deliveryStatus === 'late') {
+        if (line.inventoryItemId) dresses.set(line.inventoryItemId, reservation.reservationNumber);
+      }
+    });
+    // Also check top-level for backward compatibility
+    if (reservation.inventoryItemId && !dresses.has(reservation.inventoryItemId)) {
+      dresses.set(reservation.inventoryItemId, reservation.reservationNumber);
+    }
   });
 
   const deliveredNumbers = new Set(delivered.map((reservation) => reservation.reservationNumber));

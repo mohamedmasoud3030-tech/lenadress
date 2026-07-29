@@ -1,6 +1,7 @@
 import { readCollection } from '../../services/localDatabase';
 import { isActiveDayClosing } from '../../shared/utils/dailyClosingCalculations.js';
 import { getTodayISO } from '../../shared/utils/date';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 import type { DressStatus } from '../dresses/dress.types';
 import type { Reservation } from '../reservations/reservation.types';
 import type { DayCloseRecord } from '../reports/report.types';
@@ -27,11 +28,15 @@ export function getDressArchiveBlockers(dressCode: string, status: DressStatus):
   if (status === 'sold') blockers.push('العنصر مسجل كمباع ولا يمكن إيقافه من المخزون.');
 
   const today = getTodayISO();
-  const relatedReservation = getStoredReservations().find(
-    (reservation) => reservation.dressCode === dressCode
-      && activeReservationStatuses.has(reservation.status)
-      && reservation.returnDate >= today,
-  );
+  // Check both top-level dressCode and multi-item lines
+  const relatedReservation = getStoredReservations().find((reservation) => {
+    if (reservation.dressCode === dressCode && activeReservationStatuses.has(reservation.status) && reservation.returnDate >= today) {
+      return true;
+    }
+    // Check lines for multi-item reservations
+    const lines = getReservationLines(reservation);
+    return lines.some((line) => line.dressCodeSnapshot === dressCode && activeReservationStatuses.has(reservation.status) && line.returnDate >= today);
+  });
 
   if (relatedReservation) {
     blockers.push(`يوجد حجز نشط أو قادم مرتبط بالعنصر: ${relatedReservation.reservationNumber}.`);
@@ -47,7 +52,12 @@ export function getDressArchiveBlockers(dressCode: string, status: DressStatus):
 export function getDressHardDeleteBlockers(dressCode: string, status: DressStatus): string[] {
   const blockers = getDressArchiveBlockers(dressCode, status);
 
-  const hasAnyReservation = getStoredReservations().some((reservation) => reservation.dressCode === dressCode);
+  // Check top-level and multi-item lines for reservation references
+  const hasAnyReservation = getStoredReservations().some((reservation) => {
+    if (reservation.dressCode === dressCode) return true;
+    const lines = getReservationLines(reservation);
+    return lines.some((line) => line.dressCodeSnapshot === dressCode);
+  });
   if (hasAnyReservation) blockers.push('يوجد سجل حجز مرتبط بالعنصر.');
 
   const referencingCollections: Array<[string, string]> = [

@@ -11,6 +11,7 @@ import type { ExpenseRecord } from '../expenses/expense.types';
 import type { Reservation } from '../reservations/reservation.types';
 import type { Customer } from '../customers/customer.types';
 import type { AuditLogEntry } from '../audit/audit.types';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 
 /**
  * Ledger exports.
@@ -103,6 +104,7 @@ export const RESERVATIONS_CSV_HEADERS = [
   'الإجمالي',
   'المدفوع',
   'المتبقي',
+  'عدد البنود',
 ];
 
 const RESERVATION_STATUS_LABELS: Record<Reservation['status'], string> = {
@@ -115,29 +117,62 @@ const RESERVATION_STATUS_LABELS: Record<Reservation['status'], string> = {
 };
 
 export function buildReservationsCsv(reservations: Reservation[]): string {
-  return buildCsv(RESERVATIONS_CSV_HEADERS, reservations.map((reservation) => {
-    const listPrice = reservation.listRentalPrice ?? reservation.rentalPrice;
-    return [
-      reservation.reservationNumber,
-      RESERVATION_STATUS_LABELS[reservation.status] ?? reservation.status,
-      reservation.customerName,
-      reservation.customerPhone,
-      reservation.dressCode,
-      reservation.dressName,
-      reservation.pickupDate,
-      reservation.returnDate,
-      reservation.rentalPrice,
-      listPrice,
-      // The discount is derived from the snapshot rather than recomputed from
-      // today's catalogue price, which would misreport every past booking after
-      // a price change.
-      Math.max(listPrice - reservation.rentalPrice, 0),
-      reservation.depositAmount,
-      reservation.totalAmount,
-      reservation.paidAmount,
-      reservation.remainingAmount,
-    ];
-  }));
+  const rows: unknown[][] = [];
+
+  reservations.forEach((reservation) => {
+    const lines = getReservationLines(reservation);
+    const lineCount = lines.length;
+
+    if (lineCount <= 1) {
+      // Single-item reservation (legacy or single-line)
+      const line = lines[0];
+      const listPrice = line?.listRentalPrice ?? reservation.listRentalPrice ?? reservation.rentalPrice;
+      rows.push([
+        reservation.reservationNumber,
+        RESERVATION_STATUS_LABELS[reservation.status] ?? reservation.status,
+        reservation.customerName,
+        reservation.customerPhone,
+        line?.dressCodeSnapshot ?? reservation.dressCode,
+        line?.dressNameSnapshot ?? reservation.dressName,
+        line?.pickupDate ?? reservation.pickupDate,
+        line?.returnDate ?? reservation.returnDate,
+        line?.rentalPrice ?? reservation.rentalPrice,
+        listPrice,
+        Math.max(listPrice - (line?.rentalPrice ?? reservation.rentalPrice), 0),
+        line?.depositAmount ?? reservation.depositAmount,
+        reservation.totalAmount,
+        reservation.paidAmount,
+        reservation.remainingAmount,
+        lineCount,
+      ]);
+    } else {
+      // Multi-item reservation: one row per line
+      lines.forEach((line, index) => {
+        const listPrice = line.listRentalPrice ?? line.rentalPrice;
+        rows.push([
+          reservation.reservationNumber,
+          RESERVATION_STATUS_LABELS[reservation.status] ?? reservation.status,
+          reservation.customerName,
+          reservation.customerPhone,
+          line.dressCodeSnapshot,
+          line.dressNameSnapshot,
+          line.pickupDate,
+          line.returnDate,
+          line.rentalPrice,
+          listPrice,
+          Math.max(listPrice - line.rentalPrice, 0),
+          line.depositAmount,
+          // Only show totals on the first line row
+          index === 0 ? reservation.totalAmount : '',
+          index === 0 ? reservation.paidAmount : '',
+          index === 0 ? reservation.remainingAmount : '',
+          lineCount,
+        ]);
+      });
+    }
+  });
+
+  return buildCsv(RESERVATIONS_CSV_HEADERS, rows);
 }
 
 export const CUSTOMERS_CSV_HEADERS = [

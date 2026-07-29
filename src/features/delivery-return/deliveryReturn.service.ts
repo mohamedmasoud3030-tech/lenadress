@@ -1,6 +1,7 @@
 import { readCollection, writeCollection } from '../../services/localDatabase';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 import type {
   DeliveryReturnFilters,
   DeliveryReturnRecord,
@@ -69,11 +70,16 @@ export function filterDeliveryReturnRecords(
   return records.filter((record) => {
     const matchStatus = filters.status === 'all' || record.status === filters.status;
 
+    // For multi-item reservations, also search across all line item codes/names
+    const reservation = getReservations().find((r) => r.reservationNumber === record.reservationNumber);
+    const lineSearchFields = reservation ? getReservationLines(reservation).flatMap((line) => [line.dressCodeSnapshot, line.dressNameSnapshot]) : [];
+
     const matchSearch = matchesQuery([
       record.reservationNumber,
       record.customerName,
       record.dressCode,
       record.dressName,
+      ...lineSearchFields,
     ]);
 
     return matchStatus && matchSearch;
