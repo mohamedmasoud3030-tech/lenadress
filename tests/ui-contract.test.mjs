@@ -445,6 +445,29 @@ test('WhatsApp is a reviewed hand-off, not a silent automatic send', async () =>
   assert.match(service, /businessDate/, 'a dismissal must expire so an overdue item is chased again');
 });
 
+test('operator attribution is stamped centrally and never claimed as a login', async () => {
+  const audit = await readFile(join(sourceRoot, 'features/audit/audit.service.ts'), 'utf8');
+  // Stamped inside recordAudit so no caller can forget who acted.
+  assert.match(audit, /performedBy: input\.performedBy \?\? getCurrentOperatorName\(\)/);
+
+  const operator = await readFile(join(sourceRoot, 'features/operators/operator.service.ts'), 'utf8');
+  assert.match(operator, /not\*\* authentication|not authentication/i, 'it must not be mistaken for a login');
+  assert.match(operator, /getBrowserLocalStorage/, 'device preference goes through the platform port');
+
+  const settings = await readFile(join(sourceRoot, 'features/preferences/OperatorSettings.tsx'), 'utf8');
+  assert.match(settings, /ليس تسجيل دخول/, 'the UI must say plainly that this does not protect the app');
+});
+
+test('conduct warnings reach the operator before a booking is taken', async () => {
+  const card = await readFile(join(sourceRoot, 'features/customers/CustomersPage.tsx'), 'utf8');
+  assert.match(card, /conduct\.advisories/, 'a warning behind a click is a warning nobody reads');
+  assert.match(card, /role="alert"/);
+
+  const service = await readFile(join(sourceRoot, 'features/customers/customerConduct.service.ts'), 'utf8');
+  assert.match(service, /getDeliveryReturnRecords/, 'incidents must be derived, not typed');
+  assert.match(service, /recordedBy/, 'a judgement about a customer must not be anonymous');
+});
+
 test('the daily operations journey is reachable from the navigation', async () => {
   const navigation = await readFile(join(sourceRoot, 'app/shell/navigation.ts'), 'utf8');
   const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');
@@ -462,6 +485,7 @@ test('the daily operations journey is reachable from the navigation', async () =
     '/daily-closing',
     '/reports',
     '/reminders',
+    '/waitlist',
     '/inventory-performance',
     '/preferences',
   ];

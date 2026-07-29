@@ -148,11 +148,21 @@ export function getCustomerConduct(customer: Customer): CustomerConduct {
 
   /**
    * A no-show is a booking whose pickup date passed while it was still waiting
-   * to be collected. It was never delivered and never cancelled, so nobody came.
+   * to be collected: never delivered, never cancelled, so nobody came.
+   *
+   * `overdue` has to be accepted here as well. The reservation layer projects
+   * any past-due booking to `overdue`, including one that was never collected
+   * in the first place, so filtering on pending/confirmed alone silently missed
+   * every no-show older than its own return date — which is most of them.
+   * A delivery record is the proof of collection, so its absence is the test.
    */
+  const collectedReservationNumbers = new Set(
+    deliveryRecords.filter((record) => record.deliveryDateTime).map((record) => record.reservationNumber),
+  );
   const noShows = reservations.filter((reservation) => (
-    (reservation.status === 'pending' || reservation.status === 'confirmed')
+    ['pending', 'confirmed', 'overdue'].includes(reservation.status)
     && reservation.pickupDate < today
+    && !collectedReservationNumbers.has(reservation.reservationNumber)
   ));
   noShows.forEach((reservation) => {
     events.push({
