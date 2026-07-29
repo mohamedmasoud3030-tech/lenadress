@@ -82,6 +82,12 @@ export function ReservationsPage() {
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null);
 
   const showCreateModal = searchParams.get('new') === '1';
+  // Carried in from /availability so the found piece and period land in the form.
+  const createPrefill = useMemo(() => ({
+    dressCode: searchParams.get('dress') ?? undefined,
+    pickupDate: searchParams.get('pickup') ?? undefined,
+    returnDate: searchParams.get('return') ?? undefined,
+  }), [searchParams]);
   const filteredReservations = useMemo(() => filterReservations(reservations, filters), [reservations, filters]);
   const summary = useMemo(() => summarizeReservations(reservations), [reservations]);
   const openCreateModal = () => { setFeedback(null); const nextParams = new URLSearchParams(searchParams); nextParams.set('new', '1'); setSearchParams(nextParams); };
@@ -126,6 +132,6 @@ export function ReservationsPage() {
           title="لا توجد حجوزات مطابقة"
           description="غيّري البحث أو الفلاتر الحالية لعرض نتائج أخرى."
         />}
-    <CreateReservationModal open={showCreateModal} onClose={closeCreateModal} onCreated={handleCreated} />
+    <CreateReservationModal open={showCreateModal} onClose={closeCreateModal} onCreated={handleCreated} prefill={createPrefill} />
   </section>;
 }

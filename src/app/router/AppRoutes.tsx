@@ -6,6 +6,7 @@ import {
   AccessoriesPage,
   AppointmentsPage,
   AuditLogPage,
+  AvailabilitySearchPage,
   CustomersPage,
   DailyClosingPage,
   DesignDetailsPage,
@@ -50,6 +51,7 @@ export function AppRoutes() {
             </Suspense>
           }
         />
+        <Route path="availability" element={<AvailabilitySearchPage />} />
         <Route path="accessories" element={<AccessoriesPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="reservations" element={<ReservationsPage />} />

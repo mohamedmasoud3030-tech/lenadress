@@ -486,6 +486,7 @@ test('the daily operations journey is reachable from the navigation', async () =
     '/reports',
     '/reminders',
     '/waitlist',
+    '/availability',
     '/inventory-performance',
     '/preferences',
   ];
@@ -497,4 +498,39 @@ test('the daily operations journey is reachable from the navigation', async () =
       `${route} must have a route`,
     );
   }
+});
+
+test('availability search leads with the date and never hides why a piece is out', async () => {
+  const page = await readFile(join(sourceRoot, 'features/availability/AvailabilitySearchPage.tsx'), 'utf8');
+
+  // The whole point of the screen is the reverse query, so the period inputs
+  // must be first-class controls rather than a filter buried in a drawer.
+  assert.match(page, /type="date"/, 'the period must be chosen with real date inputs');
+  assert.match(page, /<PageHeader/, 'the page must use the shared header');
+  assert.match(page, /<SummaryCard/, 'the page must use the shared summary card');
+  assert.match(page, /<FilterBar>/, 'the page must use the shared filter bar');
+  assert.match(page, /<EmptyState/, 'an empty result must be explained, not left blank');
+  assert.match(page, /min-h-11/, 'actions must stay tappable on a phone');
+  assert.match(page, /grid-cols-2/, 'summary tiles must be 2-up on phones');
+  assert.doesNotMatch(page, /<h1 /, 'the page must not hand-roll its title');
+
+  // A bare "not available" sends the operator back to guessing. Every refusal
+  // carries a reason, and a booked piece carries a date to counter-offer.
+  assert.match(page, /REASON_LABELS/, 'unavailability must always state a reason');
+  assert.match(page, /nextFreeDate/, 'a booked piece must offer the next free date');
+  assert.match(page, /alternativePieceCodes/, 'free siblings of the same design must be suggested');
+});
+
+test('a piece found free can be booked without being searched for again', async () => {
+  const page = await readFile(join(sourceRoot, 'features/availability/AvailabilitySearchPage.tsx'), 'utf8');
+  const reservations = await readFile(join(sourceRoot, 'features/reservations/ReservationsPage.tsx'), 'utf8');
+  const modal = await readFile(join(sourceRoot, 'features/reservations/CreateReservationModal.tsx'), 'utf8');
+
+  assert.match(page, /reservations\?new=1&dress=/, 'the result must link straight into the booking form');
+  assert.match(reservations, /createPrefill/, 'the reservations page must read the carried-over values');
+  assert.match(modal, /prefill/, 'the booking form must accept the carried-over values');
+  // The code is resolved against the live reservable list: booking the wrong
+  // item silently would be worse than asking the operator to pick again.
+  assert.match(modal, /reservable\.find\(\(dress\) => dress\.code === prefill\.dressCode\)/,
+    'a prefilled code must be resolved, not trusted');
 });

@@ -3,6 +3,7 @@ import {
   BellRing,
   PackageSearch,
   CalendarDays,
+  CalendarSearch,
   ClipboardList,
   Clock3,
   ClockAlert,
@@ -28,6 +29,7 @@ export type NavigationItem = {
 
 export const navigation: readonly NavigationItem[] = [
   { to: '/', label: 'لوحة التحكم', icon: LayoutDashboard },
+  { to: '/availability', label: 'المتاح في فترة', icon: CalendarSearch },
   { to: '/inventory', label: 'المخزون', icon: Shirt },
   { to: '/accessories', label: 'الملحقات', icon: Gem },
   { to: '/customers', label: 'العملاء', icon: UsersRound },

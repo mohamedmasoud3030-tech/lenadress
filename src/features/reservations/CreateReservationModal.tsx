@@ -38,6 +38,13 @@ type CreateReservationModalProps = {
   open: boolean;
   onClose: () => void;
   onCreated: (reservation: Reservation) => void;
+  /**
+   * Values carried over from the availability search, so a piece the operator
+   * just found free is not re-picked by hand. Without this the search hands
+   * back a code the operator then has to locate in a list of hundreds, which
+   * is the friction the search existed to remove.
+   */
+  prefill?: { dressCode?: string; pickupDate?: string; returnDate?: string };
 };
 
 function addDays(dateValue: string, days: number): string {
@@ -66,7 +73,7 @@ function getReservableDresses(): Dress[] {
   return getDresses().filter((dress) => dress.isForRent && ['available', 'reserved', 'rented'].includes(dress.status));
 }
 
-export function CreateReservationModal({ open, onClose, onCreated }: CreateReservationModalProps) {
+export function CreateReservationModal({ open, onClose, onCreated, prefill }: CreateReservationModalProps) {
   const fieldId = useId();
   const [submitError, setSubmitError] = useState<unknown>(null);
   // Stable per-form key so a duplicate submit is rejected by the command layer.
@@ -185,16 +192,37 @@ export function CreateReservationModal({ open, onClose, onCreated }: CreateReser
     if (!open) return;
       try {
         setCustomers(getCustomers());
-        setDresses(getReservableDresses());
+        const reservable = getReservableDresses();
+        setDresses(reservable);
         setDesignId('');
         setSelectedSize('');
         setSelectedColor('');
-        reset(getDefaultValues());
+
+        // The prefilled piece is resolved against the reservable list rather
+        // than trusted from the URL: a code can go stale between the search
+        // and the click, and silently booking the wrong item would be worse
+        // than making the operator pick again.
+        const defaults = getDefaultValues();
+        const prefilledDress = prefill?.dressCode
+          ? reservable.find((dress) => dress.code === prefill.dressCode)
+          : undefined;
+
+        reset({
+          ...defaults,
+          dressId: prefilledDress?.id ?? defaults.dressId,
+          pickupDate: prefill?.pickupDate || defaults.pickupDate,
+          returnDate: prefill?.returnDate || defaults.returnDate,
+        });
+        if (prefilledDress?.designId) setDesignId(prefilledDress.designId);
+        if (prefilledDress) {
+          setSelectedSize(prefilledDress.size);
+          setSelectedColor(prefilledDress.color);
+        }
         setSubmitError(null);
       } catch (error: unknown) {
         setSubmitError(error);
       }
-  }, [open, reset]);
+  }, [open, reset, prefill?.dressCode, prefill?.pickupDate, prefill?.returnDate]);
 
   useEffect(() => {
     if (!selectedDress) return;
