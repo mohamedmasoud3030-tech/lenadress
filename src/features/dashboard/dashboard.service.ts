@@ -63,6 +63,15 @@ export type DashboardSnapshot = {
   accessoriesOutCount: number;
   /** Customer follow-ups still outstanding today. */
   reminders: { total: number; critical: number };
+  /**
+   * Refundable deposits the showroom is currently holding.
+   *
+   * This is money in the drawer that is **not** the showroom's. Spending it and
+   * then having to refund several customers in the same week is exactly how a
+   * profitable showroom runs out of cash, so it is surfaced next to the takings
+   * rather than buried in a report.
+   */
+  depositLiability: { held: number; retained: number; refunded: number };
 };
 
 const ACTIVE_STATUSES = new Set<Reservation['status']>(['pending', 'confirmed', 'delivered', 'overdue']);
@@ -114,6 +123,8 @@ export function getDashboardSnapshot(): DashboardSnapshot {
   ).length;
 
   const todayTotals = getFinanceTotals({ from: today, to: today });
+  // No range: the liability is everything still held, not just today's.
+  const lifetimeTotals = getFinanceTotals();
 
   const outstandingBalances: OutstandingBalanceRow[] = getOutstandingRentalBalances()
     .map((balance) => {
@@ -170,6 +181,11 @@ export function getDashboardSnapshot(): DashboardSnapshot {
     outstandingBalances,
     service: { open: serviceSummary.open, inProgress: serviceSummary.inProgress, overdue: serviceSummary.overdue },
     accessoriesOutCount,
+    depositLiability: {
+      held: lifetimeTotals.depositLiabilityCollected,
+      retained: lifetimeTotals.depositRetained,
+      refunded: lifetimeTotals.depositRefunded,
+    },
     reminders: (() => {
       const summary = summarizeReminders(getReminders());
       return { total: summary.total, critical: summary.critical };

@@ -35,6 +35,7 @@ export const REGISTERED_COLLECTIONS = [
   'reminder-dismissals',
   'operators',
   'customer-conduct-notes',
+  'waitlist',
   'retired-codes',
   'preferences',
   'showroom-profile',
