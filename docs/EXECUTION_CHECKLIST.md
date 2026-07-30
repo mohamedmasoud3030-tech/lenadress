@@ -301,9 +301,9 @@ Analysis: `docs/CONDUCT_ATTRIBUTION_WAITLIST.md`.
 - [x] **11.08:** Device PIN lock.
   - A six-digit, per-device PIN gates every operational route after a verified account sign-in. The PIN is stored only as a salted verifier, survives operational-data reset and backup import, and can be changed or disabled only after entering the current PIN.
   - Evidence: [PR #125](https://github.com/mohamedmasoud3030-tech/lenadress/pull/125), merge `dedff9bf9bf36810720f24d9399da2318c4157f8`; Build #295 and Verify #267 green before merge.
-- [ ] **IN PROGRESS — 11.09:** Storage capacity indicator.
+- [x] **11.09:** Storage capacity indicator.
   - The app exposes browser-origin usage and quota in settings, warns from 80%, escalates at 95%, and repeats a compact warning across operational routes until it is refreshed or the pressure falls.
-  - Evidence pending: capacity unit tests, UI contract coverage, full CI, and an active PR.
+  - Evidence: [PR #126](https://github.com/mohamedmasoud3030-tech/lenadress/pull/126), merge `14c04a50fbf9568c8efe4cd08a3d71b0d48caeaf`; Build #297 and Verify #269 green before merge.
   - The browser quota can fill silently; a failed write in front of a customer is the first symptom.
 
 ## Phase 12 queue — Measurements, contacts and document printing
