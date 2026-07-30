@@ -46,6 +46,18 @@ test('an authenticated device is locked before operational routes render', async
   assert.match(settings, /إيقاف القفل/);
 });
 
+test('storage capacity is visible before a browser write reaches quota', async () => {
+  const shell = await readFile(join(sourceRoot, 'app/shell/AppShell.tsx'), 'utf8');
+  const settings = await readFile(join(sourceRoot, 'features/preferences/PreferencesPage.tsx'), 'utf8');
+  const indicator = await readFile(join(sourceRoot, 'components/shared/StorageCapacityIndicator.tsx'), 'utf8');
+
+  assert.match(shell, /<StorageCapacityIndicator compact \/>/);
+  assert.match(settings, /<StorageCapacityIndicator \/>/);
+  assert.match(indicator, /setInterval/, 'the warning must refresh while the operator is working');
+  assert.match(indicator, /إدارة التخزين/);
+  assert.match(indicator, /تحديث سعة التخزين/);
+});
+
 test('global styles guard against horizontal overflow on small phones', async () => {
   const css = await readFile(join(sourceRoot, 'styles/global.css'), 'utf8');
   assert.match(css, /min-width:\s*320px/);
