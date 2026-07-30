@@ -13,7 +13,6 @@ import { isIndexedDBAvailable } from '../../services/imageStorage.service';
 import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
-import { OperatorSettings } from './OperatorSettings';
 import { AccountSettings } from './AccountSettings';
 import { getAppBuildInfo } from '@platform/app-update';
 import { downloadJson } from '@platform/download';
@@ -233,8 +232,6 @@ export function PreferencesPage() {
       </article>
 
       <AccountSettings />
-
-      <OperatorSettings />
 
       {/* Named here because support is impossible while the operator cannot
           answer "which version are you on?". */}

@@ -18,10 +18,15 @@ export function readRequiredEnv(env: RuntimeEnv, key: string): string {
 
 export function getSupabaseConfig(env: RuntimeEnv = import.meta.env): {
   url: string;
-  anonKey: string;
+  publishableKey: string;
 } {
+  const publishableKey =
+    env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    env.VITE_SUPABASE_ANON_KEY?.trim();
+  if (!publishableKey) throw new MissingRuntimeConfigError('VITE_SUPABASE_PUBLISHABLE_KEY');
+
   return {
     url: readRequiredEnv(env, 'VITE_SUPABASE_URL'),
-    anonKey: readRequiredEnv(env, 'VITE_SUPABASE_ANON_KEY'),
+    publishableKey,
   };
 }

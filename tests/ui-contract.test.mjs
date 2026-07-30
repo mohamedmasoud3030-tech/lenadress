@@ -445,17 +445,20 @@ test('WhatsApp is a reviewed hand-off, not a silent automatic send', async () =>
   assert.match(service, /businessDate/, 'a dismissal must expire so an overdue item is chased again');
 });
 
-test('operator attribution is stamped centrally and never claimed as a login', async () => {
+test('operator attribution is stamped centrally from the authenticated profile', async () => {
   const audit = await readFile(join(sourceRoot, 'features/audit/audit.service.ts'), 'utf8');
   // Stamped inside recordAudit so no caller can forget who acted.
   assert.match(audit, /performedBy: input\.performedBy \?\? getCurrentOperatorName\(\)/);
 
   const operator = await readFile(join(sourceRoot, 'features/operators/operator.service.ts'), 'utf8');
-  assert.match(operator, /not\*\* authentication|not authentication/i, 'it must not be mistaken for a login');
+  assert.match(operator, /Supabase Auth now controls access/, 'the compatibility layer must name the real access control');
   assert.match(operator, /getBrowserLocalStorage/, 'device preference goes through the platform port');
 
-  const settings = await readFile(join(sourceRoot, 'features/preferences/OperatorSettings.tsx'), 'utf8');
-  assert.match(settings, /ليس تسجيل دخول/, 'the UI must say plainly that this does not protect the app');
+  const auth = await readFile(join(sourceRoot, 'features/auth/AuthContext.tsx'), 'utf8');
+  assert.match(auth, /setCurrentOperatorName\(loaded\.fullName\)/, 'audit attribution must follow the verified profile');
+
+  const settings = await readFile(join(sourceRoot, 'features/preferences/PreferencesPage.tsx'), 'utf8');
+  assert.doesNotMatch(settings, /OperatorSettings/, 'settings must not allow impersonating another operator');
 });
 
 test('conduct warnings reach the operator before a booking is taken', async () => {

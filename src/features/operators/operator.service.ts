@@ -4,18 +4,18 @@ import { readCollection, writeCollection } from '../../services/localDatabase';
 /**
  * Who is operating the app right now.
  *
- * This is **not** authentication. The product is deliberately single-showroom
- * and local-first, with no server and no accounts, so there is nothing to
- * authenticate against and no way to enforce a login. Pretending otherwise
- * would be security theatre.
+ * Supabase Auth now controls access to the application. This module only keeps
+ * the resolved account display name available to the existing audit layer and
+ * preserves legacy operator names so old audit entries remain readable.
  *
  * What it does provide is **attribution**: when more than one person works the
  * counter, the audit trail must say who cancelled a booking, who granted a
  * discount, or who wrote a warning about a customer. Without it every entry is
  * anonymous and the log cannot answer the only question it exists for.
  *
- * The active operator is a device-level preference, not showroom data: two
- * phones in the same showroom have different people holding them.
+ * New sessions set this value from the active, server-checked profile. The
+ * legacy add/archive helpers remain for backward-compatible data reads only
+ * and are no longer exposed in settings.
  */
 
 const OPERATORS_COLLECTION = 'operators';

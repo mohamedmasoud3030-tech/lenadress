@@ -1,5 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../lib/supabaseClient';
+import type { Profile } from './auth.model';
 
 /**
  * Real access control for LENA.
@@ -14,16 +15,9 @@ import { getSupabaseClient } from '../../lib/supabaseClient';
  * `operator.service.ts`).
  */
 
-export type Profile = {
-  id: string;
-  fullName: string;
-  role: 'admin' | 'staff';
-  isActive: boolean;
-};
-
 export class AuthError extends Error {}
 
-function toFriendlyMessage(message: string): string {
+export function toFriendlyAuthMessage(message: string): string {
   if (message.includes('Invalid login credentials')) {
     return 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
   }
@@ -32,6 +26,12 @@ function toFriendlyMessage(message: string): string {
   }
   if (message.toLowerCase().includes('network')) {
     return 'تعذر الاتصال بالخادم. تحققي من الإنترنت وحاولي مجدداً.';
+  }
+  if (message.toLowerCase().includes('rate limit')) {
+    return 'تمت محاولات دخول كثيرة. انتظري قليلاً ثم حاولي مجدداً.';
+  }
+  if (message.toLowerCase().includes('weak password')) {
+    return 'كلمة المرور لم تعد مطابقة لمتطلبات الأمان. أعيدي تعيينها أولاً.';
   }
   return 'تعذر تسجيل الدخول. حاولي مجدداً.';
 }
@@ -46,7 +46,7 @@ export async function signIn(email: string, password: string): Promise<Session> 
     password,
   });
 
-  if (error) throw new AuthError(toFriendlyMessage(error.message));
+  if (error) throw new AuthError(toFriendlyAuthMessage(error.message));
   if (!data.session) throw new AuthError('تعذر تسجيل الدخول. حاولي مجدداً.');
   return data.session;
 }

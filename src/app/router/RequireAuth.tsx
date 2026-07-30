@@ -10,8 +10,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   if (status === 'loading') return <RouteLoadingFallback />;
 
-  if (status === 'signed-out') {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (status !== 'signed-in') {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}${location.hash}` }}
+      />
+    );
   }
 
   return <>{children}</>;

@@ -15,12 +15,18 @@ let cachedClient: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient {
   if (cachedClient) return cachedClient;
-  const { url, anonKey } = getSupabaseConfig();
-  cachedClient = createClient(url, anonKey);
+  const { url, publishableKey } = getSupabaseConfig();
+  cachedClient = createClient(url, publishableKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
   return cachedClient;
 }
 
-/** True once VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are both set. */
+/** True once the project URL and a publishable (or legacy anon) key are both set. */
 export function isSupabaseConfigured(env: Record<string, string | undefined> = import.meta.env): boolean {
   try {
     getSupabaseConfig(env);
