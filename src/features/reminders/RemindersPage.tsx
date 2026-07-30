@@ -146,7 +146,6 @@ export function RemindersPage() {
         <PageHeader
           eyebrow="المتابعة"
           title="تذكيرات العملاء"
-          description="استلام الغد، إرجاع الغد، القطع المتأخرة، والمبالغ غير المسددة — برسائل واتساب جاهزة."
         />
         <button
           type="button"

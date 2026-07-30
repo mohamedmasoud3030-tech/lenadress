@@ -16,6 +16,7 @@ import { addDress } from '../src/features/dresses/dress.service.ts';
 import { getDresses } from '../src/features/dresses/dress.service.ts';
 import { getReservations } from '../src/features/reservations/reservation.service.ts';
 import { getPayments } from '../src/features/payments/payment.service.ts';
+import { addDaysISO, getTodayISO } from '../src/shared/utils/date.ts';
 
 function installStorage() {
   const store = new Map();
@@ -50,9 +51,7 @@ function cleanup() {
 }
 
 function futureDate(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return addDaysISO(getTodayISO(), days);
 }
 
 const dressInput = {
@@ -201,7 +200,7 @@ test('forced failure after the payment write restores the ledger and the reserva
     assert.throws(
       () => recordPaymentCommand({
         reservationNumber: reservation.reservationNumber,
-        paymentDate: new Date().toISOString().slice(0, 10),
+        paymentDate: getTodayISO(),
         type: 'rental',
         method: 'cash',
         amount: 40,
@@ -231,7 +230,7 @@ test('a duplicate payment submit does not collect the money twice', () => {
     });
     const input = {
       reservationNumber: reservation.reservationNumber,
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: getTodayISO(),
       type: 'rental',
       method: 'cash',
       amount: 40,
@@ -270,7 +269,7 @@ test('delivery and return keep the item, reservation, ledger and audit consisten
   const store = installStorage();
   try {
     const { customer, dress } = seedScenario();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayISO();
     const reservation = createReservationCommand({
       customerId: customer.id,
       dressId: dress.id,
@@ -318,7 +317,7 @@ test('forced failure during return keeps the item rented and the settlement unpo
   installStorage();
   try {
     const { customer, dress } = seedScenario();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayISO();
     const reservation = createReservationCommand({
       customerId: customer.id,
       dressId: dress.id,

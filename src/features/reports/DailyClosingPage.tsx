@@ -9,6 +9,7 @@ import { DailyClosingBreakdown } from './DailyClosingBreakdown';
 import { formatReportMoney, getDayClosings } from './report.service';
 import { closeDayCommand, reopenDayCommand } from '../workflows';
 import type { DayCloseRecord } from './report.types';
+import { exportBackupForDownload } from '../preferences/backupExport.service';
 
 export function DailyClosingPage() {
   const [closings, setClosings] = useState<DayCloseRecord[]>(() => getDayClosings());
@@ -18,18 +19,38 @@ export function DailyClosingPage() {
   const [notes, setNotes] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [backupWarning, setBackupWarning] = useState<string | null>(null);
+  const [backupRetry, setBackupRetry] = useState<DayCloseRecord | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
   const closedToday = useMemo(() => closings.some((closing) => closing.businessDate === businessDate && closing.status === 'closed'), [closings, businessDate]);
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const exportClosingBackup = async (closing: DayCloseRecord) => {
+    try {
+      await exportBackupForDownload({ businessDate: closing.businessDate, source: 'daily-close' });
+      setBackupWarning(null);
+      setBackupRetry(null);
+      setFeedback(`تم إقفال يومية ${closing.businessDate}. تم تجهيز النسخة الاحتياطية الكاملة للتحميل.`);
+    } catch {
+      setBackupRetry(closing);
+      setBackupWarning('تم إقفال اليومية، لكن تعذر تجهيز النسخة الاحتياطية. نزّليها الآن قبل متابعة العمل.');
+    }
+  };
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isClosing) return;
+    setIsClosing(true);
     try {
       const closing = closeDayCommand({ businessDate, openingCash: Number(openingCash), actualCash: Number(actualCash), notes });
       setClosings(getDayClosings());
       setFeedback(`تم إقفال يومية ${closing.businessDate}. فرق الخزينة: ${formatReportMoney(closing.difference)}.`);
       setError(null);
+      await exportClosingBackup(closing);
     } catch (reason: unknown) {
       setError(reason);
       setFeedback(null);
+    } finally {
+      setIsClosing(false);
     }
   };
 
@@ -49,8 +70,9 @@ export function DailyClosingPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader eyebrow="الخزينة" title="إقفال اليومية النقدية" description="راجعي التحصيل والاسترجاعات والمصروفات حسب وسيلة الدفع. إعادة الفتح تحفظ السجل التاريخي ولا تحذفه." />
+      <PageHeader eyebrow="الخزينة" title="إقفال اليومية النقدية" />
       {feedback && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{feedback}</div>}
+      {backupWarning && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900"><span>{backupWarning}</span>{backupRetry && <button type="button" onClick={() => void exportClosingBackup(backupRetry)} className="min-h-11 rounded-xl border border-amber-400 bg-white px-4 py-2 text-sm font-bold">تجهيز النسخة الآن</button>}</div>}
       {error !== null && <UserFacingErrorAlert error={error} fallback="تعذر إكمال عملية إقفال اليومية." />}
       <form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-3">
@@ -59,7 +81,7 @@ export function DailyClosingPage() {
           <label className="text-sm font-bold text-slate-700">الرصيد النقدي الفعلي<input required type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} value={actualCash} onChange={(event) => setActualCash(event.target.value)} className={STACKED_FORM_FIELD_CLASS_NAME} /></label>
         </div>
         <label className="mt-4 block text-sm font-bold text-slate-700">ملاحظات<textarea rows={3} maxLength={MAX_NOTES_LENGTH} value={notes} onChange={(event) => setNotes(event.target.value)} className={STACKED_FORM_FIELD_CLASS_NAME} /></label>
-        <button type="submit" disabled={closedToday} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><LockKeyhole aria-hidden="true" className="h-4 w-4" />{closedToday ? 'اليومية مقفلة' : 'إقفال اليومية'}</button>
+        <button type="submit" disabled={closedToday || isClosing} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><LockKeyhole aria-hidden="true" className="h-4 w-4" />{closedToday ? 'اليومية مقفلة' : isClosing ? 'جارٍ الإقفال...' : 'إقفال اليومية'}</button>
       </form>
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-bold">سجل الإقفالات التاريخي</h2>

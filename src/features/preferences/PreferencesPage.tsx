@@ -4,8 +4,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
 import {
   CURRENT_STORAGE_SCHEMA_VERSION,
-  exportDatabaseBackup,
-  importDatabaseBackup,
+  importDatabaseBackupAsync,
   resetDatabase,
 } from '../../services/localDatabase';
 import { migrateImagesToIndexedDB } from '../../services/imageMigration.service';
@@ -15,9 +14,9 @@ import { getAppPreferences, saveAppPreferences, type AppPreferences } from './pr
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { AccountSettings } from './AccountSettings';
 import { getAppBuildInfo } from '@platform/app-update';
-import { downloadJson } from '@platform/download';
 import { MessageTemplatesEditor } from './MessageTemplatesEditor';
 import { PrintSettingsEditor } from './PrintSettingsEditor';
+import { exportBackupForDownload } from './backupExport.service';
 
 const preferenceFieldClassName = 'mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30';
 
@@ -26,14 +25,21 @@ export function PreferencesPage() {
   const buildInfo = getAppBuildInfo();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
 
-  const exportBackup = () => {
-    const backup = exportDatabaseBackup();
-    downloadJson(`dress-roomshow-backup-${backup.exportedAt.slice(0, 10)}.json`, backup);
-    recordAudit({ action: 'create', entityType: 'backup', entityId: backup.exportedAt, summary: 'تم تصدير نسخة احتياطية من بيانات التطبيق.' });
-    setFeedback('تم تجهيز النسخة الاحتياطية للتحميل. احتفظي بها في مكان آمن.');
-    setError(null);
+  const exportBackup = async () => {
+    setIsExporting(true);
+    try {
+      await exportBackupForDownload({ source: 'manual' });
+      setFeedback('تم تجهيز النسخة الاحتياطية الكاملة للتحميل. احتفظي بها في مكان آمن.');
+      setError(null);
+    } catch (reason: unknown) {
+      setError(reason);
+      setFeedback(null);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const importBackup = async (file?: File) => {
@@ -41,7 +47,7 @@ export function PreferencesPage() {
     try {
       const parsed: unknown = JSON.parse(await file.text());
       if (!window.confirm('سيتم استبدال بيانات التطبيق الحالية بالكامل بالنسخة المختارة. هل أنتِ متأكدة؟')) return;
-      const restored = importDatabaseBackup(parsed);
+      const restored = await importDatabaseBackupAsync(parsed);
       recordAudit({ action: 'import-backup', entityType: 'backup', entityId: restored.exportedAt, summary: 'تم استيراد نسخة احتياطية واستبدال بيانات التطبيق الحالية.' });
       setPreferences(getAppPreferences());
       setFeedback('تم استيراد النسخة الاحتياطية بنجاح. أعيدي تحميل الصفحة عند الحاجة لمراجعة جميع الأقسام.');
@@ -96,7 +102,7 @@ export function PreferencesPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader eyebrow="الإعدادات" title="النسخ الاحتياطي وإعدادات التشغيل" description="احفظي نسخة آمنة من بيانات المحل واضبطي قواعد الحجز الأساسية من مكان واحد." />
+      <PageHeader eyebrow="الإعدادات" title="النسخ الاحتياطي وإعدادات التشغيل" />
       {feedback && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{feedback}</div>}
       {error !== null && <UserFacingErrorAlert error={error} fallback="تعذر إكمال عملية البيانات." />}
 
@@ -107,7 +113,7 @@ export function PreferencesPage() {
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">صدّري نسخة قبل أي استيراد أو تصفير. الاستيراد يستبدل البيانات الحالية فقط بعد تأكيد صريح.</p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" onClick={exportBackup} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"><Download aria-hidden="true" className="h-4 w-4" />تصدير نسخة JSON</button>
+          <button type="button" onClick={() => void exportBackup()} disabled={isExporting} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"><Download aria-hidden="true" className="h-4 w-4" />{isExporting ? 'جارٍ تجهيز النسخة...' : 'تصدير نسخة JSON'}</button>
           <button type="button" onClick={() => importInput.current?.click()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-800 hover:bg-stone-100"><Upload aria-hidden="true" className="h-4 w-4" />استيراد نسخة JSON</button>
           <input ref={importInput} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void importBackup(event.target.files?.[0])} />
           <button type="button" onClick={resetAllData} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 hover:bg-rose-50"><RotateCcw aria-hidden="true" className="h-4 w-4" />تصفير جميع البيانات</button>

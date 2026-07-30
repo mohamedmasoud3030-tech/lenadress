@@ -122,7 +122,6 @@ export function PaymentsPage() {
         <PageHeader
           eyebrow="المدفوعات"
           title="إدارة المدفوعات"
-          description="متابعة التحصيل النقدي والاسترجاعات والتسويات غير النقدية المرتبطة بالحجوزات."
         />
         <button
           type="button"

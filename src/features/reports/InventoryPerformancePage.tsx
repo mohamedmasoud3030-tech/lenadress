@@ -141,7 +141,6 @@ export function InventoryPerformancePage() {
         <PageHeader
           eyebrow="التقارير"
           title="أداء المخزون والربحية"
-          description="ما الأكثر طلباً، ما الراكد، ما الذي يحقق ربحاً فعلياً، وما الذي يستهلك صيانة أكثر من عائده — من بيانات العمليات نفسها."
         />
         <div className="no-print flex flex-wrap gap-3">
           <button

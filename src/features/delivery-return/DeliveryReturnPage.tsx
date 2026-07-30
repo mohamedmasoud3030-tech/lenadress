@@ -109,7 +109,6 @@ export function DeliveryReturnPage() {
         <PageHeader
           eyebrow="التسليم والاسترجاع"
           title="إدارة التسليم والاسترجاع"
-          description="متابعة تسليم الفساتين والملحقات واسترجاعها مع الرسوم والملاحظات التشغيلية."
         />
         <button
           type="button"

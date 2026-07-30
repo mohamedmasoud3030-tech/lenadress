@@ -97,6 +97,39 @@ test('no English placeholder scaffolding is shipped to the showroom', async () =
   assert.deepEqual(offenders, []);
 });
 
+test('page chrome stays concise while operational guidance remains in context', async () => {
+  const header = await readFile(join(sourceRoot, 'components/shared/PageHeader.tsx'), 'utf8');
+  assert.match(header, /description\?: string/, 'page titles must not require decorative explanatory copy');
+  assert.match(header, /description \?/, 'a meaningful record note may still be shown when it exists');
+
+  const shell = await readFile(join(sourceRoot, 'app/shell/DesktopNavigation.tsx'), 'utf8');
+  assert.doesNotMatch(shell, /Inventory Operations|مركز واحد للمخزون/, 'navigation must identify the app without marketing copy');
+
+  const genericHeaders = [
+    'features/accessories/AccessoriesPage.tsx',
+    'features/availability/AvailabilitySearchPage.tsx',
+    'features/customers/CustomersPage.tsx',
+    'features/dashboard/DashboardPage.tsx',
+    'features/delivery-return/DeliveryReturnPage.tsx',
+    'features/dresses/DressesPage.tsx',
+    'features/expenses/ExpensesPage.tsx',
+    'features/payments/PaymentsPage.tsx',
+    'features/reminders/RemindersPage.tsx',
+    'features/reports/DailyClosingPage.tsx',
+    'features/reports/InventoryPerformancePage.tsx',
+    'features/service/ServiceQueuePage.tsx',
+    'features/stocktake/StocktakePage.tsx',
+    'features/waitlist/WaitlistPage.tsx',
+  ];
+
+  for (const relative of genericHeaders) {
+    const page = await readFile(join(sourceRoot, relative), 'utf8');
+    const pageHeader = page.match(/<PageHeader[\s\S]*?\/>/)?.[0] ?? '';
+    assert.ok(pageHeader, `${relative} must keep the shared page header`);
+    assert.doesNotMatch(pageHeader, /description=/, `${relative} must not repeat its title as introductory copy`);
+  }
+});
+
 test('every icon-only control carries an accessible Arabic label', async () => {
   const components = await collectFiles(sourceRoot, isComponent);
   const offenders = [];

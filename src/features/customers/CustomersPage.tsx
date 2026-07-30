@@ -194,7 +194,6 @@ export function CustomersPage() {
         <PageHeader
           eyebrow="العميلات"
           title="إدارة العميلات"
-          description="حفظ بيانات التواصل والمقاسات وحالة التعامل والأرصدة في سجل واحد واضح."
         />
         <button type="button" onClick={handleExport} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}><Download aria-hidden="true" className="h-5 w-5" />تصدير CSV</button>
         <button

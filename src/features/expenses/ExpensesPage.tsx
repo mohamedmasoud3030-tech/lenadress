@@ -76,7 +76,6 @@ export function ExpensesPage() {
         <PageHeader
           eyebrow="المصروفات"
           title="إدارة المصروفات"
-          description="متابعة مصروفات التشغيل والعناية بالفساتين والملحقات داخل المعرض."
         />
         <button
           type="button"

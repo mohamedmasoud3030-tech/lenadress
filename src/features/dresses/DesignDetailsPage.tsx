@@ -76,7 +76,6 @@ export function DesignDetailsPage() {
         <PageHeader
           eyebrow="تفاصيل التصميم"
           title="التصميم غير موجود"
-          description="تعذر العثور على التصميم المطلوب. ربما تمت أرشفته أو أن الرابط غير صحيح."
         />
         <Link
           to="/inventory"

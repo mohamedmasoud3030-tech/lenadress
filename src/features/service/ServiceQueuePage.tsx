@@ -61,7 +61,6 @@ export function ServiceQueuePage() {
         <PageHeader
           eyebrow="الخدمة والتشغيل"
           title="طابور الخدمة"
-          description="الفحص والغسيل والتعديل والصيانة للقطع قبل إعادتها إلى الجاهزية."
         />
         <button
           type="button"
