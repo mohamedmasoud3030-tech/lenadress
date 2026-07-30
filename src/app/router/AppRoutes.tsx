@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppShell } from '@app/shell/AppShell';
 import { LoginPage } from '../../features/auth/LoginPage';
 import { RequireAuth } from './RequireAuth';
+import { DeviceLockGate } from '../../features/device-lock/DeviceLockGate';
 import { RouteLoadingFallback } from './RouteLoadingFallback';
 import {
   AccessoriesPage,
@@ -39,7 +40,9 @@ export function AppRoutes() {
       <Route
         element={
           <RequireAuth>
-            <AppShell />
+            <DeviceLockGate>
+              <AppShell />
+            </DeviceLockGate>
           </RequireAuth>
         }
       >

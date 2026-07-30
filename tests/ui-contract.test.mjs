@@ -32,6 +32,20 @@ test('the document shell is Arabic-first and RTL', async () => {
   assert.match(shell, /dir="rtl"/);
 });
 
+test('an authenticated device is locked before operational routes render', async () => {
+  const routes = await readFile(join(sourceRoot, 'app/router/AppRoutes.tsx'), 'utf8');
+  const gate = await readFile(join(sourceRoot, 'features/device-lock/DeviceLockGate.tsx'), 'utf8');
+  const settings = await readFile(join(sourceRoot, 'features/device-lock/DevicePinSettings.tsx'), 'utf8');
+
+  assert.match(routes, /<DeviceLockGate>/, 'the lock must wrap the entire showroom shell');
+  assert.match(gate, /replace\(\/\\D\/g, ''\)\.slice\(0, 6\)/, 'the lock accepts digits only and limits them to six');
+  assert.match(gate, /inputMode="numeric"/);
+  assert.match(gate, /autoComplete="one-time-code"/);
+  assert.match(gate, /signOut\(\)/, 'the locked screen must still allow the signed-in account to leave the device');
+  assert.match(settings, /قفل الجهاز مفعّل/);
+  assert.match(settings, /إيقاف القفل/);
+});
+
 test('global styles guard against horizontal overflow on small phones', async () => {
   const css = await readFile(join(sourceRoot, 'styles/global.css'), 'utf8');
   assert.match(css, /min-width:\s*320px/);
