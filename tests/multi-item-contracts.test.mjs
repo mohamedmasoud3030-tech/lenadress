@@ -1,19 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installStorage, uninstallStorage, futureDate } from './helpers/storage.mjs';
-import { resetCountersForTesting, writeCollection, readCollection } from '../src/engines/persistence/index.ts';
+import { resetCountersForTesting } from '../src/engines/persistence/index.ts';
 import { addCustomer } from '../src/features/customers/customer.service.ts';
 import { addDress } from '../src/features/dresses/dress.service.ts';
 import {
   createReservation,
   getReservations,
-  cancelReservation,
   rescheduleReservation,
   addContractLine,
   removeContractLine,
-  updateContractLine,
   recordReservationPayment,
-  settleReservationReturn,
 } from '../src/features/reservations/reservation.service.ts';
 import {
   getReservationLines,
@@ -24,20 +21,14 @@ import {
   getReservationItemCodes,
   getReservationItemNames,
   calculateLinesTotal,
-  calculateLinesRentalPrice,
-  calculateLinesDeposit,
   calculateLinesFees,
   deriveReservationStatus,
   deriveLineDeliveryStatus,
-  syncTopLevelFromLines,
-  buildLineFromInput,
   checkLineConflicts,
-  assertNoLineConflicts,
 } from '../src/features/reservations/contractLineHelpers.ts';
 import {
   findItemConflicts,
 } from '../src/features/reservations/reservationConflicts.ts';
-import { addAccessory } from '../src/features/accessories/accessory.service.ts';
 import { DEFAULT_APP_PREFERENCES, saveAppPreferences } from '../src/features/preferences/preferences.service.ts';
 import { buildRentalContractHtml } from '../src/features/reservations/printRentalContract.ts';
 import { buildReservationsCsv } from '../src/features/reports/ledgerExports.ts';
@@ -655,7 +646,7 @@ test('conflict checking covers each line independently in findItemConflicts', ()
   try {
     const { customer, dress1, dress2 } = seed();
     // Create a multi-item reservation with dress1 and dress2
-    const reservation = createReservation({
+    createReservation({
       customerId: customer.id,
       pickupDate: futureDate(3),
       returnDate: futureDate(5),
