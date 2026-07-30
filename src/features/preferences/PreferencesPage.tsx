@@ -14,6 +14,7 @@ import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { OperatorSettings } from './OperatorSettings';
+import { AccountSettings } from './AccountSettings';
 import { getAppBuildInfo } from '@platform/app-update';
 import { downloadJson } from '@platform/download';
 import { MessageTemplatesEditor } from './MessageTemplatesEditor';
@@ -230,6 +231,8 @@ export function PreferencesPage() {
         </p>
         <button type="button" onClick={savePreferences} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"><Save aria-hidden="true" className="h-4 w-4" />حفظ الإعدادات</button>
       </article>
+
+      <AccountSettings />
 
       <OperatorSettings />
 

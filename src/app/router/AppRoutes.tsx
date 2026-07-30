@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AppShell } from '@app/shell/AppShell';
+import { LoginPage } from '../../features/auth/LoginPage';
+import { RequireAuth } from './RequireAuth';
 import { RouteLoadingFallback } from './RouteLoadingFallback';
 import {
   AccessoriesPage,
@@ -33,7 +35,14 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/landing" element={<LandingPage />} />
-      <Route element={<AppShell />}>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
         <Route index element={<DashboardWithClosingAlertPage />} />
         <Route path="inventory" element={<DressesPage />} />
         <Route
