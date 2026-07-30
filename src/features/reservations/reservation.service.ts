@@ -4,7 +4,7 @@ import { calculateReservationRemainingAmount } from '../../shared/utils/financia
 import { getReservationAccessories, releaseAccessoriesForReservation } from '../accessories/reservationAccessory.service';
 import { recordAudit } from '../audit/audit.service';
 import { getCustomers } from '../customers/customer.service';
-import { getDresses } from '../dresses/dress.service';
+import { getDresses, updateDressStatus } from '../dresses/dress.service';
 import { assertReservationCanBeCancelled } from '../integrity/integrity.service';
 import { getAppPreferences } from '../preferences/preferences.service';
 import {
@@ -558,7 +558,6 @@ export function deliverContractLine(input: LineDeliveryInput): Reservation {
   // Update the dress status
   const dress = getDresses().find((d) => d.id === line.inventoryItemId);
   if (dress) {
-    const { updateDressStatus } = require('../dresses/dress.service');
     updateDressStatus(line.dressCodeSnapshot, 'rented');
   }
 
@@ -613,7 +612,6 @@ export function returnContractLine(input: LineReturnInput): Reservation {
   updated = syncTopLevelFromLines(updated);
 
   // Update the dress status
-  const { updateDressStatus } = require('../dresses/dress.service');
   updateDressStatus(line.dressCodeSnapshot, input.nextItemStatus);
 
   recordAudit({
