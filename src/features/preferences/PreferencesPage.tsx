@@ -13,6 +13,7 @@ import { recordAudit } from '../audit/audit.service';
 import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { AccountSettings } from './AccountSettings';
+import { DevicePinSettings } from '../device-lock/DevicePinSettings';
 import { getAppBuildInfo } from '@platform/app-update';
 import { MessageTemplatesEditor } from './MessageTemplatesEditor';
 import { PrintSettingsEditor } from './PrintSettingsEditor';
@@ -238,6 +239,8 @@ export function PreferencesPage() {
       </article>
 
       <AccountSettings />
+
+      <DevicePinSettings />
 
       {/* Named here because support is impossible while the operator cannot
           answer "which version are you on?". */}

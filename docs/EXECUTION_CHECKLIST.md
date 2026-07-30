@@ -294,13 +294,14 @@ Analysis: `docs/CONDUCT_ATTRIBUTION_WAITLIST.md`.
 
 ### Outstanding from the same audit — not yet started
 
-- [ ] **IN PROGRESS — 11.07:** Automatic backup reminder and export on daily close.
+- [x] **11.07:** Automatic backup reminder and export on daily close.
   - The close screen requests a complete asynchronous JSON backup immediately after a successful close. The same path includes IndexedDB evidence images and records the export in audit history.
   - A blocked download never reopens or rolls back the closed day; the operator sees an immediate retry action. Settings export and import use the same complete image-safe format.
-  - Evidence: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass on the active PR branch. Mark complete only after merge and required CI are green.
-- [ ] **NEXT — 11.08:** Device PIN lock.
-  - Anyone holding the phone currently sees every customer, phone number and profit figure, and can reset the data.
-- [ ] **PENDING — 11.09:** Storage capacity indicator.
+  - Evidence: [PR #124](https://github.com/mohamedmasoud3030-tech/lenadress/pull/124), merge `1cc9a18c577f8fc4a9424451b64a19c8d1f03dfa`; Build #293 and Verify #265 green before merge.
+- [ ] **IN PROGRESS — 11.08:** Device PIN lock.
+  - A six-digit, per-device PIN gates every operational route after a verified account sign-in. The PIN is stored only as a salted verifier, survives operational-data reset and backup import, and can be changed or disabled only after entering the current PIN.
+  - Evidence pending: `tests/device-pin.test.mjs`, route/UI contract coverage, full CI, and an active PR.
+- [ ] **NEXT — 11.09:** Storage capacity indicator.
   - The browser quota can fill silently; a failed write in front of a customer is the first symptom.
 
 ## Phase 12 queue — Measurements, contacts and document printing
