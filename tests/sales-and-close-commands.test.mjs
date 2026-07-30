@@ -9,6 +9,7 @@ import { getSaleInvoices, getSaleReturns } from '../src/features/dresses/salesLe
 import { getSales } from '../src/features/dresses/sale.service.ts';
 import { getExpenses } from '../src/features/expenses/expense.service.ts';
 import { readCollection, writeCollection, getCollectionKey } from '../src/engines/persistence/index.ts';
+import { getTodayISO } from '../src/shared/utils/date.ts';
 
 function installStorage() {
   const store = new Map();
@@ -42,7 +43,7 @@ function cleanup() {
   delete globalThis.window;
 }
 
-const today = new Date().toISOString().slice(0, 10);
+const today = getTodayISO();
 
 const dressInput = {
   name: 'فستان للبيع',

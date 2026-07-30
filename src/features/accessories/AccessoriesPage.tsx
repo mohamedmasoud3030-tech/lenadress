@@ -149,7 +149,6 @@ export function AccessoriesPage() {
         <PageHeader
           eyebrow="الملحقات"
           title="إدارة الملحقات"
-          description="الطرح والتيجان والأحزمة والحقائب والقفازات وباقي الملحقات بكود مخزون ثابت وباركود قابل للطباعة."
         />
         <div className="flex flex-wrap gap-3">
           <button

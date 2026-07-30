@@ -97,6 +97,39 @@ test('no English placeholder scaffolding is shipped to the showroom', async () =
   assert.deepEqual(offenders, []);
 });
 
+test('page chrome stays concise while operational guidance remains in context', async () => {
+  const header = await readFile(join(sourceRoot, 'components/shared/PageHeader.tsx'), 'utf8');
+  assert.match(header, /description\?: string/, 'page titles must not require decorative explanatory copy');
+  assert.match(header, /description \?/, 'a meaningful record note may still be shown when it exists');
+
+  const shell = await readFile(join(sourceRoot, 'app/shell/DesktopNavigation.tsx'), 'utf8');
+  assert.doesNotMatch(shell, /Inventory Operations|مركز واحد للمخزون/, 'navigation must identify the app without marketing copy');
+
+  const genericHeaders = [
+    'features/accessories/AccessoriesPage.tsx',
+    'features/availability/AvailabilitySearchPage.tsx',
+    'features/customers/CustomersPage.tsx',
+    'features/dashboard/DashboardPage.tsx',
+    'features/delivery-return/DeliveryReturnPage.tsx',
+    'features/dresses/DressesPage.tsx',
+    'features/expenses/ExpensesPage.tsx',
+    'features/payments/PaymentsPage.tsx',
+    'features/reminders/RemindersPage.tsx',
+    'features/reports/DailyClosingPage.tsx',
+    'features/reports/InventoryPerformancePage.tsx',
+    'features/service/ServiceQueuePage.tsx',
+    'features/stocktake/StocktakePage.tsx',
+    'features/waitlist/WaitlistPage.tsx',
+  ];
+
+  for (const relative of genericHeaders) {
+    const page = await readFile(join(sourceRoot, relative), 'utf8');
+    const pageHeader = page.match(/<PageHeader[\s\S]*?\/>/)?.[0] ?? '';
+    assert.ok(pageHeader, `${relative} must keep the shared page header`);
+    assert.doesNotMatch(pageHeader, /description=/, `${relative} must not repeat its title as introductory copy`);
+  }
+});
+
 test('every icon-only control carries an accessible Arabic label', async () => {
   const components = await collectFiles(sourceRoot, isComponent);
   const offenders = [];
@@ -167,7 +200,7 @@ test('the reservation calendar is usable on a phone and labelled for assistive t
   assert.match(calendar, /hidden lg:block/, 'the seven-column grid is desktop-only');
   assert.match(calendar, /min-h-11|min-h-9/, 'calendar controls must stay tappable');
 
-  const model = await readFile(join(sourceRoot, 'features/reservations/reservationCalendar.ts'), 'utf8');
+  const model = await readFile(join(sourceRoot, 'features/reservations/reservationCalendar.model.ts'), 'utf8');
   assert.match(model, /parseLocalDate|addDaysISO/, 'calendar dates must use the local-time helpers');
   assert.doesNotMatch(model, /new Date\(`\$\{[^}]+\}T00:00:00`\)/, 'no ad-hoc date parsing inside the calendar');
 });
@@ -445,17 +478,20 @@ test('WhatsApp is a reviewed hand-off, not a silent automatic send', async () =>
   assert.match(service, /businessDate/, 'a dismissal must expire so an overdue item is chased again');
 });
 
-test('operator attribution is stamped centrally and never claimed as a login', async () => {
+test('operator attribution is stamped centrally from the authenticated profile', async () => {
   const audit = await readFile(join(sourceRoot, 'features/audit/audit.service.ts'), 'utf8');
   // Stamped inside recordAudit so no caller can forget who acted.
   assert.match(audit, /performedBy: input\.performedBy \?\? getCurrentOperatorName\(\)/);
 
   const operator = await readFile(join(sourceRoot, 'features/operators/operator.service.ts'), 'utf8');
-  assert.match(operator, /not\*\* authentication|not authentication/i, 'it must not be mistaken for a login');
+  assert.match(operator, /Supabase Auth now controls access/, 'the compatibility layer must name the real access control');
   assert.match(operator, /getBrowserLocalStorage/, 'device preference goes through the platform port');
 
-  const settings = await readFile(join(sourceRoot, 'features/preferences/OperatorSettings.tsx'), 'utf8');
-  assert.match(settings, /ليس تسجيل دخول/, 'the UI must say plainly that this does not protect the app');
+  const auth = await readFile(join(sourceRoot, 'features/auth/AuthContext.tsx'), 'utf8');
+  assert.match(auth, /setCurrentOperatorName\(loaded\.fullName\)/, 'audit attribution must follow the verified profile');
+
+  const settings = await readFile(join(sourceRoot, 'features/preferences/PreferencesPage.tsx'), 'utf8');
+  assert.doesNotMatch(settings, /OperatorSettings/, 'settings must not allow impersonating another operator');
 });
 
 test('conduct warnings reach the operator before a booking is taken', async () => {

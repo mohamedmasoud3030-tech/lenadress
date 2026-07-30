@@ -294,9 +294,11 @@ Analysis: `docs/CONDUCT_ATTRIBUTION_WAITLIST.md`.
 
 ### Outstanding from the same audit — not yet started
 
-- [ ] **NEXT — 11.07:** Automatic backup reminder and export on daily close.
-  - Highest remaining risk: all data lives in one browser. A manual-only backup means one cleared browser loses every booking, customer and payment.
-- [ ] **PENDING — 11.08:** Device PIN lock.
+- [ ] **IN PROGRESS — 11.07:** Automatic backup reminder and export on daily close.
+  - The close screen requests a complete asynchronous JSON backup immediately after a successful close. The same path includes IndexedDB evidence images and records the export in audit history.
+  - A blocked download never reopens or rolls back the closed day; the operator sees an immediate retry action. Settings export and import use the same complete image-safe format.
+  - Evidence: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass on the active PR branch. Mark complete only after merge and required CI are green.
+- [ ] **NEXT — 11.08:** Device PIN lock.
   - Anyone holding the phone currently sees every customer, phone number and profit figure, and can reset the data.
 - [ ] **PENDING — 11.09:** Storage capacity indicator.
   - The browser quota can fill silently; a failed write in front of a customer is the first symptom.

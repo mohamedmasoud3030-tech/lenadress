@@ -22,6 +22,7 @@ import {
   quickSaleCommand,
   recordSaleReturnCommand,
 } from '../src/features/workflows/salesCommands.ts';
+import { addDaysISO, getTodayISO } from '../src/shared/utils/date.ts';
 
 function installStorage() {
   const store = new Map();
@@ -61,9 +62,7 @@ function clone(value) {
 }
 
 function futureDate(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return addDaysISO(getTodayISO(), days);
 }
 
 const rentableDressInput = {
@@ -107,7 +106,7 @@ test('forced failure after delivery writes restores item, reservation, delivery 
     const reservation = createReservationCommand({
       customerId: customer.id,
       dressId: dress.id,
-      pickupDate: new Date().toISOString().slice(0, 10),
+      pickupDate: getTodayISO(),
       returnDate: futureDate(2),
       depositAmount: 50,
       idempotencyKey: 'phase-2-07-reservation',
@@ -142,7 +141,7 @@ test('forced failure after sale-return writes restores sold state, invoice, ledg
   installStorage();
   try {
     const dress = addDress(saleableDressInput);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayISO();
     const invoice = quickSaleCommand({
       saleDate: today,
       customerName: 'مريم',

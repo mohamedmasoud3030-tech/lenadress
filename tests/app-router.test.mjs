@@ -46,7 +46,8 @@ test('router preserves every current URL, shell boundary, lazy details route, an
     cursor = next;
   }
 
-  assert.match(routes, /<Route element={<AppShell \/>}>/);
+  assert.match(routes, /<RequireAuth>[\s\S]*?<AppShell \/>[\s\S]*?<\/RequireAuth>/);
+  assert.match(routes, /path="\/login"/);
   assert.match(routes, /<Route index element={<DashboardWithClosingAlertPage \/>} \/>/);
   assert.match(routes, /<Suspense fallback={<RouteLoadingFallback \/>}>/);
   assert.match(routes, /<DressDetailsPage \/>/);

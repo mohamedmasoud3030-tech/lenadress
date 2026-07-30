@@ -72,7 +72,7 @@ export function DashboardPage() {
   if (empty) {
     return (
       <div className="space-y-6">
-        <PageHeader eyebrow="الرئيسية" title="لوحة التحكم" description="ابدئي بإضافة أول عنصر وأول عميلة، ثم أنشئي أول حجز." />
+        <PageHeader eyebrow="الرئيسية" title="لوحة التحكم" />
         <EmptyState
           icon={<Shirt className="h-10 w-10" />}
           title="لم تبدأ بيانات المعرض بعد"
@@ -99,7 +99,6 @@ export function DashboardPage() {
       <PageHeader
         eyebrow="الرئيسية"
         title="لوحة التحكم"
-        description="مهام اليوم، المبالغ غير المحصلة، وحالة المخزون والخدمة في مكان واحد."
       />
 
       {/* Money that has not been collected is the first thing the owner must see. */}

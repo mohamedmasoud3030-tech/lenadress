@@ -8,9 +8,6 @@ export function NotFoundPage() {
         <span className="text-4xl font-black text-slate-300">404</span>
       </div>
       <h1 className="mt-6 text-2xl font-black text-slate-950">الصفحة غير موجودة</h1>
-      <p className="mt-3 max-w-md text-sm leading-7 text-slate-500">
-        الرابط الذي تتبعته لا يوصل لأي صفحة معروفة داخل التطبيق. ربما تم نقلها أو حذفها.
-      </p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Link
           to="/"

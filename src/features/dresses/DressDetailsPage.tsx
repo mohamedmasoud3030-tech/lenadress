@@ -56,7 +56,6 @@ export function DressDetailsPage() {
         <PageHeader
           eyebrow="تفاصيل عنصر المخزون"
           title="العنصر غير موجود"
-          description="تعذر العثور على العنصر المطلوب. ربما تم حذفه أو أن الرابط غير صحيح."
         />
         <Link
           to="/inventory"
@@ -80,7 +79,6 @@ export function DressDetailsPage() {
         <PageHeader
           eyebrow="تفاصيل عنصر المخزون"
           title={dress.name}
-          description="مراجعة بيانات العنصر والباركود وحالة الجاهزية والطباعة والأداء المحقق."
         />
         <div className="flex flex-wrap gap-3">
           <Link

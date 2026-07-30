@@ -95,7 +95,6 @@ export function WaitlistPage() {
         <PageHeader
           eyebrow="قائمة الانتظار"
           title="طلبات بانتظار التوفر"
-          description="عميلة أرادت قطعة محجوزة في تاريخها. سجّليها هنا، وسيخبركِ التطبيق فور تحرر الفترة."
         />
         <button
           type="button"

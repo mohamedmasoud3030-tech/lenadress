@@ -133,7 +133,6 @@ export function StocktakePage() {
       <PageHeader
         eyebrow="المخزون"
         title="الجرد الدوري"
-        description="امسحي كل قطعة موجودة فعلاً في المحل، والنظام يخبرك بما لم يُعثر عليه — مع استبعاد ما هو خارج المحل مع عميلة أو في المغسلة."
       />
 
       {error !== null && <UserFacingErrorAlert error={error} fallback="تعذر تنفيذ العملية." />}

@@ -10,6 +10,7 @@ import { getFinanceTotals, getItemFinance, getOutstandingRentalBalances } from '
 import { getFinancialSummary, getDressPerformance, calculateDayClose } from '../src/features/reports/report.service.ts';
 import { addCustomer } from '../src/features/customers/customer.service.ts';
 import { addDress } from '../src/features/dresses/dress.service.ts';
+import { addDaysISO, getTodayISO } from '../src/shared/utils/date.ts';
 
 function installStorage() {
   const store = new Map();
@@ -43,12 +44,10 @@ function cleanup() {
   delete globalThis.window;
 }
 
-const today = new Date().toISOString().slice(0, 10);
+const today = getTodayISO();
 
 function futureDate(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return addDaysISO(today, days);
 }
 
 const rentalItem = {

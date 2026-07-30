@@ -287,7 +287,6 @@ export function DressesPage() {
         <PageHeader
           eyebrow="المخزون"
           title="المخزون"
-          description="إدارة الفساتين والحقائب والإكسسوارات وباقي عناصر المعرض من سجل واحد واضح."
         />
         <div className="flex flex-wrap gap-3">
           <button

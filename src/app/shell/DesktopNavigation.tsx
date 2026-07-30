@@ -9,11 +9,9 @@ export function DesktopNavigation() {
           <img src="/favicon.svg" alt="" aria-hidden="true" className="h-12 w-12 rounded-2xl bg-amber-300/10 shadow-lg" />
           <div>
             <p className="text-2xl font-extrabold tracking-[0.22em] text-amber-300">LENA</p>
-            <p className="mt-1 text-xs font-semibold text-slate-400">Inventory Operations</p>
           </div>
         </div>
-        <h1 className="mt-5 text-2xl font-extrabold">لوحة إدارة المخزون</h1>
-        <p className="mt-2 text-xs leading-6 text-slate-400">مركز واحد للمخزون والحجوزات والتحصيل اليومي.</p>
+        <h1 className="mt-5 text-2xl font-extrabold">إدارة المعرض</h1>
       </div>
 
       <nav aria-label="التنقل الرئيسي" className="space-y-2">

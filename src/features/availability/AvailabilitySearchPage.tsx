@@ -98,7 +98,6 @@ export function AvailabilitySearchPage() {
         <PageHeader
           eyebrow="البحث بالتاريخ"
           title="المتاح في فترة"
-          description="حدّدي تاريخ المناسبة أولاً، ثم المقاس واللون — واعرفي فوراً ما هو متاح فعلاً بعد احتساب أيام التجهيز والتنظيف."
         />
         <ViewModeToggle mode={viewMode} onChange={setViewMode} />
       </div>
