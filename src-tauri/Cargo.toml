@@ -1,6 +1,6 @@
 [package]
 name = "dress-roomshow"
-version = "0.1.0"
+version = "1.0.0"
 description = "LENA desktop app"
 authors = ["LENA"]
 edition = "2021"
