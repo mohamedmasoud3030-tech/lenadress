@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AppUpdateNotice } from '../../components/shared/AppUpdateNotice';
 import { PersistenceErrorBoundary } from '../../components/shared/PersistenceErrorBoundary';
+import { StorageCapacityIndicator } from '../../components/shared/StorageCapacityIndicator';
 import { AppHeader } from './AppHeader';
 import { DesktopNavigation } from './DesktopNavigation';
 import { MobileMoreMenu } from './MobileMoreMenu';
@@ -37,6 +38,9 @@ export function AppShell() {
               {desktopSyncStatus.message}
             </div>
           )}
+          <div className="mb-4">
+            <StorageCapacityIndicator compact />
+          </div>
           <PersistenceErrorBoundary key={location.pathname}>
             <Outlet />
           </PersistenceErrorBoundary>

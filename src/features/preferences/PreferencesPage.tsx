@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { DatabaseBackup, Download, HardDrive, RotateCcw, Save, Upload } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
+import { StorageCapacityIndicator } from '../../components/shared/StorageCapacityIndicator';
 import {
   CURRENT_STORAGE_SCHEMA_VERSION,
   importDatabaseBackupAsync,
@@ -106,6 +107,8 @@ export function PreferencesPage() {
       <PageHeader eyebrow="الإعدادات" title="النسخ الاحتياطي وإعدادات التشغيل" />
       {feedback && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{feedback}</div>}
       {error !== null && <UserFacingErrorAlert error={error} fallback="تعذر إكمال عملية البيانات." />}
+
+      <StorageCapacityIndicator />
 
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
