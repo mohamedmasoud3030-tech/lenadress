@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCalendarMonth, isItemOccupiedOn, shiftMonth, WEEKDAY_LABELS } from '../src/features/reservations/reservationCalendar.ts';
+import { buildCalendarMonth, isItemOccupiedOn, shiftMonth, WEEKDAY_LABELS } from '../src/features/reservations/reservationCalendar.model.ts';
 import { buildRentalContractHtml, printRentalContract, PrintRentalContractError } from '../src/features/reservations/printRentalContract.ts';
 import { closePrintOverlay, printDocument, PrintDocumentError, escapeHtml } from '../src/platform/printing/index.ts';
 import { getOverlayButton, getPrintFrameDocument, getPrintOverlay, installDom, uninstallDom } from './helpers/dom.mjs';

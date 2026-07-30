@@ -5,7 +5,8 @@ import type { Reservation, ReservationStatus } from './reservation.types';
 import { matchesSearchQuery } from '../../shared/utils/search';
 
 /**
- * Reservation calendar model.
+ * Reservation calendar model, kept under an explicit model suffix so Windows
+ * does not confuse it with the ReservationCalendar React component.
  *
  * Occupancy is derived from the reservations and their dates; nothing is read
  * from a stored `reserved` flag on the item. Every date is built through the

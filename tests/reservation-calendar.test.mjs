@@ -12,7 +12,7 @@ import {
   startOfWeek,
   EMPTY_CALENDAR_FILTERS,
   WEEKDAY_LABELS,
-} from '../src/features/reservations/reservationCalendar.ts';
+} from '../src/features/reservations/reservationCalendar.model.ts';
 import { addDaysISO, differenceInDays, eachDayISO, extractTime, formatTimeLabel, getTodayISO, parseLocalDate } from '../src/shared/utils/date.ts';
 import { DEFAULT_APP_PREFERENCES, saveAppPreferences } from '../src/features/preferences/preferences.service.ts';
 

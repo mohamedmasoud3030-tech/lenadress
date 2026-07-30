@@ -143,7 +143,7 @@ test('the sale invoice is the only sale path', async () => {
 });
 
 test('availability is derived from dates, not stored on the item', async () => {
-  const calendar = await readFile(join(sourceRoot, 'features/reservations/reservationCalendar.ts'), 'utf8');
+  const calendar = await readFile(join(sourceRoot, 'features/reservations/reservationCalendar.model.ts'), 'utf8');
   assert.match(calendar, /export function isItemOccupiedOn/);
 
   const constants = await readFile(join(sourceRoot, 'shared/domain/dressConstants.ts'), 'utf8');

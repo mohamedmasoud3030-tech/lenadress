@@ -14,7 +14,7 @@ import {
   type CalendarEntry,
   type CalendarFilters,
   type CalendarView,
-} from './reservationCalendar';
+} from './reservationCalendar.model';
 import type { Reservation, ReservationStatus } from './reservation.types';
 
 type Props = {

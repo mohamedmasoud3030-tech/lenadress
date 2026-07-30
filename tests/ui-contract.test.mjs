@@ -167,7 +167,7 @@ test('the reservation calendar is usable on a phone and labelled for assistive t
   assert.match(calendar, /hidden lg:block/, 'the seven-column grid is desktop-only');
   assert.match(calendar, /min-h-11|min-h-9/, 'calendar controls must stay tappable');
 
-  const model = await readFile(join(sourceRoot, 'features/reservations/reservationCalendar.ts'), 'utf8');
+  const model = await readFile(join(sourceRoot, 'features/reservations/reservationCalendar.model.ts'), 'utf8');
   assert.match(model, /parseLocalDate|addDaysISO/, 'calendar dates must use the local-time helpers');
   assert.doesNotMatch(model, /new Date\(`\$\{[^}]+\}T00:00:00`\)/, 'no ad-hoc date parsing inside the calendar');
 });
