@@ -173,6 +173,7 @@ test('a late return is derived from the delivery record, not typed by hand', () 
       depositAmount: 0, idempotencyKey: 'late-rsv',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'late-deliver',
@@ -207,6 +208,7 @@ test('a damage charge is severe and pushes the suggested status to warning', () 
       depositAmount: 0, idempotencyKey: 'dmg-rsv',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'dmg-deliver',
