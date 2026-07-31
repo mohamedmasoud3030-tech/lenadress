@@ -5,7 +5,8 @@ import { SelectField, TextField } from '../../components/shared/FormField';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
 import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { formatMoneyOMR } from '../../shared/utils/format';
-import { addConductNote, getConductNotesForCustomer, getCustomerConduct, removeConductNote } from './customerConduct.service';
+import { getConductNotesForCustomer, getCustomerConduct } from './customerConduct.service';
+import { addConductNoteCommand, removeConductNoteCommand } from '../workflows';
 import type { ConductNote } from './customerConduct.types';
 import type { Customer } from './customer.types';
 
@@ -53,7 +54,7 @@ export function CustomerConductPanel({ customer }: { customer: Customer }) {
     if (!note.trim()) return;
     setError(null);
     try {
-      addConductNote({ customerId: customer.id, kind, severity, note });
+      addConductNoteCommand({ customerId: customer.id, kind, severity, note });
       setNote('');
       refresh();
     } catch (reason: unknown) {
@@ -180,7 +181,7 @@ export function CustomerConductPanel({ customer }: { customer: Customer }) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => { removeConductNote(entry.id); refresh(); }}
+                  onClick={() => { removeConductNoteCommand(entry.id); refresh(); }}
                   aria-label={`حذف الملاحظة: ${entry.note}`}
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-700 ${AMBER_FOCUS_RING_CLASS_NAME}`}
                 >

@@ -17,8 +17,9 @@ import {
   type PrintSettings,
   type PrintableSection,
 } from '@platform/printing';
-import { getPrintSettings, resetPrintSettings, savePrintSettings } from './printSettings.service';
+import { getPrintSettings } from './printSettings.service';
 import { getShowroomProfile } from './showroomProfile.service';
+import { resetPrintSettingsCommand, savePrintSettingsCommand } from '../workflows';
 
 const MARGIN_EDGES: Array<{ key: keyof PrintSettings['margins']; label: string }> = [
   { key: 'top', label: 'أعلى' },
@@ -67,7 +68,7 @@ export function PrintSettingsEditor() {
   const save = () => {
     setError(null);
     try {
-      setSettings(savePrintSettings(settings));
+      setSettings(savePrintSettingsCommand(settings));
       setFeedback('تم حفظ إعدادات الطباعة.');
     } catch (reason: unknown) {
       setError(reason);
@@ -75,7 +76,7 @@ export function PrintSettingsEditor() {
   };
 
   const restore = () => {
-    setSettings(resetPrintSettings());
+    setSettings(resetPrintSettingsCommand());
     setFeedback('تمت استعادة الإعدادات الافتراضية.');
   };
 

@@ -12,7 +12,8 @@ import { CustomerConductPanel } from './CustomerConductPanel';
 import { MeasurementsPanel } from './MeasurementsPanel';
 import { getCustomerConduct } from './customerConduct.service';
 import { ViewModeToggle, useViewMode } from '../../components/shared/ViewModeToggle';
-import { archiveCustomer, deleteCustomer, filterCustomers, getCustomerDeletionBlockers, getCustomers, summarizeCustomers } from './customer.service';
+import { filterCustomers, getCustomerDeletionBlockers, getCustomers, summarizeCustomers } from './customer.service';
+import { archiveCustomerCommand, deleteCustomerCommand } from '../workflows';
 import type { Customer, CustomerFilters, CustomerStatus } from './customer.types';
 
 const statusLabels: Record<CustomerStatus, string> = {
@@ -152,7 +153,7 @@ export function CustomersPage() {
     setActionError(null);
     if (!window.confirm(`سيتم أرشفة العميلة "${customer.name}" مع الاحتفاظ بكامل تاريخها. هل تريدين المتابعة؟`)) return;
     try {
-      archiveCustomer(customer.id);
+      archiveCustomerCommand(customer.id);
       setCustomers(getCustomers());
       setFeedback(`تمت أرشفة العميلة ${customer.name}.`);
     } catch (error: unknown) {
@@ -164,7 +165,7 @@ export function CustomersPage() {
     setActionError(null);
     if (!window.confirm(`حذف نهائي لسجل العميلة "${customer.name}"؟ لا يوجد أي تاريخ مرتبط بها.`)) return;
     try {
-      deleteCustomer(customer.id);
+      deleteCustomerCommand(customer.id);
       setCustomers(getCustomers());
       setFeedback(`تم حذف سجل العميلة ${customer.name}.`);
     } catch (error: unknown) {

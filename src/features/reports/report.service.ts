@@ -13,6 +13,7 @@ import { getPayments } from '../payments/payment.service';
 import { getFinanceTotals, getItemFinance } from '../finance/finance.service';
 import { getAppPreferences } from '../preferences/preferences.service';
 import { getReservations } from '../reservations/reservation.service';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 import type { CloseDayInput, CustomerBalanceRow, DateRangeFilter, DayCloseBreakdown, DayCloseMethodBreakdown, DayCloseRecord, DressPerformanceRow, FinancialSummary, ReportSummary, TodayReport } from './report.types';
 
 const activeReservationStatuses = new Set(['pending', 'confirmed', 'delivered', 'overdue']);
@@ -53,7 +54,10 @@ export function getCustomerBalances(): CustomerBalanceRow[] { return getCustomer
 export function getDressPerformance(): DressPerformanceRow[] {
   const reservations = getReservations(); const sales = getSales(); const returns = getSaleReturns(); const expenses = getExpenses(); const dormantDays = getAppPreferences().dormantDressDays;
   return getDresses().map(({ id, code, name, timesRented, status, purchasePrice }) => {
-    const relatedReservations = reservations.filter((item) => item.dressCode === code && item.status !== 'cancelled');
+    const relatedReservations = reservations.filter(
+      (item) => item.status !== 'cancelled'
+        && getReservationLines(item).some((line) => line.dressCodeSnapshot === code),
+    );
     const relatedSales = sales.filter((item) => item.dressCode === code);
     const relatedReturns = returns.filter((item) => item.dressCode === code);
     const relatedExpenses = expenses.filter((item) => item.relatedDressCode === code);
@@ -62,7 +66,14 @@ export function getDressPerformance(): DressPerformanceRow[] {
     const rentalRevenue = itemFinance.rentalRevenue;
     const salesRevenue = itemFinance.saleRevenue;
     const expenseTotal = itemFinance.expenses; const totalRevenue = itemFinance.totalRevenue; const netResult = totalRevenue - purchasePrice - expenseTotal;
-    const movements = [...relatedReservations.flatMap((item) => [item.pickupDate, item.returnDate]), ...relatedSales.map((item) => item.saleDate), ...relatedReturns.map((item) => item.returnDate), ...relatedExpenses.map((item) => item.expenseDate)];
+    const movements = [
+      ...relatedReservations.flatMap((item) => getReservationLines(item)
+        .filter((line) => line.dressCodeSnapshot === code)
+        .flatMap((line) => [line.pickupDate, line.returnDate])),
+      ...relatedSales.map((item) => item.saleDate),
+      ...relatedReturns.map((item) => item.returnDate),
+      ...relatedExpenses.map((item) => item.expenseDate),
+    ];
     const lastMovementDate = movements.sort((a, b) => b.localeCompare(a))[0] ?? null; const inactiveDays = inactivityDays(lastMovementDate);
     return { id, code, name, timesRented, status, purchasePrice, rentalRevenue, salesRevenue, relatedExpenses: expenseTotal, totalRevenue, netResult, roiPercent: purchasePrice > 0 ? netResult / purchasePrice * 100 : null, recoveredPurchaseCost: totalRevenue >= purchasePrice, maintenanceCostRatio: totalRevenue > 0 ? expenseTotal / totalRevenue * 100 : expenseTotal > 0 ? 100 : null, lastMovementDate, inactivityDays: inactiveDays, requiresReview: (inactiveDays !== null && inactiveDays >= dormantDays) || expenseTotal > totalRevenue };
   }).sort((left, right) => right.totalRevenue - left.totalRevenue);

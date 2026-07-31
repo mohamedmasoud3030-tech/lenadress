@@ -1,4 +1,4 @@
-import { readCollection, runInTransaction, writeCollection } from '@engines/persistence';
+import { readCollection, runInTransaction, runInTransactionAsync, writeCollection } from '@engines/persistence';
 
 /**
  * Phase 2 — atomic workflow commands.
@@ -81,6 +81,26 @@ export function runCommand<T>(options: CommandOptions<T>, execute: () => T): T {
 
   return runInTransaction(() => {
     const result = execute();
+    if (idempotencyKey) {
+      appendCommandLog(name, idempotencyKey, options.summarize?.(result));
+    }
+    return result;
+  });
+}
+
+/** Async counterpart for backup/image workflows, with the same rollback contract. */
+export async function runCommandAsync<T>(
+  options: CommandOptions<T>,
+  execute: () => Promise<T>,
+): Promise<T> {
+  const { name, idempotencyKey } = options;
+
+  if (idempotencyKey && isCommandAlreadyExecuted(name, idempotencyKey)) {
+    throw new DuplicateCommandError(name, idempotencyKey);
+  }
+
+  return runInTransactionAsync(async () => {
+    const result = await execute();
     if (idempotencyKey) {
       appendCommandLog(name, idempotencyKey, options.summarize?.(result));
     }

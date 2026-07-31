@@ -2,6 +2,7 @@ import { generateId, generateNumber, readCollection, writeCollection } from '../
 import { getTodayISO } from '../../shared/utils/date';
 import { recordAudit } from '../audit/audit.service';
 import { assertBusinessDateOpen } from '../integrity/integrity.service';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 import { getReservations } from '../reservations/reservation.service';
 import { getDresses, updateDressStatus } from './dress.service';
 
@@ -43,7 +44,11 @@ export function getSaleableDresses() {
   const reservedCodes = new Set(
     getReservations()
       .filter((reservation) => activeStatuses.has(reservation.status))
-      .map((reservation) => reservation.dressCode),
+      .flatMap((reservation) => [
+        reservation.dressCode,
+        ...getReservationLines(reservation).map((line) => line.dressCodeSnapshot),
+      ])
+      .filter(Boolean),
   );
 
   return getDresses().filter(

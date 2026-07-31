@@ -19,6 +19,7 @@ const entityLabels: Record<AuditEntityType, string> = {
   'delivery-return': 'تسليم أو استرجاع',
   stocktake: 'جرد المخزون',
   'daily-closing': 'يومية نقدية',
+  preferences: 'إعدادات',
   backup: 'نسخة احتياطية',
   database: 'قاعدة البيانات',
   storage: 'تخزين',

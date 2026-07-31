@@ -6,10 +6,10 @@ import {
   type AccessoryReturnEntry,
 } from '../accessories/reservationAccessory.service';
 import { recordAudit } from '../audit/audit.service';
-import { updateDressStatus } from '../dresses/dress.service';
+import { markDressRented, updateDressStatus } from '../dresses/dress.service';
 import { recordReturnSettlement } from '../payments/payment.service';
 import type { PaymentMethod } from '../payments/payment.types';
-import { getReservationLines } from '../reservations/contractLineHelpers';
+import { getReservationDepositTotal, getReservationLines } from '../reservations/contractLineHelpers';
 import { getReservations } from '../reservations/reservation.service';
 import type { ContractLine, Reservation } from '../reservations/reservation.types';
 import { getDeliveryReturnRecords, saveDeliveryReturnRecord } from './deliveryReturn.service';
@@ -123,7 +123,9 @@ function updateEveryReservationItemStatus(
   status: 'rented' | 'inspection' | 'laundry' | 'maintenance' | 'damaged',
 ): string[] {
   return getReservationLines(reservation).map((line) => {
-    const updated = updateDressStatus(line.dressCodeSnapshot, status);
+    const updated = status === 'rented'
+      ? markDressRented(line.dressCodeSnapshot)
+      : updateDressStatus(line.dressCodeSnapshot, status);
     if (!updated) {
       throw new Error(`تعذر العثور على العنصر ${line.dressCodeSnapshot}. لم تُحفظ العملية.`);
     }
@@ -135,8 +137,8 @@ function getBaseRecord(reservation: Reservation): DeliveryReturnRecord {
   return getDeliveryReturnRecords().find((item) => item.reservationNumber === reservation.reservationNumber) ?? {
     id: generateId(), reservationNumber: reservation.reservationNumber, customerId: reservation.customerId, inventoryItemId: reservation.inventoryItemId, customerName: reservation.customerName,
     customerPhone: reservation.customerPhone, dressCode: reservation.dressCode, dressName: reservation.dressName,
-    status: 'pending_delivery', depositAmount: reservation.depositAmount, lateFee: 0, damageFee: 0,
-    depositRefundAmount: reservation.depositAmount,
+    status: 'pending_delivery', depositAmount: getReservationDepositTotal(reservation), lateFee: 0, damageFee: 0,
+    depositRefundAmount: getReservationDepositTotal(reservation),
   };
 }
 

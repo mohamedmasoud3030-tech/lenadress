@@ -6,7 +6,8 @@ import { Modal } from '../../components/shared/Modal';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
 import { MAX_NOTES_LENGTH, MIN_ZERO_AMOUNT, MONEY_STEP } from '../../shared/domain/businessRules';
 import { FORM_ERROR_CLASS_NAME, FORM_FIELD_CLASS_NAME, FORM_LABEL_CLASS_NAME } from '../../shared/domain/formConstants';
-import { addDress } from './dress.service';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { addDressCommand } from '../workflows';
 import type { Dress } from './dress.types';
 import { ImageUpload } from './ImageUpload';
 import { generateDressBarcodeValue } from './barcode.utils';
@@ -131,7 +132,7 @@ export function AddDressModal({ open, onClose, onCreated }: AddDressModalProps) 
     setSubmitError(null);
 
     try {
-      const dress = addDress({
+      const dress = addDressCommand({
         images: images,
         barcode: generateDressBarcodeValue(),
         ...values,
@@ -140,6 +141,7 @@ export function AddDressModal({ open, onClose, onCreated }: AddDressModalProps) 
         salePrice: values.isForSale ? values.salePrice : 0,
         depositAmount: values.isForRent ? values.depositAmount : 0,
         notes: values.notes || undefined,
+        idempotencyKey: createSubmissionKey('inventory-create'),
       });
       onCreated(dress);
       closeModal();

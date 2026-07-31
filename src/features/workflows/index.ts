@@ -16,3 +16,4 @@ export * from './accessoryCommands';
 export * from './appointmentCommands';
 export * from './designCommands';
 export * from './reservationScheduleCommands';
+export * from './administrationCommands';

@@ -10,6 +10,7 @@ export type AuditEntityType =
   | 'delivery-return'
   | 'stocktake'
   | 'daily-closing'
+  | 'preferences'
   | 'backup'
   | 'database'
   | 'storage';

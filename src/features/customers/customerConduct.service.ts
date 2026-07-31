@@ -1,6 +1,7 @@
 import { generateId, readCollection, writeCollection } from '../../services/localDatabase';
 import { getTodayISO } from '../../shared/utils/date';
 import { formatMoneyOMR } from '../../shared/utils/format';
+import { normalizePhoneForSearch } from '../../shared/utils/search';
 import { recordAudit } from '../audit/audit.service';
 import { getCurrentOperatorName } from '../operators/operator.service';
 import { getDeliveryReturnRecords } from '../delivery-return/deliveryReturn.service';
@@ -19,7 +20,7 @@ import type { ConductEvent, ConductNote, CustomerConduct } from './customerCondu
 const NOTES_COLLECTION = 'customer-conduct-notes';
 
 function normalizePhone(value: string): string {
-  return value.replace(/\D/g, '');
+  return normalizePhoneForSearch(value);
 }
 
 export function getConductNotes(): ConductNote[] {

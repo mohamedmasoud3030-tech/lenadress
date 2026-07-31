@@ -1,5 +1,6 @@
 import { Appointment, AppointmentStatus } from './appointment.types';
 import { generateId, migrateLegacyAppointmentStorage, readCollection, writeCollection } from '../../services/localDatabase';
+import { getTodayISO } from '../../shared/utils/date';
 import { recordAudit } from '../audit/audit.service';
 
 const APPOINTMENTS_COLLECTION = 'appointments';
@@ -28,6 +29,7 @@ export function addAppointment(input: Omit<Appointment, 'id' | 'createdAt' | 'up
 
   if (!input.customerName?.trim()) throw new Error('اسم العميلة مطلوب.');
   if (!input.appointmentDate) throw new Error('تاريخ الموعد مطلوب.');
+  if (input.appointmentDate < getTodayISO()) throw new Error('لا يمكن حجز موعد في الماضي.');
   if (!input.startTime || !input.endTime) throw new Error('وقت بداية ونهاية الموعد مطلوبان.');
   if (input.endTime <= input.startTime) throw new Error('وقت النهاية يجب أن يكون بعد وقت البداية.');
 
@@ -57,8 +59,7 @@ export function getAppointmentsByDate(date: string): Appointment[] {
 }
 
 export function getTodaysAppointments(): Appointment[] {
-  const today = new Date().toISOString().split('T')[0];
-  return getAppointmentsByDate(today);
+  return getAppointmentsByDate(getTodayISO());
 }
 
 export function updateAppointmentStatus(id: string, status: AppointmentStatus): Appointment | null {
@@ -67,13 +68,22 @@ export function updateAppointmentStatus(id: string, status: AppointmentStatus): 
   
   if (index === -1) return null;
 
+  const previous = appointments[index];
   appointments[index] = {
-    ...appointments[index],
+    ...previous,
     status,
     updatedAt: new Date().toISOString(),
   };
 
   saveAppointments(appointments);
+  recordAudit({
+    action: 'status-change',
+    entityType: 'appointment',
+    entityId: previous.id,
+    summary: `تم تغيير حالة موعد ${previous.customerName} من ${previous.status} إلى ${status}.`,
+    previousValues: { status: previous.status },
+    nextValues: { status },
+  });
   return appointments[index];
 }
 

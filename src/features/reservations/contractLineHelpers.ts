@@ -1,5 +1,6 @@
 import { generateId } from '../../services/localDatabase';
 import { getTodayISO, isValidTime } from '../../shared/utils/date';
+import { calculateReservationRemainingAmount } from '../../shared/utils/financialCalculations.js';
 import { getDresses } from '../dresses/dress.service';
 import {
   findItemConflicts,
@@ -213,8 +214,39 @@ export function syncTopLevelFromLines(reservation: Reservation): Reservation {
     listRentalPrice: primary.listRentalPrice,
     depositAmount: primary.depositAmount,
     totalAmount,
-    remainingAmount: totalAmount + (reservation.assessedFeesAmount ?? 0) - reservation.paidAmount,
+    remainingAmount: calculateReservationRemainingAmount({
+      totalAmount,
+      assessedFeesAmount: reservation.assessedFeesAmount,
+      paidAmount: reservation.paidAmount,
+      settledDepositAmount: reservation.settledDepositAmount,
+      refundedAmount: reservation.refundedAmount,
+    }),
   };
+}
+
+/** Canonical refundable-deposit total across every contract line. */
+export function getReservationDepositTotal(reservation: Reservation): number {
+  return calculateLinesDeposit(getReservationLines(reservation));
+}
+
+/**
+ * Allocates a reservation-level movement to one contract item.
+ *
+ * Payments are posted against the contract, while profitability is reported
+ * per item. Rental-price weight is the durable, agreed-at-booking split. An
+ * all-zero complimentary contract falls back to an equal split so totals still
+ * reconcile without assigning the whole movement to every item.
+ */
+export function getReservationItemShare(reservation: Reservation, itemCode: string): number {
+  const lines = getReservationLines(reservation);
+  const matching = lines.filter((line) => line.dressCodeSnapshot === itemCode);
+  if (matching.length === 0) return 0;
+
+  const totalRentalPrice = calculateLinesRentalPrice(lines);
+  if (totalRentalPrice > 0) {
+    return matching.reduce((total, line) => total + line.rentalPrice, 0) / totalRentalPrice;
+  }
+  return matching.length / lines.length;
 }
 
 // ── Legacy compatibility ─────────────────────────────────────────────────

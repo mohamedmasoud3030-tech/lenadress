@@ -8,14 +8,16 @@ import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAle
 import { AMBER_FOCUS_RING_CLASS_NAME, FORM_FIELD_CLASS_NAME } from '../../shared/domain/formConstants';
 import {
   buildStocktakeReport,
-  cancelStocktakeSession,
-  completeStocktakeSession,
   getOpenStocktakeSession,
   getStocktakeSessions,
   recordStocktakeScan,
   removeStocktakeScan,
-  startStocktakeSession,
 } from './stocktake.service';
+import {
+  cancelStocktakeSessionCommand,
+  completeStocktakeSessionCommand,
+  startStocktakeSessionCommand,
+} from '../workflows';
 import { STOCKTAKE_ABSENCE_LABELS } from './stocktake.types';
 import type { StocktakeReport, StocktakeSession } from './stocktake.types';
 
@@ -64,7 +66,7 @@ export function StocktakePage() {
     setError(null);
     setClosedReport(null);
     try {
-      setOpenSession(startStocktakeSession(scopeInput));
+      setOpenSession(startStocktakeSessionCommand(scopeInput));
       setScopeInput('');
       setFeedback('تم بدء جلسة الجرد. امسحي كل قطعة موجودة في المحل.');
     } catch (caught) {
@@ -104,7 +106,7 @@ export function StocktakePage() {
     if (!openSession) return;
     setError(null);
     try {
-      setClosedReport(completeStocktakeSession(openSession.id));
+      setClosedReport(completeStocktakeSessionCommand(openSession.id));
       setOpenSession(undefined);
       setFeedback('تم إقفال جلسة الجرد.');
       setRefreshToken((token) => token + 1);
@@ -117,7 +119,7 @@ export function StocktakePage() {
     if (!openSession) return;
     setError(null);
     try {
-      cancelStocktakeSession(openSession.id);
+      cancelStocktakeSessionCommand(openSession.id);
       setOpenSession(undefined);
       setFeedback('تم إلغاء جلسة الجرد.');
       setRefreshToken((token) => token + 1);

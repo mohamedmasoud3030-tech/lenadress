@@ -4,6 +4,7 @@ import { calculateReturnSettlement } from '../../shared/utils/financialCalculati
 import { recordAudit } from '../audit/audit.service';
 import { assertBusinessDateOpen } from '../integrity/integrity.service';
 import { getReservations, recordReservationPayment, settleReservationReturn } from '../reservations/reservation.service';
+import { getReservationDepositTotal } from '../reservations/contractLineHelpers';
 import type { Reservation } from '../reservations/reservation.types';
 import { PAYMENT_DIRECTION_LABELS, PAYMENT_METHOD_LABELS, PAYMENT_TYPE_LABELS } from './payment.constants';
 import type {
@@ -34,6 +35,7 @@ type RecordReturnSettlementInput = {
   refundMethod: PaymentMethod;
   lateFee: number;
   damageFee: number;
+  feesAlreadyAssessed?: boolean;
 };
 
 export type ReturnSettlement = {
@@ -190,8 +192,9 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
 
   const payments = getPayments();
   const reservationPayments = payments.filter((payment) => payment.reservationNumber === reservation.reservationNumber);
+  const depositAmount = getReservationDepositTotal(reservation);
   const depositCollected = Math.min(
-    reservation.depositAmount,
+    depositAmount,
     reservationPayments
       .filter((payment) => payment.type === 'deposit' && payment.direction === 'income')
       .reduce((total, payment) => total + payment.amount, 0),
@@ -206,7 +209,7 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
     .filter((payment) => payment.type === 'refund' && payment.direction === 'refund' && payment.source === 'return')
     .reduce((total, payment) => total + payment.amount, 0);
   const settlement = calculateReturnSettlement({
-    depositAmount: reservation.depositAmount,
+    depositAmount,
     depositCollected,
     totalCollected,
     previouslyRefundedAmount,
@@ -223,6 +226,7 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
     refundAmount,
     settledDepositAmount,
     retainedDepositAmount,
+    feesAlreadyAssessed: input.feesAlreadyAssessed,
   });
 
   const movements: PaymentRecord[] = [

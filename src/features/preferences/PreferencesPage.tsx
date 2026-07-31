@@ -5,13 +5,15 @@ import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAle
 import { StorageCapacityIndicator } from '../../components/shared/StorageCapacityIndicator';
 import {
   CURRENT_STORAGE_SCHEMA_VERSION,
-  importDatabaseBackupAsync,
-  resetDatabase,
 } from '../../services/localDatabase';
-import { migrateImagesToIndexedDB } from '../../services/imageMigration.service';
 import { isIndexedDBAvailable } from '../../services/imageStorage.service';
-import { recordAudit } from '../audit/audit.service';
-import { getAppPreferences, saveAppPreferences, type AppPreferences } from './preferences.service';
+import { getAppPreferences, type AppPreferences } from './preferences.service';
+import {
+  importDatabaseBackupCommand,
+  migrateImagesCommand,
+  resetApplicationDataCommand,
+  saveAppPreferencesCommand,
+} from '../workflows';
 import { ShowroomProfileEditor } from './ShowroomProfileEditor';
 import { AccountSettings } from './AccountSettings';
 import { DevicePinSettings } from '../device-lock/DevicePinSettings';
@@ -49,8 +51,7 @@ export function PreferencesPage() {
     try {
       const parsed: unknown = JSON.parse(await file.text());
       if (!window.confirm('سيتم استبدال بيانات التطبيق الحالية بالكامل بالنسخة المختارة. هل أنتِ متأكدة؟')) return;
-      const restored = await importDatabaseBackupAsync(parsed);
-      recordAudit({ action: 'import-backup', entityType: 'backup', entityId: restored.exportedAt, summary: 'تم استيراد نسخة احتياطية واستبدال بيانات التطبيق الحالية.' });
+      await importDatabaseBackupCommand(parsed);
       setPreferences(getAppPreferences());
       setFeedback('تم استيراد النسخة الاحتياطية بنجاح. أعيدي تحميل الصفحة عند الحاجة لمراجعة جميع الأقسام.');
       setError(null);
@@ -69,8 +70,7 @@ export function PreferencesPage() {
       setFeedback(null);
       return;
     }
-    resetDatabase();
-    recordAudit({ action: 'reset-data', entityType: 'database', entityId: new Date().toISOString(), summary: 'تم تصفير بيانات التطبيق بعد تأكيد صريح.' });
+    resetApplicationDataCommand();
     setPreferences(getAppPreferences());
     setFeedback('تم تصفير بيانات التطبيق.');
     setError(null);
@@ -78,7 +78,7 @@ export function PreferencesPage() {
 
   const savePreferences = () => {
     try {
-      setPreferences(saveAppPreferences(preferences));
+      setPreferences(saveAppPreferencesCommand(preferences));
       setFeedback('تم حفظ إعدادات التشغيل.');
       setError(null);
     } catch (saveError: unknown) {
@@ -88,11 +88,10 @@ export function PreferencesPage() {
 
   const migrateImages = async () => {
     try {
-      const result = await migrateImagesToIndexedDB();
+      const result = await migrateImagesCommand();
       if (result.skipped) {
         setFeedback('الصور مهاجرة مسبقاً أو IndexedDB غير متاح.');
       } else {
-        recordAudit({ action: 'migrate-images', entityType: 'storage', entityId: new Date().toISOString(), summary: `تم ترحيل ${result.migrated} صورة إلى IndexedDB.` });
         setFeedback(`تم ترحيل ${result.migrated} صورة إلى IndexedDB بنجاح.`);
       }
       setError(null);

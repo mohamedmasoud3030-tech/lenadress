@@ -6,7 +6,8 @@ import { Modal } from '../../components/shared/Modal';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
 import { MAX_NOTES_LENGTH } from '../../shared/domain/businessRules';
 import { FORM_ERROR_CLASS_NAME, FORM_FIELD_CLASS_NAME, FORM_LABEL_CLASS_NAME } from '../../shared/domain/formConstants';
-import { addCustomer } from './customer.service';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { addCustomerCommand } from '../workflows';
 import type { Customer } from './customer.types';
 
 const customerSchema = z.object({
@@ -66,7 +67,10 @@ export function AddCustomerModal({ open, onClose, onCreated }: AddCustomerModalP
     setSubmitError(null);
 
     try {
-      const customer = addCustomer(values);
+      const customer = addCustomerCommand({
+        ...values,
+        idempotencyKey: createSubmissionKey('customer-create'),
+      });
       onCreated(customer);
       closeModal();
     } catch (error: unknown) {

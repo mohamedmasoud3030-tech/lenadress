@@ -9,7 +9,8 @@ import { getDressPerformance } from '../reports/report.service';
 import { BarcodeGenerator } from './BarcodeGenerator';
 import { DressLifecyclePanel } from './DressLifecyclePanel';
 import { getBarcodeEngineEnvironmentNote, getBarcodeRuntimeSupportStatus } from './barcode.utils';
-import { archiveDress, deleteDress, getDressDeletionBlockers, getDresses } from './dress.service';
+import { getDressDeletionBlockers, getDresses } from './dress.service';
+import { archiveDressCommand, deleteDressCommand } from '../workflows';
 import { AssignToDesignModal } from './AssignToDesignModal';
 
 export function DressDetailsPage() {
@@ -28,7 +29,7 @@ export function DressDetailsPage() {
     setActionError(null);
     if (!window.confirm(`سيتم أرشفة العنصر "${dress.name}" (${dress.code}) بدل حذفه، مع الاحتفاظ بكامل تاريخه. هل تريدين المتابعة؟`)) return;
     try {
-      archiveDress(dress.code);
+      archiveDressCommand(dress.code);
       navigate('/inventory', { replace: true });
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'تعذر أرشفة العنصر.');
@@ -44,7 +45,7 @@ export function DressDetailsPage() {
     }
     if (!window.confirm(`هل تريدين حذف العنصر "${dress.name}" (${dress.code}) نهائياً؟ لا يوجد أي تاريخ مرتبط به، ولن يُعاد استخدام كوده.`)) return;
     try {
-      if (deleteDress(dress.code)) navigate('/inventory', { replace: true });
+      if (deleteDressCommand(dress.code)) navigate('/inventory', { replace: true });
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'تعذر حذف العنصر.');
     }

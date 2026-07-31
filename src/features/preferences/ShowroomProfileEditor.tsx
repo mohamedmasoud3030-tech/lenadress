@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RotateCcw, Save } from 'lucide-react';
-import { getShowroomProfile, saveShowroomProfile, resetShowroomProfile } from './showroomProfile.service';
+import { getShowroomProfile } from './showroomProfile.service';
+import { resetShowroomProfileCommand, saveShowroomProfileCommand } from '../workflows';
 import type { LandingShowroomProfile } from '../../pages/landing/landingContent';
 import { landingShowroomProfile } from '../../pages/landing/landingContent';
 import { FORM_FIELD_CLASS_NAME, FORM_LABEL_CLASS_NAME } from '../../shared/domain/formConstants';
@@ -51,7 +52,7 @@ export function ShowroomProfileEditor() {
         setError('اسم المعرض مطلوب.');
         return;
       }
-      saveShowroomProfile(updated);
+      saveShowroomProfileCommand(updated);
       setSaved(true);
       setError(null);
     } catch {
@@ -60,7 +61,7 @@ export function ShowroomProfileEditor() {
   };
 
   const reset = () => {
-    const defaults = resetShowroomProfile();
+    const defaults = resetShowroomProfileCommand();
     setFields({
       brandName: defaults.brandName,
       shortTagline: defaults.shortTagline,

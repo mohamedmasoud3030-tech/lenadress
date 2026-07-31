@@ -6,7 +6,7 @@ import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAle
 import { MAX_NOTES_LENGTH } from '../../shared/domain/businessRules';
 import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { getTodayISO } from '../../shared/utils/date';
-import { updateCustomer } from './customer.service';
+import { updateCustomerCommand } from '../workflows';
 import { getMeasurementLabel, parseLegacyMeasurements, suggestSize } from './measurements.service';
 import type { CustomerMeasurements } from './measurements.types';
 import type { Customer } from './customer.types';
@@ -63,7 +63,7 @@ export function MeasurementsPanel({ customer, onSaved }: { customer: Customer; o
   const save = () => {
     setError(null);
     try {
-      updateCustomer(customer.id, {
+      updateCustomerCommand(customer.id, {
         bodyMeasurements: { ...measurements, measuredAt: getTodayISO() },
       });
       setFeedback('تم حفظ المقاسات.');
