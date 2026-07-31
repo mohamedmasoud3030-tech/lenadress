@@ -64,6 +64,7 @@ export function LandingPage() {
         <LandingValueProps />
         <LandingCategories profile={profile} />
         <LandingInventory
+          profile={profile}
           dresses={filteredDresses}
           loading={loading}
           search={search}
