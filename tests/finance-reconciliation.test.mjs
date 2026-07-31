@@ -132,6 +132,7 @@ test('a retained deposit becomes income while the refunded part clears the liabi
       idempotencyKey: 'p-dep2',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: new Date().toISOString(),
       idempotencyKey: 'd1',
