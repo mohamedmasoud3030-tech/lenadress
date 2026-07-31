@@ -68,6 +68,7 @@ function sendDressOut(dress) {
   )));
 
   completeDeliveryCommand({
+    paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
     reservationNumber: reservation.reservationNumber,
     deliveryDateTime: nowDateTimeLocal(),
   });
@@ -292,6 +293,7 @@ test('an accessory delivered with a booking is expected absent', () => {
     const stored = readCollection('reservations', []);
     writeCollection('reservations', stored.map((item) => ({ ...item, pickupDate: futureDate(0), returnDate: futureDate(2) })));
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [accessory.id],

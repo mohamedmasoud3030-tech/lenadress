@@ -142,6 +142,7 @@ test('a return due tomorrow only reminds once the item is actually out', () => {
     assert.equal(getReminders().some((item) => item.kind === 'return_tomorrow'), false);
 
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'deliver-it',
@@ -170,6 +171,7 @@ test('an overdue item is critical and stays until it comes back', () => {
       idempotencyKey: 'late-one',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'late-deliver',
@@ -339,6 +341,7 @@ test("yesterday's follow-up does not silence a still-overdue item today", () => 
       idempotencyKey: 'still-late',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'still-late-deliver',
@@ -386,6 +389,7 @@ test('the summary counts each follow-up type for the dashboard', () => {
       idempotencyKey: 'sum-late',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: overdue.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'sum-late-deliver',

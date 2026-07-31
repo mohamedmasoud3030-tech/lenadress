@@ -102,6 +102,7 @@ test('a delivery stores the condition photographs on the record', () => {
   try {
     const reservation = seedDeliveredReservation();
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveryCondition: 'حالة ممتازة',
@@ -121,6 +122,7 @@ test('a return stores its own photographs without overwriting the delivery ones'
   try {
     const reservation = seedDeliveredReservation();
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveryPhotos: [photo('out-1')],
@@ -150,6 +152,7 @@ test('a handover without photographs stores no empty array', () => {
   try {
     const reservation = seedDeliveredReservation();
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
     });
@@ -165,6 +168,7 @@ test('a non-image payload is rejected rather than stored as evidence', () => {
   try {
     const reservation = seedDeliveredReservation();
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveryPhotos: [{ id: 'bad', dataUrl: 'javascript:alert(1)', capturedAt: new Date().toISOString() }],
@@ -182,6 +186,7 @@ test('more photographs than the cap are refused so backups stay usable', () => {
     const reservation = seedDeliveredReservation();
     assert.throws(
       () => completeDeliveryCommand({
+        paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
         reservationNumber: reservation.reservationNumber,
         deliveryDateTime: nowDateTimeLocal(),
         deliveryPhotos: [photo('1'), photo('2'), photo('3'), photo('4'), photo('5')],
@@ -198,6 +203,7 @@ test('the audit trail records how many photographs were attached', () => {
   try {
     const reservation = seedDeliveredReservation();
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveryPhotos: [photo('p1'), photo('p2')],
@@ -215,6 +221,7 @@ test('condition evidence survives a backup export and import', async () => {
     const { exportDatabaseBackup, importDatabaseBackup } = await import('../src/engines/persistence/index.ts');
     const reservation = seedDeliveredReservation();
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveryPhotos: [photo('keep-me')],

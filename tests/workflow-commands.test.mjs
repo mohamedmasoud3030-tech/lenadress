@@ -288,6 +288,7 @@ test('delivery and return keep the item, reservation, ledger and audit consisten
     });
 
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: new Date().toISOString(),
       idempotencyKey: 'del-flow',
@@ -335,6 +336,7 @@ test('forced failure during return keeps the item rented and the settlement unpo
       idempotencyKey: 'pay-rollback',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: new Date().toISOString(),
       idempotencyKey: 'del-rollback',

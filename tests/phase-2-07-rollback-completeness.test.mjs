@@ -120,6 +120,7 @@ test('forced failure after delivery writes restores item, reservation, delivery 
     setCommandFailurePoint('delivery.complete:after-write');
     assert.throws(
       () => completeDeliveryCommand({
+        paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
         reservationNumber: reservation.reservationNumber,
         deliveryDateTime: new Date().toISOString(),
         idempotencyKey: 'phase-2-07-delivery-fail',

@@ -71,6 +71,7 @@ function seedFullScenario() {
   attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: veil.id });
   attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: crown.id });
   completeDeliveryCommand({
+    paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
     reservationNumber: reservation.reservationNumber,
     deliveryDateTime: nowDateTimeLocal(),
     deliveredAccessoryIds: [veil.id, crown.id],
