@@ -1,9 +1,9 @@
 import { Filter, HeartHandshake, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import type { Dress } from '../../../features/dresses/dress.types';
 import { INVENTORY_ITEM_TYPE_LABELS } from '../../../shared/domain/dressConstants';
 import { formatMoneyOMR } from '../../../shared/utils/format';
-import type { InventoryCategoryFilter, LandingUsageFilter } from './types';
+import { buildAppointmentInquiryMessage, buildLandingWhatsAppLink, buildQuickInquiryMessage } from '../landingWhatsapp';
+import type { InventoryCategoryFilter, LandingProfile, LandingUsageFilter } from './types';
 
 function getLandingDressPriceLabel(dress: Dress): string {
   if (dress.isForRent && dress.isForSale) return `إيجار ${formatMoneyOMR(dress.rentalPrice)} • بيع ${formatMoneyOMR(dress.salePrice)}`;
@@ -12,11 +12,13 @@ function getLandingDressPriceLabel(dress: Dress): string {
   return 'السعر يحدد عند المعاينة';
 }
 
-type Props = { dresses: Dress[]; loading: boolean; search: string; onSearchChange: (value: string) => void; selectedCategory: InventoryCategoryFilter; onCategoryChange: (value: InventoryCategoryFilter) => void; usageFilter: LandingUsageFilter; onUsageChange: (value: LandingUsageFilter) => void; inventoryCategories: readonly InventoryCategoryFilter[]; };
+type Props = { profile: LandingProfile; dresses: Dress[]; loading: boolean; loadError?: string | null; search: string; onSearchChange: (value: string) => void; selectedCategory: InventoryCategoryFilter; onCategoryChange: (value: InventoryCategoryFilter) => void; usageFilter: LandingUsageFilter; onUsageChange: (value: LandingUsageFilter) => void; inventoryCategories: readonly InventoryCategoryFilter[]; };
 
-function InventoryCard({ dress }: { dress: Dress }) {
+function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfile }) {
   const primaryImage = dress.images[0];
   const typeLabel = INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress'];
+  const appointmentLink = buildLandingWhatsAppLink(profile, buildAppointmentInquiryMessage(dress.name));
+  const inquiryLink = buildLandingWhatsAppLink(profile, buildQuickInquiryMessage(dress.name));
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -56,15 +58,15 @@ function InventoryCard({ dress }: { dress: Dress }) {
           {dress.isForSale && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">للبيع</span>}
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Link to="/appointments" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">حجز موعد للتجربة</Link>
-          <a href="#contact" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-stone-100">استفسار سريع</a>
+          <a href={appointmentLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">حجز موعد للتجربة</a>
+          <a href={inquiryLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-stone-100">استفسار سريع</a>
         </div>
       </div>
     </article>
   );
 }
 
-export function LandingInventory({ dresses, loading, search, onSearchChange, selectedCategory, onCategoryChange, usageFilter, onUsageChange, inventoryCategories }: Props) {
+export function LandingInventory({ profile, dresses, loading, loadError, search, onSearchChange, selectedCategory, onCategoryChange, usageFilter, onUsageChange, inventoryCategories }: Props) {
   const groupedByType = dresses.reduce<Record<string, Dress[]>>((acc, dress) => {
     const type = dress.itemType ?? 'dress';
     if (!acc[type]) acc[type] = [];
@@ -73,6 +75,8 @@ export function LandingInventory({ dresses, loading, search, onSearchChange, sel
   }, {});
 
   const typeEntries = Object.entries(groupedByType);
+  const headerAppointmentLink = buildLandingWhatsAppLink(profile, buildAppointmentInquiryMessage());
+  const emptyStateAppointmentLink = buildLandingWhatsAppLink(profile, buildQuickInquiryMessage());
 
   return (
     <section id="available-dresses" className="mt-12 space-y-6">
@@ -82,11 +86,17 @@ export function LandingInventory({ dresses, loading, search, onSearchChange, sel
           <h2 className="mt-1 text-2xl font-black text-slate-950">العناصر المتاحة الآن</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">هذا القسم متصل بالبيانات الفعلية المتاحة، ويعرض كل أنواع المخزون: الفساتين، الإكسسوارات، الحقائب، الأحذية، الطرح والشالات، وغيرها.</p>
         </div>
-        <Link to="/appointments" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100">
+        <a href={headerAppointmentLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100">
           <HeartHandshake className="h-4 w-4" />
-          الانتقال إلى المواعيد
-        </Link>
+          حجز موعد عبر واتساب
+        </a>
       </div>
+
+      {loadError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {loadError}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-[1fr_190px_190px]">
@@ -132,11 +142,11 @@ export function LandingInventory({ dresses, loading, search, onSearchChange, sel
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
           <p className="text-lg font-semibold text-slate-900">لا توجد عناصر مطابقة حالياً</p>
           <p className="mt-2 text-sm text-slate-500">جرّبي تغيير البحث أو الفلاتر، أو انتقلي لحجز موعد للاستفسار عن المتاح من بقية الفئات والخدمات.</p>
-          <Link to="/appointments" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">حجز موعد للاستفسار</Link>
+          <a href={emptyStateAppointmentLink} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">حجز موعد للاستفسار</a>
         </div>
       ) : typeEntries.length === 1 ? (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {typeEntries[0][1].map((dress) => <InventoryCard key={dress.id} dress={dress} />)}
+          {typeEntries[0][1].map((dress) => <InventoryCard key={dress.id} dress={dress} profile={profile} />)}
         </div>
       ) : (
         <div className="space-y-10">
@@ -147,7 +157,7 @@ export function LandingInventory({ dresses, loading, search, onSearchChange, sel
                 <span className="text-sm text-slate-500">{items.length} عنصر</span>
               </div>
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((dress) => <InventoryCard key={dress.id} dress={dress} />)}
+                {items.map((dress) => <InventoryCard key={dress.id} dress={dress} profile={profile} />)}
               </div>
             </div>
           ))}
