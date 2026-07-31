@@ -166,6 +166,7 @@ test('a dress and its accessories are delivered inside one command', () => {
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: crown.id });
 
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id, crown.id],
@@ -190,6 +191,7 @@ test('only the accessories actually handed over are recorded as delivered', () =
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: crown.id });
 
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id],
@@ -212,6 +214,7 @@ test('a partial accessory return leaves the rest outstanding', () => {
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: veil.id });
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: crown.id });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id, crown.id],
@@ -245,6 +248,7 @@ test('a lost accessory is marked lost and its cost posts through the existing fi
     const { reservation, veil } = seedRental();
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: veil.id });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id],
@@ -284,6 +288,7 @@ test('a damaged accessory is marked damaged and charged', () => {
     const { reservation, crown } = seedRental();
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: crown.id });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [crown.id],
@@ -318,6 +323,7 @@ test('a forced failure during delivery rolls back the accessory handover complet
     setCommandFailurePoint('delivery.complete:after-write');
     assert.throws(
       () => completeDeliveryCommand({
+        paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
         reservationNumber: reservation.reservationNumber,
         deliveryDateTime: nowDateTimeLocal(),
         deliveredAccessoryIds: [veil.id],
@@ -341,6 +347,7 @@ test('a forced failure during return rolls back conditions, charges and money', 
     const { reservation, veil } = seedRental();
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: veil.id });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id],
@@ -381,6 +388,7 @@ test('repeating the same delivery command does not deliver the accessory twice',
     const { reservation, veil } = seedRental();
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: veil.id });
     const input = {
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id],
@@ -404,6 +412,7 @@ test('an already-returned accessory can never be closed or charged twice', () =>
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: veil.id });
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: crown.id });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id, crown.id],
@@ -472,6 +481,7 @@ test('detaching an undelivered accessory frees it, a delivered one is protected'
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: veil.id });
     attachAccessoryCommand({ reservationNumber: reservation.reservationNumber, accessoryId: crown.id });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [crown.id],
