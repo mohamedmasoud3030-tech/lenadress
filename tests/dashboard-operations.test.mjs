@@ -89,6 +89,7 @@ test("today's pickups and returns are listed separately and ordered by time", ()
       returnDate: addDaysISO(today, 1), depositAmount: 0, idempotencyKey: 'r-today',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: returning.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'r-today-deliver',
@@ -255,6 +256,7 @@ test('an overdue return is surfaced as its own actionable list', () => {
       returnDate: addDaysISO(today, 1), depositAmount: 0, idempotencyKey: 'late-1',
     });
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       idempotencyKey: 'late-deliver',
@@ -293,6 +295,7 @@ test('accessories attached to a booking are counted on its task row and while ou
     assert.equal(snapshot.accessoriesOutCount, 0, 'nothing has left the showroom yet');
 
     completeDeliveryCommand({
+      paymentOverrideReason: 'تجاوز سداد مخصص لسيناريو الاختبار',
       reservationNumber: reservation.reservationNumber,
       deliveryDateTime: nowDateTimeLocal(),
       deliveredAccessoryIds: [veil.id],
