@@ -30,6 +30,8 @@ export type CompleteDeliveryCommandInput = {
   deliveryPhotos?: ConditionPhoto[];
   /** Accessories actually handed over; recorded inside the same boundary. */
   deliveredAccessoryIds?: string[];
+  /** Audited reason for the exceptional decision to hand over with money outstanding. */
+  paymentOverrideReason?: string;
   notes?: string;
   idempotencyKey?: string;
 };
