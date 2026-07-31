@@ -113,22 +113,36 @@ export type LandingInventoryResult = {
   warning?: string;
 };
 
+export type LandingInventoryDependencies = Partial<{
+  isSupabaseConfigured: () => boolean;
+  fetchAvailableDressesFromSupabase: () => Promise<Dress[]>;
+  getAvailableDressesFromLocalStorage: () => Dress[];
+}>;
+
 /**
  * Loads the dresses the landing page should show, preferring the shared
  * Supabase backend and only touching local device storage when Supabase is
  * unavailable or unreachable.
+ *
+ * Dependencies are optional so the production path keeps its existing
+ * behaviour while Node tests can exercise every branch without Vite env
+ * mocking or a live Supabase client.
  */
-export async function loadLandingInventory(): Promise<LandingInventoryResult> {
-  if (!isSupabaseConfigured()) {
-    return { dresses: getAvailableDressesFromLocalStorage(), source: 'local' };
+export async function loadLandingInventory({
+  isSupabaseConfigured: hasSupabaseConfig = isSupabaseConfigured,
+  fetchAvailableDressesFromSupabase: fetchFromSupabase = fetchAvailableDressesFromSupabase,
+  getAvailableDressesFromLocalStorage: readLocalInventory = getAvailableDressesFromLocalStorage,
+}: LandingInventoryDependencies = {}): Promise<LandingInventoryResult> {
+  if (!hasSupabaseConfig()) {
+    return { dresses: readLocalInventory(), source: 'local' };
   }
 
   try {
-    const dresses = await fetchAvailableDressesFromSupabase();
+    const dresses = await fetchFromSupabase();
     return { dresses, source: 'supabase' };
   } catch (error) {
     return {
-      dresses: getAvailableDressesFromLocalStorage(),
+      dresses: readLocalInventory(),
       source: 'local',
       warning: error instanceof Error ? error.message : 'تعذر الاتصال بالخادم، تم عرض البيانات المحلية إن وُجدت.',
     };
