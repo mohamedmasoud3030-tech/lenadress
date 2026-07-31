@@ -9,8 +9,9 @@ import { recordAudit } from '../audit/audit.service';
 import { updateDressStatus } from '../dresses/dress.service';
 import { recordReturnSettlement } from '../payments/payment.service';
 import type { PaymentMethod } from '../payments/payment.types';
+import { getReservationLines } from '../reservations/contractLineHelpers';
 import { getReservations } from '../reservations/reservation.service';
-import type { Reservation } from '../reservations/reservation.types';
+import type { ContractLine, Reservation } from '../reservations/reservation.types';
 import { getDeliveryReturnRecords, saveDeliveryReturnRecord } from './deliveryReturn.service';
 import type { ConditionPhoto, DeliveryReturnRecord } from './deliveryReturn.types';
 
@@ -24,6 +25,8 @@ type CompleteDeliveryInput = {
   deliveryPhotos?: ConditionPhoto[];
   /** Accessory ids physically handed over with the dress. */
   deliveredAccessoryIds?: string[];
+  /** Required when the operator deliberately hands over an unpaid contract. */
+  paymentOverrideReason?: string;
   notes?: string;
 };
 type CompleteReturnInput = {
@@ -68,13 +71,64 @@ function validateDateTime(value: string, label: string): number {
   return timestamp;
 }
 
-function updateReservationStatus(reservationNumber: string, status: Reservation['status']): Reservation {
+function updateReservationFulfillment(
+  reservationNumber: string,
+  operation: 'delivery' | 'return',
+): Reservation {
   const reservations = getReservations();
   const reservation = reservations.find((item) => item.reservationNumber === reservationNumber);
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
-  const updated = { ...reservation, status };
+  const status: Reservation['status'] = operation === 'delivery' ? 'delivered' : 'returned';
+  const deliveryStatus: ContractLine['deliveryStatus'] = operation === 'delivery' ? 'delivered' : 'returned';
+  const lines = reservation.lines?.map((line) => ({ ...line, deliveryStatus }));
+  // Fulfilment changes status only. Recomputing totals here would overwrite
+  // the canonical return settlement (retained and refunded deposit amounts).
+  const updated = lines
+    ? { ...reservation, lines, status }
+    : { ...reservation, status };
   writeCollection(RESERVATION_COLLECTION, reservations.map((item) => item.id === reservation.id ? updated : item));
   return updated;
+}
+
+function roundOMR(value: number): number {
+  return Math.round((value + Number.EPSILON) * 1_000) / 1_000;
+}
+
+function assertDeliveryPaymentGate(reservation: Reservation, overrideReason?: string): string | undefined {
+  const outstandingAmount = roundOMR(reservation.remainingAmount);
+  if (outstandingAmount <= 0) return undefined;
+
+  const reason = overrideReason?.trim();
+  if (!reason) {
+    throw new Error(`لا يمكن تسليم الحجز قبل سداد الرصيد المتبقي (${outstandingAmount.toFixed(3)} ر.ع)، أو تسجيل سبب واضح للتجاوز.`);
+  }
+  return reason;
+}
+
+function assertWholeContractCanTransition(reservation: Reservation, operation: 'delivery' | 'return'): void {
+  const allowed = operation === 'delivery'
+    ? new Set(['pending_delivery'])
+    : new Set(['delivered', 'late']);
+  const invalid = getReservationLines(reservation).filter((line) => !allowed.has(line.deliveryStatus));
+  if (invalid.length === 0) return;
+
+  if (operation === 'delivery') {
+    throw new Error('لا يمكن تسليم العقد كاملاً لأن بعض بنوده سُلّمت أو أُرجعت بالفعل.');
+  }
+  throw new Error('لا يمكن استرجاع العقد كاملاً قبل تسليم كل بنوده. استخدمي إجراء البند للحالات الجزئية.');
+}
+
+function updateEveryReservationItemStatus(
+  reservation: Reservation,
+  status: 'rented' | 'inspection' | 'laundry' | 'maintenance' | 'damaged',
+): string[] {
+  return getReservationLines(reservation).map((line) => {
+    const updated = updateDressStatus(line.dressCodeSnapshot, status);
+    if (!updated) {
+      throw new Error(`تعذر العثور على العنصر ${line.dressCodeSnapshot}. لم تُحفظ العملية.`);
+    }
+    return line.dressCodeSnapshot;
+  });
 }
 
 function getBaseRecord(reservation: Reservation): DeliveryReturnRecord {
@@ -90,18 +144,20 @@ export function completeDelivery(input: CompleteDeliveryInput): DeliveryReturnRe
   const reservation = getReservations().find((item) => item.reservationNumber === input.reservationNumber);
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
   if (!['pending', 'confirmed'].includes(reservation.status)) throw new Error('الحجز غير مؤهل للتسليم حالياً.');
+  assertWholeContractCanTransition(reservation, 'delivery');
+  const paymentOverrideReason = assertDeliveryPaymentGate(reservation, input.paymentOverrideReason);
   validateDateTime(input.deliveryDateTime, 'تاريخ ووقت التسليم');
   const base = getBaseRecord(reservation);
   const record = saveDeliveryReturnRecord({ ...base, status: 'delivered', deliveryDateTime: input.deliveryDateTime, deliveryCondition: input.deliveryCondition?.trim() || undefined, deliveryPhotos: normalizeConditionPhotos(input.deliveryPhotos), notes: input.notes?.trim() || base.notes });
-  updateReservationStatus(reservation.reservationNumber, 'delivered');
-  updateDressStatus(reservation.dressCode, 'rented');
+  updateReservationFulfillment(reservation.reservationNumber, 'delivery');
+  const deliveredItemCodes = updateEveryReservationItemStatus(reservation, 'rented');
   // Accessories are part of the same handover, inside the same command boundary.
   const deliveredAccessories = recordAccessoryDelivery({
     reservationNumber: reservation.reservationNumber,
     deliveredAccessoryIds: input.deliveredAccessoryIds ?? [],
     deliveredAt: input.deliveryDateTime,
   });
-  recordAudit({ action: 'deliver', entityType: 'delivery-return', entityId: record.id, summary: `تم تسليم العنصر ${reservation.dressCode} للحجز ${reservation.reservationNumber}.`, nextValues: { deliveryDateTime: record.deliveryDateTime, status: record.status, deliveredAccessories: deliveredAccessories.length, deliveryPhotos: record.deliveryPhotos?.length ?? 0 } });
+  recordAudit({ action: 'deliver', entityType: 'delivery-return', entityId: record.id, summary: `تم تسليم ${deliveredItemCodes.length} قطعة للحجز ${reservation.reservationNumber}.`, nextValues: { deliveryDateTime: record.deliveryDateTime, status: record.status, deliveredItemCodes, deliveredAccessories: deliveredAccessories.length, deliveryPhotos: record.deliveryPhotos?.length ?? 0, paymentOverrideReason } });
   return record;
 }
 
@@ -109,6 +165,7 @@ export function completeReturn(input: CompleteReturnInput): DeliveryReturnRecord
   const reservation = getReservations().find((item) => item.reservationNumber === input.reservationNumber);
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
   if (!['delivered', 'overdue'].includes(reservation.status)) throw new Error('الحجز غير مؤهل للاسترجاع حالياً.');
+  assertWholeContractCanTransition(reservation, 'return');
   const returnTimestamp = validateDateTime(input.returnDateTime, 'تاريخ ووقت الاسترجاع');
   if (![input.lateFee, input.damageFee].every((amount) => Number.isFinite(amount) && amount >= 0)) throw new Error('رسوم التأخير أو الضرر غير صالحة.');
   const base = getBaseRecord(reservation);
@@ -125,8 +182,8 @@ export function completeReturn(input: CompleteReturnInput): DeliveryReturnRecord
   const settlement = recordReturnSettlement({ reservationNumber: reservation.reservationNumber, paymentDate: input.returnDateTime.slice(0, 10), refundMethod: input.refundMethod, lateFee: input.lateFee, damageFee: input.damageFee });
   const status = input.damageFee > 0 || input.nextDressStatus === 'damaged' ? 'damaged' : input.lateFee > 0 ? 'late' : 'returned';
   const record = saveDeliveryReturnRecord({ ...base, status, returnDateTime: input.returnDateTime, returnCondition: input.returnCondition?.trim() || undefined, returnPhotos: normalizeConditionPhotos(input.returnPhotos), lateFee: input.lateFee, damageFee: input.damageFee, depositRefundAmount: settlement.refundAmount, notes: input.notes?.trim() || base.notes });
-  updateReservationStatus(reservation.reservationNumber, 'returned');
-  updateDressStatus(reservation.dressCode, input.nextDressStatus);
-  recordAudit({ action: 'return', entityType: 'delivery-return', entityId: record.id, summary: `تم استرجاع العنصر ${reservation.dressCode} من الحجز ${reservation.reservationNumber}.`, nextValues: { returnDateTime: record.returnDateTime, status: record.status, lateFee: record.lateFee, damageFee: record.damageFee, depositRefundAmount: record.depositRefundAmount, accessoriesStillOut: stillOut.length, returnPhotos: record.returnPhotos?.length ?? 0 } });
+  updateReservationFulfillment(reservation.reservationNumber, 'return');
+  const returnedItemCodes = updateEveryReservationItemStatus(reservation, input.nextDressStatus);
+  recordAudit({ action: 'return', entityType: 'delivery-return', entityId: record.id, summary: `تم استرجاع ${returnedItemCodes.length} قطعة من الحجز ${reservation.reservationNumber}.`, nextValues: { returnDateTime: record.returnDateTime, status: record.status, returnedItemCodes, lateFee: record.lateFee, damageFee: record.damageFee, depositRefundAmount: record.depositRefundAmount, accessoriesStillOut: stillOut.length, returnPhotos: record.returnPhotos?.length ?? 0 } });
   return record;
 }
