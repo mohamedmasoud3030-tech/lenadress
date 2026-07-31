@@ -45,6 +45,7 @@ type Form = {
   damageFee: string;
   refundMethod: PaymentMethod;
   nextDressStatus: NextDressStatus;
+  paymentOverrideReason: string;
   notes: string;
 };
 
@@ -64,6 +65,7 @@ function defaults(operation: Operation = 'delivery'): Form {
     damageFee: '0',
     refundMethod: 'cash',
     nextDressStatus: 'inspection',
+    paymentOverrideReason: '',
     notes: '',
   };
 }
@@ -258,6 +260,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             deliveryCondition: form.condition,
             deliveryPhotos: conditionPhotos,
             deliveredAccessoryIds,
+            paymentOverrideReason: form.paymentOverrideReason,
             notes: form.notes,
             idempotencyKey: submissionKey,
           })
@@ -350,6 +353,24 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
               <p className="mt-1 font-extrabold text-slate-950">{formatMoneyOMR(selectedReservation.remainingAmount)}</p>
             </div>
           </div>
+        )}
+
+        {form.operation === 'delivery' && selectedReservation && selectedReservation.remainingAmount > 0 && (
+          <label className={STACKED_FORM_LABEL_CLASS_NAME}>
+            سبب التسليم قبل اكتمال السداد
+            <textarea
+              required
+              rows={2}
+              maxLength={MAX_NOTES_LENGTH}
+              value={form.paymentOverrideReason}
+              onChange={(event) => setForm((current) => ({ ...current, paymentOverrideReason: event.target.value }))}
+              className={STACKED_FORM_FIELD_CLASS_NAME}
+              placeholder="مثال: موافقة المالكة على تحصيل الرصيد عند الإرجاع."
+            />
+            <span className="mt-1.5 block text-xs font-medium text-rose-700">
+              الرصيد المتبقي {formatMoneyOMR(selectedReservation.remainingAmount)}. سيُحفظ سبب التجاوز في سجل التدقيق.
+            </span>
+          </label>
         )}
 
         <label className={STACKED_FORM_LABEL_CLASS_NAME}>
