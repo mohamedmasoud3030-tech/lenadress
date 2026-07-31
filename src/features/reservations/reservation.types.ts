@@ -50,8 +50,12 @@ export type ContractLine = {
   deliveryStatus: LineDeliveryStatus;
   /** Photographs of the piece as it left the showroom. */
   deliveryPhotos?: ConditionPhoto[];
+  deliveryDateTime?: string;
+  deliveryCondition?: string;
   /** Photographs of the piece as it came back. */
   returnPhotos?: ConditionPhoto[];
+  returnDateTime?: string;
+  returnCondition?: string;
   /** Late fees assessed on this line upon return. */
   lateFee: number;
   /** Damage fees assessed on this line upon return. */
@@ -236,6 +240,8 @@ export type LineDeliveryInput = {
   deliveryDateTime: string;
   deliveryCondition?: string;
   deliveryPhotos?: ConditionPhoto[];
+  /** Audited reason for an exceptional handover with money outstanding. */
+  paymentOverrideReason?: string;
   notes?: string;
 };
 

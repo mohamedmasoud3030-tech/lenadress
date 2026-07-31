@@ -1,4 +1,5 @@
 import { readCollection, writeCollection } from '../../services/localDatabase';
+import { recordAudit } from '../audit/audit.service';
 
 export type AppPreferences = {
   showroomName: string;
@@ -168,5 +169,19 @@ export function saveAppPreferences(input: AppPreferences): AppPreferences {
   }
 
   writeCollection(COLLECTION, [normalized]);
+  recordAudit({
+    action: 'update',
+    entityType: 'preferences',
+    entityId: 'operational-preferences',
+    summary: 'تم تحديث إعدادات تشغيل المعرض.',
+    nextValues: {
+      preparationDaysBeforePickup: normalized.preparationDaysBeforePickup,
+      cleaningDaysAfterReturn: normalized.cleaningDaysAfterReturn,
+      defaultPickupTime: normalized.defaultPickupTime,
+      defaultReturnTime: normalized.defaultReturnTime,
+      dormantDressDays: normalized.dormantDressDays,
+      lateFeeMode: normalized.lateFeePolicy.mode,
+    },
+  });
   return normalized;
 }

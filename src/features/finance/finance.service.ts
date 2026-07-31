@@ -4,7 +4,7 @@ import { getExpenses } from '../expenses/expense.service';
 import { getPayments } from '../payments/payment.service';
 import type { PaymentRecord } from '../payments/payment.types';
 import { getReservations } from '../reservations/reservation.service';
-import { getReservationLines } from '../reservations/contractLineHelpers';
+import { getReservationItemShare } from '../reservations/contractLineHelpers';
 import type { DateRangeFilter } from '../reports/report.types';
 
 /**
@@ -73,8 +73,14 @@ export function getFinanceTotals(range?: DateRangeFilter): FinanceTotals {
   const adjustments = sumAmounts(income.filter((payment) => payment.type === 'adjustment'));
 
   const refunds = sumAmounts(payments.filter((payment) => payment.direction === 'refund'));
-  const settlementFees = sumAmounts(
-    payments.filter((payment) => payment.direction === 'settlement' && FEE_TYPES.has(payment.type)),
+  const depositRefunds = sumAmounts(
+    payments.filter((payment) => payment.direction === 'refund' && payment.source === 'return'),
+  );
+  const rentalRefunds = sumAmounts(
+    payments.filter((payment) => payment.direction === 'refund' && payment.source !== 'return'),
+  );
+  const depositSettled = sumAmounts(
+    payments.filter((payment) => payment.direction === 'settlement' && payment.type === 'deposit_settlement'),
   );
   const depositRetained = sumAmounts(
     payments.filter((payment) => payment.direction === 'settlement' && payment.type === 'retained_deposit'),
@@ -85,16 +91,19 @@ export function getFinanceTotals(range?: DateRangeFilter): FinanceTotals {
   const expenseTotal = sumAmounts(expenses);
 
   const grossCollected = rentalCollected + depositCollected + feesCollected + adjustments + sumAmounts(sales);
-  const depositLiabilityCollected = Math.max(depositCollected - depositRetained, 0);
-  const totalFees = feesCollected + settlementFees;
-  const recognisedIncome = rentalCollected + saleRevenue + totalFees + depositRetained + adjustments;
+  const netRentalRevenue = rentalCollected - rentalRefunds;
+  const depositLiabilityCollected = Math.max(depositCollected - depositSettled, 0);
+  // A settlement fee is realised only to the extent cash was retained from the
+  // collected deposit. Any excess remains a receivable on the reservation.
+  const totalFees = feesCollected + depositRetained;
+  const recognisedIncome = netRentalRevenue + saleRevenue + totalFees + adjustments;
 
   return {
     grossCollected,
-    rentalRevenue: rentalCollected,
+    rentalRevenue: netRentalRevenue,
     saleRevenue,
     depositLiabilityCollected,
-    depositRefunded: refunds,
+    depositRefunded: depositRefunds,
     depositRetained,
     feesCollected: totalFees,
     refunds: refunds + saleRefunds,
@@ -118,33 +127,40 @@ export type ItemFinance = {
  * booking contributes nothing until money is collected against it.
  */
 export function getItemFinance(itemCode: string): ItemFinance {
-  const reservationNumbers = new Set(
-    getReservations()
-      .filter((reservation) => {
-        // Check top-level and multi-item lines
-        if (reservation.dressCode === itemCode && reservation.status !== 'cancelled') return true;
-        const lines = getReservationLines(reservation);
-        return lines.some((line) => line.dressCodeSnapshot === itemCode) && reservation.status !== 'cancelled';
-      })
-      .map((reservation) => reservation.reservationNumber),
+  const reservations = getReservations().filter(
+    (reservation) => reservation.status !== 'cancelled'
+      && getReservationItemShare(reservation, itemCode) > 0,
+  );
+  const reservationByNumber = new Map(
+    reservations.map((reservation) => [reservation.reservationNumber, reservation]),
   );
 
-  const payments = getPayments().filter((payment) => reservationNumbers.has(payment.reservationNumber));
-  const rentalCollected = sumAmounts(
-    payments.filter((payment) => payment.direction === 'income' && payment.type === 'rental'),
-  );
-  const feesCollected = sumAmounts(
-    payments.filter((payment) => FEE_TYPES.has(payment.type) && payment.direction !== 'refund'),
-  );
-  const retained = sumAmounts(
-    payments.filter((payment) => payment.direction === 'settlement' && payment.type === 'retained_deposit'),
-  );
+  const payments = getPayments()
+    .map((payment) => {
+      const reservation = reservationByNumber.get(payment.reservationNumber);
+      return reservation
+        ? { payment, amount: payment.amount * getReservationItemShare(reservation, itemCode) }
+        : null;
+    })
+    .filter((entry): entry is { payment: PaymentRecord; amount: number } => entry !== null);
+  const rentalCollected = payments
+    .filter(({ payment }) => payment.direction === 'income' && payment.type === 'rental')
+    .reduce((total, entry) => total + entry.amount, 0);
+  const feesCollected = payments
+    .filter(({ payment }) => FEE_TYPES.has(payment.type) && payment.direction === 'income')
+    .reduce((total, entry) => total + entry.amount, 0);
+  const retainedDeposit = payments
+    .filter(({ payment }) => payment.type === 'retained_deposit' && payment.direction === 'settlement')
+    .reduce((total, entry) => total + entry.amount, 0);
+  const rentalRefunds = payments
+    .filter(({ payment }) => payment.direction === 'refund' && payment.source !== 'return')
+    .reduce((total, entry) => total + entry.amount, 0);
 
   const saleRevenue = sumAmounts(getSales().filter((sale) => sale.dressCode === itemCode))
     - sumAmounts(getSaleReturns().filter((item) => item.dressCode === itemCode));
   const expenses = sumAmounts(getExpenses().filter((expense) => expense.relatedDressCode === itemCode));
 
-  const rentalRevenue = rentalCollected + feesCollected + retained;
+  const rentalRevenue = rentalCollected + feesCollected + retainedDeposit - rentalRefunds;
 
   return {
     rentalRevenue,

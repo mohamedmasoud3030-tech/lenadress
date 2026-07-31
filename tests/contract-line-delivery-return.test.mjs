@@ -7,6 +7,7 @@ import { addDress, getDresses } from '../src/features/dresses/dress.service.ts';
 import {
   createReservation,
   deliverContractLine,
+  getReservations,
   returnContractLine,
 } from '../src/features/reservations/reservation.service.ts';
 import { DEFAULT_APP_PREFERENCES, saveAppPreferences } from '../src/features/preferences/preferences.service.ts';
@@ -56,6 +57,13 @@ function createTwoLineReservation(customer, dress1, dress2) {
   });
 }
 
+function deliverLine(input) {
+  return deliverContractLine({
+    paymentOverrideReason: 'تجاوز دفع مخصص لاختبار دورة البند',
+    ...input,
+  });
+}
+
 // ── deliverContractLine ──────────────────────────────────────────────────
 
 test('deliverContractLine marks the line delivered and updates the dress status to rented', () => {
@@ -65,7 +73,7 @@ test('deliverContractLine marks the line delivered and updates the dress status 
     const reservation = createTwoLineReservation(customer, dress1, dress2);
     const line1 = reservation.lines.find((l) => l.dressCodeSnapshot === dress1.code);
 
-    const updated = deliverContractLine({
+    const updated = deliverLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
       deliveryDateTime: new Date().toISOString(),
@@ -93,9 +101,13 @@ test('deliverContractLine stores delivery photos and notes on the line', () => {
     const { customer, dress1, dress2 } = seed();
     const reservation = createTwoLineReservation(customer, dress1, dress2);
     const line1 = reservation.lines.find((l) => l.dressCodeSnapshot === dress1.code);
-    const photo = { url: 'data:image/webp;base64,AA==', capturedAt: new Date().toISOString() };
+    const photo = {
+      id: 'photo-1',
+      dataUrl: 'data:image/webp;base64,AA==',
+      capturedAt: new Date().toISOString(),
+    };
 
-    const updated = deliverContractLine({
+    const updated = deliverLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
       deliveryDateTime: new Date().toISOString(),
@@ -118,14 +130,14 @@ test('deliverContractLine rejects a line that was already delivered', () => {
     const reservation = createTwoLineReservation(customer, dress1, dress2);
     const line1 = reservation.lines.find((l) => l.dressCodeSnapshot === dress1.code);
 
-    deliverContractLine({
+    deliverLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
       deliveryDateTime: new Date().toISOString(),
     });
 
     assert.throws(() => {
-      deliverContractLine({
+      deliverLine({
         reservationNumber: reservation.reservationNumber,
         lineId: line1.id,
         deliveryDateTime: new Date().toISOString(),
@@ -141,7 +153,7 @@ test('deliverContractLine throws for an unknown reservation number', () => {
   try {
     seed();
     assert.throws(() => {
-      deliverContractLine({
+      deliverLine({
         reservationNumber: 'NOPE-0000',
         lineId: 'missing-line',
         deliveryDateTime: new Date().toISOString(),
@@ -159,7 +171,7 @@ test('deliverContractLine throws for an unknown line id on a real reservation', 
     const reservation = createTwoLineReservation(customer, dress1, dress2);
 
     assert.throws(() => {
-      deliverContractLine({
+      deliverLine({
         reservationNumber: reservation.reservationNumber,
         lineId: 'not-a-real-line-id',
         deliveryDateTime: new Date().toISOString(),
@@ -179,7 +191,7 @@ test('returnContractLine marks the line returned and applies the requested dress
     const reservation = createTwoLineReservation(customer, dress1, dress2);
     const line1 = reservation.lines.find((l) => l.dressCodeSnapshot === dress1.code);
 
-    deliverContractLine({
+    deliverLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
       deliveryDateTime: new Date().toISOString(),
@@ -204,14 +216,14 @@ test('returnContractLine marks the line returned and applies the requested dress
   }
 });
 
-test('returnContractLine marks the line late when a late fee is assessed and accumulates fees', () => {
+test('returnContractLine closes a late return and accumulates its fees once', () => {
   installStorage();
   try {
     const { customer, dress1, dress2 } = seed();
     const reservation = createTwoLineReservation(customer, dress1, dress2);
     const line1 = reservation.lines.find((l) => l.dressCodeSnapshot === dress1.code);
 
-    deliverContractLine({
+    deliverLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
       deliveryDateTime: new Date().toISOString(),
@@ -227,7 +239,7 @@ test('returnContractLine marks the line late when a late fee is assessed and acc
     });
 
     const updatedLine = updated.lines.find((l) => l.id === line1.id);
-    assert.equal(updatedLine.deliveryStatus, 'late');
+    assert.equal(updatedLine.deliveryStatus, 'returned');
     assert.equal(updatedLine.lateFee, 20);
     assert.equal(updatedLine.damageFee, 5);
     assert.equal(updated.assessedFeesAmount, 25);
@@ -258,20 +270,19 @@ test('returnContractLine rejects a line that has not been delivered yet', () => 
   }
 });
 
-test('returnContractLine allows returning a line that is already marked late', () => {
+test('returnContractLine rejects a second return and cannot duplicate fees', () => {
   installStorage();
   try {
     const { customer, dress1, dress2 } = seed();
     const reservation = createTwoLineReservation(customer, dress1, dress2);
     const line1 = reservation.lines.find((l) => l.dressCodeSnapshot === dress1.code);
 
-    deliverContractLine({
+    deliverLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
       deliveryDateTime: new Date().toISOString(),
     });
 
-    // First pass: flagged late by the caller (e.g. an overdue check-in flow).
     returnContractLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
@@ -281,20 +292,18 @@ test('returnContractLine allows returning a line that is already marked late', (
       nextItemStatus: 'inspection',
     });
 
-    // Second pass settles it with no further fee; must not throw despite
-    // deliveryStatus already being 'late' rather than 'delivered'.
-    const updated = returnContractLine({
-      reservationNumber: reservation.reservationNumber,
-      lineId: line1.id,
-      returnDateTime: new Date().toISOString(),
-      lateFee: 0,
-      damageFee: 0,
-      nextItemStatus: 'laundry',
-    });
-
-    const updatedLine = updated.lines.find((l) => l.id === line1.id);
-    assert.equal(updatedLine.deliveryStatus, 'returned');
-    assert.equal(updated.assessedFeesAmount, 10);
+    assert.throws(
+      () => returnContractLine({
+        reservationNumber: reservation.reservationNumber,
+        lineId: line1.id,
+        returnDateTime: new Date().toISOString(),
+        lateFee: 10,
+        damageFee: 0,
+        nextItemStatus: 'laundry',
+      }),
+      /تم استرجاع هذا البند بالفعل/,
+    );
+    assert.equal(getReservations()[0].assessedFeesAmount, 10);
   } finally {
     cleanup();
   }
@@ -347,7 +356,7 @@ test('delivering and returning one line does not affect the sibling line status'
     const reservation = createTwoLineReservation(customer, dress1, dress2);
     const line1 = reservation.lines.find((l) => l.dressCodeSnapshot === dress1.code);
 
-    deliverContractLine({
+    deliverLine({
       reservationNumber: reservation.reservationNumber,
       lineId: line1.id,
       deliveryDateTime: new Date().toISOString(),
@@ -358,7 +367,7 @@ test('delivering and returning one line does not affect the sibling line status'
       returnDateTime: new Date().toISOString(),
       lateFee: 0,
       damageFee: 0,
-      nextItemStatus: 'available',
+      nextItemStatus: 'inspection',
     });
 
     const line2 = finalState.lines.find((l) => l.dressCodeSnapshot === dress2.code);

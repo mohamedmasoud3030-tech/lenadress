@@ -9,6 +9,7 @@ import { getExpenses } from '../expenses/expense.service';
 import { getPayments } from '../payments/payment.service';
 import { getAppPreferences } from '../preferences/preferences.service';
 import { getReservations } from '../reservations/reservation.service';
+import { getReservationItemShare, getReservationLines } from '../reservations/contractLineHelpers';
 import {
   ACCESSORY_CATEGORY_LABELS,
   ACCESSORY_STATUS_LABELS,
@@ -163,27 +164,48 @@ type ItemMoney = {
  */
 function getDressMoney(itemCode: string, from: string, to: string, payments: PaymentRecord[], reservations: Reservation[]): ItemMoney {
   const itemReservations = reservations.filter(
-    (reservation) => reservation.dressCode === itemCode && reservation.status !== CANCELLED,
+    (reservation) => reservation.status !== CANCELLED
+      && getReservationItemShare(reservation, itemCode) > 0,
   );
-  const reservationNumbers = new Set(itemReservations.map((reservation) => reservation.reservationNumber));
-
-  const itemPayments = payments.filter(
-    (payment) => reservationNumbers.has(payment.reservationNumber) && inRange(payment.paymentDate, from, to),
+  const reservationByNumber = new Map(
+    itemReservations.map((reservation) => [reservation.reservationNumber, reservation]),
   );
 
-  const rentalCollected = sumAmounts(itemPayments.filter((payment) => payment.direction === 'income' && payment.type === 'rental'));
-  const feesCollected = sumAmounts(itemPayments.filter((payment) => FEE_TYPES.has(payment.type) && payment.direction !== 'refund'));
-  const retained = sumAmounts(itemPayments.filter((payment) => payment.direction === 'settlement' && payment.type === 'retained_deposit'));
-  // A rental refund gives money back and must reduce the recognised rental revenue.
-  const rentalRefunds = sumAmounts(itemPayments.filter((payment) => payment.direction === 'refund'));
+  const itemPayments = payments
+    .filter((payment) => reservationByNumber.has(payment.reservationNumber) && inRange(payment.paymentDate, from, to))
+    .map((payment) => {
+      const reservation = reservationByNumber.get(payment.reservationNumber)!;
+      return {
+        payment,
+        amount: payment.amount * getReservationItemShare(reservation, itemCode),
+      };
+    });
+
+  const rentalCollected = itemPayments
+    .filter(({ payment }) => payment.direction === 'income' && payment.type === 'rental')
+    .reduce((total, entry) => total + entry.amount, 0);
+  const feesCollected = itemPayments
+    .filter(({ payment }) => FEE_TYPES.has(payment.type) && payment.direction === 'income')
+    .reduce((total, entry) => total + entry.amount, 0);
+  const retainedDeposit = itemPayments
+    .filter(({ payment }) => payment.type === 'retained_deposit' && payment.direction === 'settlement')
+    .reduce((total, entry) => total + entry.amount, 0);
+  // Automatic return refunds are deposits, not reversals of rental revenue.
+  const rentalRefunds = itemPayments
+    .filter(({ payment }) => payment.direction === 'refund' && payment.source !== 'return')
+    .reduce((total, entry) => total + entry.amount, 0);
 
   const sales = getSales().filter((sale) => sale.dressCode === itemCode && inRange(sale.saleDate, from, to));
   const saleReturns = getSaleReturns().filter((item) => item.dressCode === itemCode && inRange(item.returnDate, from, to));
   const saleRevenue = sumAmounts(sales) - sumAmounts(saleReturns);
 
   const rentalDiscounts = itemReservations
-    .filter((reservation) => inRange(reservation.pickupDate, from, to))
-    .reduce((total, reservation) => total + Math.max((reservation.listRentalPrice ?? reservation.rentalPrice) - reservation.rentalPrice, 0), 0);
+    .reduce((total, reservation) => total + getReservationLines(reservation)
+      .filter((line) => line.dressCodeSnapshot === itemCode && inRange(line.pickupDate, from, to))
+      .reduce(
+        (lineTotal, line) => lineTotal + Math.max((line.listRentalPrice ?? line.rentalPrice) - line.rentalPrice, 0),
+        0,
+      ), 0);
   const saleDiscounts = sales.reduce((total, sale) => total + Math.max((sale.listPrice ?? sale.amount) - sale.amount, 0), 0);
 
   const expenses = getExpenses().filter(
@@ -194,12 +216,19 @@ function getDressMoney(itemCode: string, from: string, to: string, payments: Pay
 
   const revenueLines: PerformanceRevenueLine[] = [
     ...itemPayments
-      .filter((payment) => payment.direction !== 'refund' && (payment.type === 'rental' || FEE_TYPES.has(payment.type) || payment.type === 'retained_deposit'))
-      .map((payment) => ({
+      .filter(({ payment }) => (
+        (payment.direction === 'income' && (payment.type === 'rental' || FEE_TYPES.has(payment.type)))
+        || (payment.direction === 'settlement' && payment.type === 'retained_deposit')
+      ))
+      .map(({ payment, amount }) => ({
         reference: payment.paymentNumber,
         date: payment.paymentDate,
-        kind: payment.type === 'rental' ? ('rental' as const) : payment.type === 'retained_deposit' ? ('retained_deposit' as const) : ('fee' as const),
-        amount: payment.amount,
+        kind: payment.type === 'rental'
+          ? ('rental' as const)
+          : payment.type === 'retained_deposit'
+            ? ('retained_deposit' as const)
+            : ('fee' as const),
+        amount,
       })),
     ...sales.map((sale) => ({ reference: sale.saleNumber, date: sale.saleDate, kind: 'sale' as const, amount: sale.amount })),
     ...saleReturns.map((item) => ({ reference: item.returnNumber, date: item.returnDate, kind: 'sale_return' as const, amount: -item.amount })),
@@ -210,7 +239,7 @@ function getDressMoney(itemCode: string, from: string, to: string, payments: Pay
     .sort((left, right) => right.date.localeCompare(left.date));
 
   return {
-    rentalRevenue: rentalCollected + feesCollected + retained - rentalRefunds,
+    rentalRevenue: rentalCollected + feesCollected + retainedDeposit - rentalRefunds,
     saleRevenue,
     discounts: rentalDiscounts + saleDiscounts,
     serviceCost,
@@ -411,11 +440,19 @@ function buildAllRows(filters: InventoryPerformanceFilters): BuiltRow[] {
   const built: BuiltRow[] = [];
 
   getDresses().forEach((dress) => {
-    const rentals = reservations.filter(
-      (reservation) => reservation.dressCode === dress.code
-        && reservation.status !== CANCELLED
-        && overlapDays(reservation, from, to) > 0,
-    );
+    const rentals = reservations.flatMap((reservation) => {
+      if (reservation.status === CANCELLED) return [];
+      return getReservationLines(reservation)
+        .filter((line) => line.dressCodeSnapshot === dress.code)
+        .map((line) => ({
+          ...reservation,
+          pickupDate: line.pickupDate,
+          returnDate: line.returnDate,
+          rentalPrice: line.rentalPrice,
+          listRentalPrice: line.listRentalPrice,
+        }))
+        .filter((projected) => overlapDays(projected, from, to) > 0);
+    });
     const sales = getSales().filter((sale) => sale.dressCode === dress.code && inRange(sale.saleDate, from, to));
     const saleReturns = getSaleReturns().filter((item) => item.dressCode === dress.code && inRange(item.returnDate, from, to));
     const money = getDressMoney(dress.code, from, to, payments, reservations);
@@ -622,7 +659,7 @@ export function getInventoryPerformanceDetail(itemId: string, filters: Inventory
       returnDate: reservation.returnDate,
       status: RESERVATION_STATUS_LABELS[reservation.status],
       occupiedDays: overlapDays(reservation, filters.from, filters.to),
-      collected: reservation.paidAmount,
+      collected: reservation.paidAmount * getReservationItemShare(reservation, row.code),
       wasLate: reservation.status === 'overdue',
     }))
     .sort((left, right) => right.pickupDate.localeCompare(left.pickupDate));

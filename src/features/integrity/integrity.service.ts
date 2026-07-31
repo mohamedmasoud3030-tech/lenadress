@@ -1,6 +1,7 @@
 import { readCollection } from '../../services/localDatabase';
 import { isActiveDayClosing } from '../../shared/utils/dailyClosingCalculations.js';
 import { getTodayISO } from '../../shared/utils/date';
+import { normalizePhoneForSearch } from '../../shared/utils/search';
 import { getReservationLines } from '../reservations/contractLineHelpers';
 import type { DressStatus } from '../dresses/dress.types';
 import type { Reservation } from '../reservations/reservation.types';
@@ -93,11 +94,11 @@ export function assertDressCanBeArchived(dressCode: string, status: DressStatus)
  */
 export function getCustomerHardDeleteBlockers(customerId: string, customerPhone: string): string[] {
   const blockers: string[] = [];
-  const normalizedPhone = customerPhone.replace(/\D/g, '');
+  const normalizedPhone = normalizePhoneForSearch(customerPhone);
 
   const matches = (record: Record<string, unknown>): boolean => {
     if (typeof record.customerId === 'string' && record.customerId) return record.customerId === customerId;
-    const phone = typeof record.customerPhone === 'string' ? record.customerPhone.replace(/\D/g, '') : '';
+    const phone = typeof record.customerPhone === 'string' ? normalizePhoneForSearch(record.customerPhone) : '';
     return Boolean(normalizedPhone) && phone === normalizedPhone;
   };
 

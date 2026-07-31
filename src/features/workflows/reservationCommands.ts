@@ -1,5 +1,8 @@
 import { commandBoundary, runCommand } from '@engines/workflows';
-import { createReservation, cancelReservation, addContractLine, removeContractLine, updateContractLine, deliverContractLine, returnContractLine } from '../reservations/reservation.service';
+import { createReservation, cancelReservation, addContractLine, removeContractLine, updateContractLine, deliverContractLine, getReservations, returnContractLine } from '../reservations/reservation.service';
+import { calculateLinesFees, getReservationDepositTotal } from '../reservations/contractLineHelpers';
+import { recordReturnSettlement } from '../payments/payment.service';
+import type { PaymentMethod } from '../payments/payment.types';
 import type { Reservation } from '../reservations/reservation.types';
 
 /**
@@ -142,6 +145,7 @@ export type DeliverContractLineCommandInput = {
   deliveryDateTime: string;
   deliveryCondition?: string;
   deliveryPhotos?: import('../delivery-return/deliveryReturn.types').ConditionPhoto[];
+  paymentOverrideReason?: string;
   notes?: string;
   idempotencyKey?: string;
 };
@@ -171,13 +175,15 @@ export type ReturnContractLineCommandInput = {
   returnPhotos?: import('../delivery-return/deliveryReturn.types').ConditionPhoto[];
   lateFee: number;
   damageFee: number;
+  /** Required when the final returned line closes a collected deposit. */
+  refundMethod?: PaymentMethod;
   nextItemStatus: 'inspection' | 'laundry' | 'maintenance' | 'damaged';
   notes?: string;
   idempotencyKey?: string;
 };
 
 export function returnContractLineCommand(input: ReturnContractLineCommandInput): Reservation {
-  const { idempotencyKey, ...lineInput } = input;
+  const { idempotencyKey, refundMethod, ...lineInput } = input;
 
   return runCommand(
     {
@@ -186,7 +192,22 @@ export function returnContractLineCommand(input: ReturnContractLineCommandInput)
       summarize: (reservation) => reservation.reservationNumber,
     },
     () => {
-      const reservation = returnContractLine(lineInput);
+      let reservation = returnContractLine(lineInput);
+      if (reservation.status === 'returned' && (reservation.settledDepositAmount ?? 0) === 0) {
+        if (getReservationDepositTotal(reservation) > 0 && !refundMethod) {
+          throw new Error('حددي طريقة رد العربون قبل استرجاع آخر بند في العقد.');
+        }
+        const fees = calculateLinesFees(reservation.lines ?? []);
+        recordReturnSettlement({
+          reservationNumber: reservation.reservationNumber,
+          paymentDate: input.returnDateTime.slice(0, 10),
+          refundMethod: refundMethod ?? 'other',
+          lateFee: reservation.lines?.reduce((total, line) => total + line.lateFee, 0) ?? fees,
+          damageFee: reservation.lines?.reduce((total, line) => total + line.damageFee, 0) ?? 0,
+          feesAlreadyAssessed: true,
+        });
+        reservation = getReservations().find((item) => item.id === reservation.id) ?? reservation;
+      }
       commandBoundary('reservation.returnLine:after-write');
       return reservation;
     },

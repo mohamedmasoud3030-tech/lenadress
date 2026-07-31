@@ -150,9 +150,10 @@ test('a retained deposit becomes income while the refunded part clears the liabi
     const totals = getFinanceTotals();
     assert.equal(totals.rentalRevenue, 40);
     assert.equal(totals.depositRetained, 10, 'the retained part covers the late fee');
-    assert.equal(totals.depositLiabilityCollected, 40, 'the rest is still customer money until refunded');
-    // Recognised income = rental + fees + retained deposit, never the whole deposit.
-    assert.ok(totals.recognisedIncome >= 50, 'rental plus the retained deposit are income');
+    assert.equal(totals.depositLiabilityCollected, 0, 'the refund and retention settle the whole deposit liability');
+    // Recognised income = rental + assessed fee. The retained amount funds that
+    // fee and must not be counted a second time.
+    assert.equal(totals.recognisedIncome, 50);
     assert.ok(totals.recognisedIncome < totals.grossCollected, 'collected cash is not profit');
   } finally {
     cleanup();

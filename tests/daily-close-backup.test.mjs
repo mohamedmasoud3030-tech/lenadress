@@ -27,9 +27,12 @@ test('a successful daily close triggers a backup without making the close depend
 
 test('the settings export uses the same full backup path and prevents duplicate taps', async () => {
   const page = await readFile(join(sourceRoot, 'features/preferences/PreferencesPage.tsx'), 'utf8');
+  const commands = await readFile(join(sourceRoot, 'features/workflows/administrationCommands.ts'), 'utf8');
 
   assert.match(page, /await exportBackupForDownload\(\{ source: 'manual' \}\)/);
   assert.match(page, /isExporting/);
   assert.match(page, /disabled=\{isExporting\}/);
-  assert.match(page, /await importDatabaseBackupAsync\(parsed\)/, 'a full backup must restore its IndexedDB images too');
+  assert.match(page, /await importDatabaseBackupCommand\(parsed\)/);
+  assert.match(commands, /await importDatabaseBackupAsync\(value\)/, 'a full backup must restore its IndexedDB images too');
+  assert.match(commands, /runCommandAsync/, 'the restored data and its audit entry must share one rollback boundary');
 });

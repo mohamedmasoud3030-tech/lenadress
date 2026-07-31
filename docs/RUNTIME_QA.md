@@ -19,13 +19,17 @@ Status vocabulary:
 | Data identity and migrations | `npm run test:reference-migration` | Stable ids backfilled idempotently; exact rollback on forced failure |
 | Codes and archiving | `npm run test:inventory-codes` | Codes never reused after deletion or restore; referenced records cannot be hard-deleted |
 | Atomic workflows | `npm run test:workflows` | Forced failure after each write boundary restores the exact prior state |
+| Administrative atomicity | `npm run test:operational-atomicity-diagnostics` | Customer, inventory, waiting-list, stocktake, preferences, backup import and reset actions roll back completely and remain audited |
 | Sales, expenses, daily close | `npm run test:sales-close` | One sale path; post-close money rejection; no partial sale |
 | Financial truth | `npm run test:finance-reconciliation` | Deposit is a liability; reports, finance layer and daily close agree |
+| Finance/report diagnostics | `npm run test:finance-reporting-diagnostics` | Multi-item income is allocated once, deposit settlement clears liability once, per-line returns settle once, and uncollected fees are not recognised |
 | Service workflow | `npm run test:service` | Conflict guard, explicit completion outcome, cost posted as an item expense |
 | Calendar, contract, printing | `npm run test:capability-recovery` | Date-derived availability; contract uses historical snapshots; blocked-popup recovery |
 | UI contract | `npm run test:ui-contract` | RTL shell, overflow guards, modal focus trap and scrolling, a11y labels, duplicate-submit guards, route reachability |
 | Backup and restore | `npm run test:backup-integrity` | Full collection coverage, validation before mutation, no partial restore, markers survive |
 | Booking conflicts | `npm run test:reservation-conflicts` | One central rule enforced in the service layer for creation, reschedule, item swap, extension and accessory attach, including the preparation and cleaning windows |
+| Reservation integrity diagnostics | `npm run test:reservation-integrity` | Per-line delivery cannot bypass payment, returns cannot skip inspection, late fees and deposits settle once, and posted contracts cannot be repriced |
+| Catalog, sales and appointments diagnostics | `npm run test:catalog-sales-appointments` | Every contract line blocks sale, inventory identity is immutable, invalid catalog money is refused, phone identity is canonical, and appointment changes are auditable |
 | Reservation calendar | `npm run test:reservation-calendar` | Month/week/day grids built on local time; no day drift; filters, ordering and derived occupancy |
 | Accessories | `npm run test:accessories` | Stable codes and barcodes, delivery, partial return, damage, loss, rollback on forced failure, no double charge |
 | Accessory backup | `npm run test:accessory-backup` | Links, handover state, charges, counters and the new settings survive a restore without duplication |
@@ -45,6 +49,34 @@ Status vocabulary:
 | Labels and templates | `npm run test:labels-templates` | One page break per label with no trailing blank sticker, escaping in label values, template substitution, unknown placeholders left visible, empty templates falling back |
 | Ledger exports | `npm run test:ledger-exports` | BOM on every export, formula-injection guard, quoting, discount derived from the booking snapshot, ISO dates, filter-respecting exports, the download helper attaching its anchor |
 | PWA build output | `npm run test:pwa` | Manifest, icons, bundled Arabic font, precached shell, navigation fallback, service worker actually registered in the built bundle, prompt-mode updates |
+| Router security scope | `npm run test:release-gate` | The app remains Vite/DOM-only and cannot silently introduce the unstable RSC APIs affected by `GHSA-qwww-vcr4-c8h2` |
+
+### Full-system diagnostic campaign — 2026-07-31
+
+The campaign did not treat an existing green test suite as proof. Four new,
+fast diagnostic loops were first run red against the actual service and command
+boundaries, minimised, then retained as regression gates:
+
+| Diagnostic loop | Red symptoms reproduced | Result after fix |
+| --- | --- | --- |
+| `npm run test:reservation-integrity` | Partial delivery bypassed payment; returned lines could become available; fees duplicated; only one deposit was refunded; posted contracts could be repriced | 6/6 passing |
+| `npm run test:catalog-sales-appointments` | A reserved sibling item could be sold; inventory identity could be overwritten; impossible values were accepted; equivalent Oman phone forms duplicated customers; past/status appointment transitions were unsafe or unaudited | 6/6 passing |
+| `npm run test:finance-reporting-diagnostics` | Deposit liability remained after settlement; multi-item income was duplicated; second lines disappeared from reports; rental counts stayed stale; separate line returns never settled; unpaid fees appeared as income | 6/6 passing |
+| `npm run test:operational-atomicity-diagnostics` | Audit failures left partial customer, inventory, waiting-list and stocktake writes; administrative changes escaped audit; failed reset destroyed live data | 7/7 passing |
+
+The existing red-capable gates were also re-run for persistence, authentication
+and RLS, permissions/PIN, service, backups, printing, PWA and desktop storage.
+The default `npm test` command now includes all four diagnostic loops.
+
+`npm audit --omit=dev` currently reports `GHSA-qwww-vcr4-c8h2` against the
+transitive `react-router` package. The upstream advisory states that it applies
+only to unstable RSC APIs. LENA uses `react-router-dom` in a client-only Vite
+build and imports none of those APIs; the release gate above enforces that
+boundary. The only upstream patched version available during this campaign was
+React Router 8.3, which requires React 19.2 and has no matching
+`react-router-dom` release in the installed line, so a forced downgrade or
+incompatible major override was deliberately rejected. Re-evaluate when a
+compatible patched DOM release is published.
 
 ## 2. Browser (desktop)
 
@@ -91,7 +123,7 @@ widen the page.
 - Manifest is `lang: ar`, `dir: rtl`, `display: standalone`, scope and start URL `/`.
 - 192px, 512px and maskable icons exist as files.
 - 25 Arabic `woff2` faces are bundled and precached; there is no remote font dependency.
-- The shell, manifest and all assets are precached (70 entries) and navigations
+- The shell, manifest and all assets are precached (74 entries) and navigations
   fall back to the cached shell.
 
 **Two real defects were found and fixed here:** the font `@import`s sat after

@@ -3,13 +3,13 @@ import { recordAudit } from '../audit/audit.service';
 import { getCustomerHardDeleteBlockers } from '../integrity/integrity.service';
 import type { Reservation } from '../reservations/reservation.types';
 import type { Customer, CustomerFilters, CustomerSummary } from './customer.types';
-import { createSearchMatcher } from '../../shared/utils/search';
+import { createSearchMatcher, normalizePhoneForSearch } from '../../shared/utils/search';
 
 const COLLECTION = 'customers';
 const RESERVATION_COLLECTION = 'reservations';
 const activeReservationStatuses = new Set<Reservation['status']>(['pending', 'confirmed', 'delivered', 'overdue']);
 
-type AddCustomerInput = {
+export type AddCustomerInput = {
   name: string;
   phone: string;
   address?: string;
@@ -19,8 +19,10 @@ type AddCustomerInput = {
   status: Customer['status'];
 };
 
+export type UpdateCustomerInput = Partial<Pick<Customer, 'name' | 'phone' | 'address' | 'measurements' | 'bodyMeasurements' | 'notes' | 'status'>>;
+
 function normalizePhone(value: string): string {
-  return value.replace(/\D/g, '');
+  return normalizePhoneForSearch(value);
 }
 
 function hydrateCustomer(customer: Customer, reservations: Reservation[]): Customer {
@@ -133,7 +135,7 @@ export function getCustomerDeletionBlockers(id: string): string[] {
  * every read, so accepting them here would let a stale screen overwrite the
  * truth.
  */
-export function updateCustomer(id: string, updates: Partial<Pick<Customer, 'name' | 'phone' | 'address' | 'measurements' | 'bodyMeasurements' | 'notes' | 'status'>>): Customer {
+export function updateCustomer(id: string, updates: UpdateCustomerInput): Customer {
   const customers = readCollection<Customer>(COLLECTION, []);
   const customer = customers.find((item) => item.id === id);
   if (!customer) throw new Error('العميلة المحددة غير موجودة.');

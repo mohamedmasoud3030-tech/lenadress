@@ -11,13 +11,12 @@ import { openWhatsAppChat } from '@platform/messaging';
 import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { AddWaitlistModal } from './AddWaitlistModal';
 import {
-  closeWaitlistEntry,
   filterWaitlist,
   getWaitlistEntries,
   getWaitlistOpportunities,
-  markWaitlistNotified,
   summarizeWaitlist,
 } from './waitlist.service';
+import { closeWaitlistEntryCommand, markWaitlistNotifiedCommand } from '../workflows';
 import type { WaitlistEntry, WaitlistFilters } from './waitlist.types';
 
 const STATUS_LABELS = {
@@ -76,7 +75,7 @@ export function WaitlistPage() {
     setError(null);
     try {
       openWhatsAppChat(phone, message);
-      markWaitlistNotified(entryId);
+      markWaitlistNotifiedCommand(entryId);
       refresh(`تم فتح محادثة واتساب مع ${name}.`);
     } catch (reason: unknown) {
       setError(reason);
@@ -85,7 +84,7 @@ export function WaitlistPage() {
 
   const handleClose = (entry: WaitlistEntry) => {
     if (!window.confirm(`إغلاق طلب ${entry.customerName}؟`)) return;
-    closeWaitlistEntry(entry.id);
+    closeWaitlistEntryCommand(entry.id);
     refresh(`تم إغلاق طلب ${entry.customerName}.`);
   };
 

@@ -4,7 +4,7 @@ import { calculateReservationRemainingAmount } from '../../shared/utils/financia
 import { getReservationAccessories, releaseAccessoriesForReservation } from '../accessories/reservationAccessory.service';
 import { recordAudit } from '../audit/audit.service';
 import { getCustomers } from '../customers/customer.service';
-import { getDresses, updateDressStatus } from '../dresses/dress.service';
+import { getDresses, markDressRented, updateDressStatus } from '../dresses/dress.service';
 import { assertReservationCanBeCancelled } from '../integrity/integrity.service';
 import { getAppPreferences } from '../preferences/preferences.service';
 import {
@@ -42,9 +42,19 @@ import { createSearchMatcher } from '../../shared/utils/search';
 const COLLECTION = 'reservations';
 const activeStatuses = ACTIVE_RESERVATION_STATUSES;
 const reservableDressStatuses = new Set(['available', 'reserved', 'rented']);
+const allowedReturnItemStatuses = new Set(['inspection', 'laundry', 'maintenance', 'damaged']);
 type ReservationPaymentType = 'rental' | 'deposit' | 'penalty' | 'refund' | 'adjustment';
 type RecordReservationPaymentInput = { reservationNumber: string; type: ReservationPaymentType; direction: 'income' | 'refund'; amount: number };
-type SettleReservationReturnInput = { reservationNumber: string; lateFee: number; damageFee: number; refundAmount: number; settledDepositAmount: number; retainedDepositAmount: number };
+type SettleReservationReturnInput = {
+  reservationNumber: string;
+  lateFee: number;
+  damageFee: number;
+  refundAmount: number;
+  settledDepositAmount: number;
+  retainedDepositAmount: number;
+  /** Per-line returns have already posted the assessed fees before the final line closes. */
+  feesAlreadyAssessed?: boolean;
+};
 
 function remaining(reservation: Reservation): number { return calculateReservationRemainingAmount({ totalAmount: reservation.totalAmount, assessedFeesAmount: reservation.assessedFeesAmount, paidAmount: reservation.paidAmount, settledDepositAmount: reservation.settledDepositAmount, refundedAmount: reservation.refundedAmount }); }
 function persist(reservations: Reservation[], updated: Reservation): Reservation { const next = { ...updated, remainingAmount: remaining(updated) }; writeCollection(COLLECTION, reservations.map((item) => item.id === next.id ? next : item)); return next; }
@@ -68,6 +78,30 @@ export function getReservationTimeDefaults(): { pickupTime: string; returnTime: 
 /** Effective pickup/return times, filling the configured defaults when unset. */
 export function getReservationTimes(reservation: Reservation): { pickupTime: string; returnTime: string } { const defaults = getReservationTimeDefaults(); return { pickupTime: isValidTime(reservation.pickupTime) ? reservation.pickupTime : defaults.pickupTime, returnTime: isValidTime(reservation.returnTime) ? reservation.returnTime : defaults.returnTime }; }
 function normalizeTimeInput(value: string | undefined, label: string): string | undefined { if (value === undefined || value === '') return undefined; if (!isValidTime(value)) throw new Error(`${label} غير صالح. استخدمي صيغة HH:MM.`); return value; }
+function validateOperationDateTime(value: string, label: string): number {
+  const timestamp = new Date(value).getTime();
+  if (!value || Number.isNaN(timestamp)) throw new Error(`${label} مطلوبان.`);
+  if (timestamp > Date.now()) throw new Error(`${label} لا يمكن أن يكونا في المستقبل.`);
+  return timestamp;
+}
+function assertNoPostedMoneyForContractValueChange(reservation: Reservation): void {
+  const hasPostedMoney = reservation.paidAmount > 0
+    || (reservation.refundedAmount ?? 0) > 0
+    || (reservation.settledDepositAmount ?? 0) > 0
+    || (reservation.retainedDepositAmount ?? 0) > 0;
+  if (hasPostedMoney) {
+    throw new Error('لا يمكن تغيير قيمة العقد بعد تسجيل حركة مالية أو مبالغ محصلة عليه.');
+  }
+}
+function assertLineDeliveryPaymentGate(reservation: Reservation, overrideReason?: string): string | undefined {
+  const outstandingAmount = Math.round((reservation.remainingAmount + Number.EPSILON) * 1_000) / 1_000;
+  if (outstandingAmount <= 0) return undefined;
+  const reason = overrideReason?.trim();
+  if (!reason) {
+    throw new Error(`لا يمكن تسليم البند قبل سداد الرصيد المتبقي (${outstandingAmount.toFixed(3)} ر.ع)، أو تسجيل سبب واضح للتجاوز.`);
+  }
+  return reason;
+}
 export function getReservations(): Reservation[] { return readCollection<Reservation>(COLLECTION, []).map(hydrateOverdueStatus); }
 
 export function filterReservations(reservations: Reservation[], filters: ReservationFilters): Reservation[] {
@@ -295,6 +329,7 @@ export function removeContractLine(input: RemoveContractLineInput): Reservation 
   if (line.deliveryStatus === 'delivered' || line.deliveryStatus === 'late') {
     throw new Error('لا يمكن حذف بند تم تسليمه. سجّلي الإرجاع أولاً.');
   }
+  assertNoPostedMoneyForContractValueChange(reservation);
 
   if (lines.length <= 1) {
     throw new Error('لا يمكن حذف البند الأخير. استخدمي إلغاء الحجز بدلاً من ذلك.');
@@ -334,6 +369,9 @@ export function updateContractLine(input: UpdateContractLineInput): Reservation 
   if ((line.deliveryStatus === 'delivered' || line.deliveryStatus === 'late') && (input.rentalPrice !== undefined || input.depositAmount !== undefined)) {
     throw new Error('لا يمكن تعديل تسعير بند تم تسليمه.');
   }
+  if (input.rentalPrice !== undefined || input.depositAmount !== undefined) {
+    assertNoPostedMoneyForContractValueChange(reservation);
+  }
 
   const updatedLine: ContractLine = {
     ...line,
@@ -346,8 +384,21 @@ export function updateContractLine(input: UpdateContractLineInput): Reservation 
     ...(input.notes !== undefined && { notes: input.notes?.trim() || undefined }),
   };
 
+  if (!updatedLine.pickupDate || !updatedLine.returnDate) throw new Error('حددي تاريخ الاستلام والإرجاع.');
+  if (updatedLine.pickupDate < getTodayISO()) throw new Error('تاريخ الاستلام لا يمكن أن يكون في الماضي.');
+  if (updatedLine.returnDate <= updatedLine.pickupDate) throw new Error('تاريخ الإرجاع يجب أن يكون بعد تاريخ الاستلام.');
+  if (!Number.isFinite(updatedLine.rentalPrice) || updatedLine.rentalPrice < 0) {
+    throw new Error('قيمة الإيجار المتفق عليها غير صالحة.');
+  }
+  if (updatedLine.rentalPrice > (updatedLine.listRentalPrice ?? line.rentalPrice)) {
+    throw new Error('قيمة الإيجار المتفق عليها لا يمكن أن تتجاوز السعر المسجل للعنصر.');
+  }
+  if (!Number.isFinite(updatedLine.depositAmount) || updatedLine.depositAmount < 0) {
+    throw new Error('قيمة العربون غير صالحة.');
+  }
+
   // If dates changed, re-check conflicts for this line
-  if (input.pickupDate || input.returnDate) {
+  if (input.pickupDate !== undefined || input.returnDate !== undefined) {
     assertNoConflicts(findItemConflicts({
       inventoryItemId: updatedLine.inventoryItemId,
       dressCode: updatedLine.dressCodeSnapshot,
@@ -360,6 +411,24 @@ export function updateContractLine(input: UpdateContractLineInput): Reservation 
   const updatedLines = lines.map((l, i) => i === lineIndex ? updatedLine : l);
   const updated = syncTopLevelFromLines({ ...reservation, lines: updatedLines });
 
+  recordAudit({
+    action: 'update',
+    entityType: 'reservation',
+    entityId: reservation.id,
+    summary: `تم تعديل البند ${line.dressCodeSnapshot} في الحجز ${reservation.reservationNumber}.`,
+    previousValues: {
+      pickupDate: line.pickupDate,
+      returnDate: line.returnDate,
+      rentalPrice: line.rentalPrice,
+      depositAmount: line.depositAmount,
+    },
+    nextValues: {
+      pickupDate: updatedLine.pickupDate,
+      returnDate: updatedLine.returnDate,
+      rentalPrice: updatedLine.rentalPrice,
+      depositAmount: updatedLine.depositAmount,
+    },
+  });
   return persist(reservations, updated);
 }
 
@@ -508,11 +577,19 @@ export function recordReservationPayment(input: RecordReservationPaymentInput): 
 export function settleReservationReturn(input: SettleReservationReturnInput): Reservation {
   const reservations = getReservations(); const reservation = reservations.find((item) => item.reservationNumber === input.reservationNumber);
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
-  if (!['delivered', 'overdue'].includes(reservation.status)) throw new Error('الحجز غير مؤهل لتسوية الاسترجاع حالياً.');
+  const eligibleStatuses = input.feesAlreadyAssessed ? ['delivered', 'overdue', 'returned'] : ['delivered', 'overdue'];
+  if (!eligibleStatuses.includes(reservation.status)) throw new Error('الحجز غير مؤهل لتسوية الاسترجاع حالياً.');
   if ((reservation.settledDepositAmount ?? 0) > 0) throw new Error('تمت تسوية عربون هذا الحجز بالفعل.');
   if (![input.lateFee, input.damageFee, input.refundAmount, input.settledDepositAmount, input.retainedDepositAmount].every((amount) => Number.isFinite(amount) && amount >= 0)) throw new Error('بيانات التسوية المالية غير صالحة.');
   if (input.refundAmount + input.retainedDepositAmount > input.settledDepositAmount) throw new Error('إجمالي رد العربون والعربون المحتجز يتجاوز قيمة العربون المسوّاة.');
-  return persist(reservations, { ...reservation, assessedFeesAmount: (reservation.assessedFeesAmount ?? 0) + input.lateFee + input.damageFee, refundedAmount: (reservation.refundedAmount ?? 0) + input.refundAmount, settledDepositAmount: (reservation.settledDepositAmount ?? 0) + input.settledDepositAmount, retainedDepositAmount: (reservation.retainedDepositAmount ?? 0) + input.retainedDepositAmount });
+  return persist(reservations, {
+    ...reservation,
+    assessedFeesAmount: (reservation.assessedFeesAmount ?? 0)
+      + (input.feesAlreadyAssessed ? 0 : input.lateFee + input.damageFee),
+    refundedAmount: (reservation.refundedAmount ?? 0) + input.refundAmount,
+    settledDepositAmount: (reservation.settledDepositAmount ?? 0) + input.settledDepositAmount,
+    retainedDepositAmount: (reservation.retainedDepositAmount ?? 0) + input.retainedDepositAmount,
+  });
 }
 
 export function cancelReservation(id: string): void {
@@ -542,10 +619,14 @@ export function deliverContractLine(input: LineDeliveryInput): Reservation {
   if (line.deliveryStatus !== 'pending_delivery') {
     throw new Error('هذا البند تم تسليمه بالفعل.');
   }
+  const paymentOverrideReason = assertLineDeliveryPaymentGate(reservation, input.paymentOverrideReason);
+  validateOperationDateTime(input.deliveryDateTime, 'تاريخ ووقت التسليم');
 
   const updatedLine: ContractLine = {
     ...line,
     deliveryStatus: 'delivered',
+    deliveryDateTime: input.deliveryDateTime,
+    deliveryCondition: input.deliveryCondition?.trim() || undefined,
     deliveryPhotos: input.deliveryPhotos,
     notes: input.notes?.trim() || line.notes,
   };
@@ -558,7 +639,7 @@ export function deliverContractLine(input: LineDeliveryInput): Reservation {
   // Update the dress status
   const dress = getDresses().find((d) => d.id === line.inventoryItemId);
   if (dress) {
-    updateDressStatus(line.dressCodeSnapshot, 'rented');
+    markDressRented(line.dressCodeSnapshot);
   }
 
   recordAudit({
@@ -566,7 +647,12 @@ export function deliverContractLine(input: LineDeliveryInput): Reservation {
     entityType: 'reservation',
     entityId: reservation.id,
     summary: `تم تسليم البند ${line.dressCodeSnapshot} من الحجز ${reservation.reservationNumber}.`,
-    nextValues: { lineId: line.id, deliveryStatus: 'delivered' },
+    nextValues: {
+      lineId: line.id,
+      deliveryStatus: 'delivered',
+      deliveryDateTime: input.deliveryDateTime,
+      paymentOverrideReason,
+    },
   });
 
   return persist(reservations, updated);
@@ -585,13 +671,28 @@ export function returnContractLine(input: LineReturnInput): Reservation {
   if (lineIndex === -1) throw new Error('البند المحدد غير موجود في الحجز.');
 
   const line = lines[lineIndex];
+  if (line.deliveryStatus === 'returned') {
+    throw new Error('تم استرجاع هذا البند بالفعل.');
+  }
   if (line.deliveryStatus !== 'delivered' && line.deliveryStatus !== 'late') {
     throw new Error('هذا البند لم يتم تسليمه بعد.');
+  }
+  if (!allowedReturnItemStatuses.has(input.nextItemStatus)) {
+    throw new Error('العنصر المسترجع يجب أن ينتقل إلى الفحص أو الغسيل أو الصيانة أو التالف، ولا يصبح متاحاً مباشرة.');
+  }
+  const returnTimestamp = validateOperationDateTime(input.returnDateTime, 'تاريخ ووقت الاسترجاع');
+  if (line.deliveryDateTime && returnTimestamp < new Date(line.deliveryDateTime).getTime()) {
+    throw new Error('وقت الاسترجاع لا يمكن أن يسبق وقت التسليم.');
+  }
+  if (![input.lateFee, input.damageFee].every((amount) => Number.isFinite(amount) && amount >= 0)) {
+    throw new Error('رسوم التأخير أو الضرر غير صالحة.');
   }
 
   const updatedLine: ContractLine = {
     ...line,
-    deliveryStatus: input.lateFee > 0 ? 'late' : 'returned',
+    deliveryStatus: 'returned',
+    returnDateTime: input.returnDateTime,
+    returnCondition: input.returnCondition?.trim() || undefined,
     returnPhotos: input.returnPhotos,
     lateFee: input.lateFee,
     damageFee: input.damageFee,
@@ -619,7 +720,13 @@ export function returnContractLine(input: LineReturnInput): Reservation {
     entityType: 'reservation',
     entityId: reservation.id,
     summary: `تم استرجاع البند ${line.dressCodeSnapshot} من الحجز ${reservation.reservationNumber}.`,
-    nextValues: { lineId: line.id, deliveryStatus: updatedLine.deliveryStatus, lateFee: input.lateFee, damageFee: input.damageFee },
+    nextValues: {
+      lineId: line.id,
+      deliveryStatus: updatedLine.deliveryStatus,
+      returnDateTime: input.returnDateTime,
+      lateFee: input.lateFee,
+      damageFee: input.damageFee,
+    },
   });
 
   return persist(reservations, updated);

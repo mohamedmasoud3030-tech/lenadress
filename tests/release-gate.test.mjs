@@ -73,6 +73,41 @@ test('every money-changing workflow runs through an atomic command', async () =>
   }
 });
 
+test('administrative UI writes run through audited atomic commands', async () => {
+  const workflow = await readFile(
+    join(sourceRoot, 'features/workflows/administrationCommands.ts'),
+    'utf8',
+  );
+  assert.match(workflow, /runCommand\(/, 'synchronous administration must use the atomic command runner');
+  assert.match(workflow, /runCommandAsync\(/, 'asynchronous administration must use the async atomic command runner');
+  assert.match(workflow, /commandBoundary\(/, 'administration must expose forced-failure boundaries');
+
+  const guardedScreens = [
+    ['features/dresses/AddDressModal.tsx', /\baddDressCommand\b/],
+    ['features/dresses/DressDetailsPage.tsx', /\b(?:archive|delete)DressCommand\b/],
+    ['features/customers/AddCustomerModal.tsx', /\baddCustomerCommand\b/],
+    ['features/customers/CustomersPage.tsx', /\b(?:archive|delete)CustomerCommand\b/],
+    ['features/customers/MeasurementsPanel.tsx', /\bupdateCustomerCommand\b/],
+    ['features/customers/CustomerConductPanel.tsx', /\b(?:add|remove)ConductNoteCommand\b/],
+    ['features/waitlist/AddWaitlistModal.tsx', /\baddWaitlistEntryCommand\b/],
+    ['features/waitlist/WaitlistPage.tsx', /\b(?:closeWaitlistEntry|markWaitlistNotified)Command\b/],
+    ['features/stocktake/StocktakePage.tsx', /\b(?:start|complete|cancel)StocktakeSessionCommand\b/],
+    ['features/preferences/PreferencesPage.tsx', /\b(?:importDatabaseBackup|resetApplicationData|saveAppPreferences|migrateImages)Command\b/],
+    ['features/preferences/ShowroomProfileEditor.tsx', /\b(?:save|reset)ShowroomProfileCommand\b/],
+    ['features/preferences/PrintSettingsEditor.tsx', /\b(?:save|reset)PrintSettingsCommand\b/],
+  ];
+
+  for (const [relative, commandPattern] of guardedScreens) {
+    const content = await readFile(join(sourceRoot, relative), 'utf8');
+    assert.match(
+      content,
+      commandPattern,
+      `${relative} must write through an administration command`,
+    );
+    assert.match(content, /from ['"]\.\.\/workflows['"]/, `${relative} must use the workflow facade`);
+  }
+});
+
 test('the audit trail is written inside the workflow services, not bolted on afterwards', async () => {
   const audited = [
     'features/reservations/reservation.service.ts',
@@ -118,7 +153,8 @@ test('a refundable deposit is never treated as revenue', async () => {
   assert.match(finance, /depositRetained/);
   assert.match(finance, /recognisedIncome/);
   // Recognised income must be built from realised money, not from gross collections.
-  assert.match(finance, /const recognisedIncome = rentalCollected \+ saleRevenue \+ totalFees \+ depositRetained/);
+  assert.match(finance, /const recognisedIncome = netRentalRevenue \+ saleRevenue \+ totalFees \+ adjustments/);
+  assert.doesNotMatch(finance, /const recognisedIncome = [^;]*depositRetained/, 'retained cash must not duplicate its settlement fee');
 });
 
 test('reports project the finance layer instead of recomputing their own money', async () => {
@@ -159,6 +195,19 @@ test('demo data does not seed a physical reserved state', async () => {
   const demo = await readFile(join(sourceRoot, 'engines/persistence/demoDataRecords.ts'), 'utf8');
   const inventoryBlock = demo.slice(0, demo.indexOf('mockReservations'));
   assert.doesNotMatch(inventoryBlock, /status: 'reserved'/);
+});
+
+test('the React Router RSC advisory remains outside this DOM-only application', async () => {
+  const files = await collectFiles(sourceRoot, isSource);
+  const rscApiPattern = /\b(?:RSCHydratedRouter|RSCStaticRouter|routeRSCServerRequest|matchRSCServerRequest|unstable_RSC)\b/;
+  const offenders = [];
+
+  for (const file of files) {
+    const content = await readFile(file, 'utf8');
+    if (rscApiPattern.test(content)) offenders.push(file.replace(repositoryRoot, ''));
+  }
+
+  assert.deepEqual(offenders, [], 'GHSA-qwww-vcr4-c8h2 becomes applicable if an unstable RSC API is introduced');
 });
 
 test('the release documentation set exists and records outstanding work honestly', async () => {

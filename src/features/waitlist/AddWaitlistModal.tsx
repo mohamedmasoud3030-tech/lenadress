@@ -6,9 +6,10 @@ import { SearchableSelect, type SearchableOption } from '../../components/shared
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
 import { MAX_NOTES_LENGTH } from '../../shared/domain/businessRules';
 import { addDaysISO, getTodayISO } from '../../shared/utils/date';
+import { createSubmissionKey } from '../../shared/utils/submissionKey';
 import { getCustomers } from '../customers/customer.service';
 import { summarizeAllDesigns } from '../dresses/design.service';
-import { addWaitlistEntry } from './waitlist.service';
+import { addWaitlistEntryCommand } from '../workflows';
 
 type Props = { open: boolean; onClose: () => void; onCreated: (customerName: string) => void };
 
@@ -84,7 +85,7 @@ export function AddWaitlistModal({ open, onClose, onCreated }: Props) {
     setIsSubmitting(true);
 
     try {
-      const entry = addWaitlistEntry({
+      const entry = addWaitlistEntryCommand({
         customerId,
         designId: designId || undefined,
         size: size || undefined,
@@ -92,6 +93,7 @@ export function AddWaitlistModal({ open, onClose, onCreated }: Props) {
         pickupDate,
         returnDate,
         notes,
+        idempotencyKey: createSubmissionKey('waitlist-create'),
       });
       onCreated(entry.customerName);
       close();

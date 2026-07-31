@@ -57,17 +57,39 @@ export function getDressByCode(code: string): Dress | undefined {
   return dresses.find((dress) => dressMatchesBarcode(dress, code));
 }
 
-type AddDressServiceInput = Omit<Dress, 'id' | 'code' | 'timesRented' | 'barcode'> & {
+export type AddDressServiceInput = Omit<Dress, 'id' | 'code' | 'timesRented' | 'barcode'> & {
   /** Accepted temporarily for compatibility; persisted identity is always derived from the allocated code. */
   barcode?: string;
 };
 
+function assertValidDress(input: Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'>): void {
+  if (!input.name.trim()) throw new Error('اسم العنصر مطلوب.');
+
+  const moneyFields: Array<[number, string]> = [
+    [input.purchasePrice, 'سعر الشراء'],
+    [input.rentalPrice, 'سعر الإيجار'],
+    [input.salePrice, 'سعر البيع'],
+    [input.depositAmount, 'مبلغ التأمين'],
+  ];
+  moneyFields.forEach(([value, label]) => {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`${label} يجب أن يكون رقماً غير سالب.`);
+    }
+  });
+
+  if (!input.isForRent && !input.isForSale) {
+    throw new Error('يجب أن يكون العنصر متاحاً للبيع أو للإيجار على الأقل.');
+  }
+}
+
 export function addDress(input: AddDressServiceInput): Dress {
+  assertValidDress(input);
   const dresses = getDressesFromStorage();
   const code = allocateInventoryCode();
 
   const newDress: Dress = {
     ...input,
+    name: input.name.trim(),
     itemType: input.itemType ?? 'dress',
     id: `dress-${generateId()}`,
     code,
@@ -77,6 +99,19 @@ export function addDress(input: AddDressServiceInput): Dress {
 
   dresses.push(newDress);
   saveDressesToStorage(dresses);
+  recordAudit({
+    action: 'create',
+    entityType: 'dress',
+    entityId: newDress.id,
+    summary: `تمت إضافة العنصر ${newDress.code} إلى المخزون.`,
+    nextValues: {
+      code: newDress.code,
+      name: newDress.name,
+      status: newDress.status,
+      isForRent: newDress.isForRent,
+      isForSale: newDress.isForSale,
+    },
+  });
   return newDress;
 }
 
@@ -86,10 +121,17 @@ export function updateDress(code: string, updates: Partial<Dress>): Dress | null
 
   if (index === -1) return null;
 
-  dresses[index] = {
-    ...dresses[index],
+  const current = dresses[index];
+  const next: Dress = {
+    ...current,
     ...updates,
+    id: current.id,
+    code: current.code,
+    barcode: current.barcode,
+    timesRented: current.timesRented,
   };
+  assertValidDress(next);
+  dresses[index] = next;
 
   saveDressesToStorage(dresses);
   return dresses[index];
@@ -97,6 +139,23 @@ export function updateDress(code: string, updates: Partial<Dress>): Dress | null
 
 export function updateDressStatus(code: string, status: Dress['status']): Dress | null {
   return updateDress(code, { status });
+}
+
+/** Marks one completed handover without exposing the historical counter to callers. */
+export function markDressRented(code: string): Dress | null {
+  const dresses = getDressesFromStorage();
+  const index = dresses.findIndex((dress) => dress.code === code);
+  if (index === -1) return null;
+
+  const current = dresses[index];
+  const updated: Dress = {
+    ...current,
+    status: 'rented',
+    timesRented: current.timesRented + 1,
+  };
+  dresses[index] = updated;
+  saveDressesToStorage(dresses);
+  return updated;
 }
 
 export function filterDresses(filters?: Partial<DressFilters>): Dress[] {
