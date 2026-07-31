@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getDresses } from '../../features/dresses/dress.service';
 import type { Dress } from '../../features/dresses/dress.types';
 import { DRESS_CATEGORIES } from '../../shared/domain/dressConstants';
 import { getShowroomProfile } from '../../features/preferences/showroomProfile.service';
-import type { LandingShowroomProfile } from './landingContent';
+import { landingShowroomProfile, type LandingShowroomProfile } from './landingContent';
+import { loadLandingInventory } from './landingDress.repository';
 import { LandingAboutServices } from './components/LandingAboutServices';
 import { LandingCategories } from './components/LandingCategories';
 import { LandingContact } from './components/LandingContact';
@@ -18,18 +18,51 @@ import type { InventoryCategoryFilter, LandingUsageFilter } from './components/t
 
 const inventoryCategories = ['all', ...DRESS_CATEGORIES] as const;
 
+/**
+ * The showroom profile is itself read from local storage (see
+ * showroomProfile.service.ts). A corrupted or unavailable storage entry must
+ * not crash the whole public page — the static content defaults are always a
+ * safe fallback.
+ */
+function getShowroomProfileSafely(): LandingShowroomProfile {
+  try {
+    return getShowroomProfile();
+  } catch {
+    return { ...landingShowroomProfile };
+  }
+}
+
 export function LandingPage() {
   const [dresses, setDresses] = useState<Dress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<InventoryCategoryFilter>('all');
   const [usageFilter, setUsageFilter] = useState<LandingUsageFilter>('all');
-  const profile: LandingShowroomProfile = getShowroomProfile();
+  const profile: LandingShowroomProfile = getShowroomProfileSafely();
 
   useEffect(() => {
-    const availableDresses = getDresses().filter((dress) => dress.status === 'available');
-    setDresses(availableDresses);
-    setLoading(false);
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const result = await loadLandingInventory();
+        if (cancelled) return;
+        setDresses(result.dresses);
+        setLoadError(result.warning ?? null);
+      } catch {
+        if (cancelled) return;
+        setDresses([]);
+        setLoadError('تعذر تحميل المعروض الحالي. جرّبي تحديث الصفحة أو تواصلي معنا مباشرة.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredDresses = useMemo(() => {
@@ -67,6 +100,7 @@ export function LandingPage() {
           profile={profile}
           dresses={filteredDresses}
           loading={loading}
+          loadError={loadError}
           search={search}
           onSearchChange={setSearch}
           selectedCategory={selectedCategory}

@@ -12,7 +12,7 @@ function getLandingDressPriceLabel(dress: Dress): string {
   return 'السعر يحدد عند المعاينة';
 }
 
-type Props = { profile: LandingProfile; dresses: Dress[]; loading: boolean; search: string; onSearchChange: (value: string) => void; selectedCategory: InventoryCategoryFilter; onCategoryChange: (value: InventoryCategoryFilter) => void; usageFilter: LandingUsageFilter; onUsageChange: (value: LandingUsageFilter) => void; inventoryCategories: readonly InventoryCategoryFilter[]; };
+type Props = { profile: LandingProfile; dresses: Dress[]; loading: boolean; loadError?: string | null; search: string; onSearchChange: (value: string) => void; selectedCategory: InventoryCategoryFilter; onCategoryChange: (value: InventoryCategoryFilter) => void; usageFilter: LandingUsageFilter; onUsageChange: (value: LandingUsageFilter) => void; inventoryCategories: readonly InventoryCategoryFilter[]; };
 
 function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfile }) {
   const primaryImage = dress.images[0];
@@ -66,7 +66,7 @@ function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfi
   );
 }
 
-export function LandingInventory({ profile, dresses, loading, search, onSearchChange, selectedCategory, onCategoryChange, usageFilter, onUsageChange, inventoryCategories }: Props) {
+export function LandingInventory({ profile, dresses, loading, loadError, search, onSearchChange, selectedCategory, onCategoryChange, usageFilter, onUsageChange, inventoryCategories }: Props) {
   const groupedByType = dresses.reduce<Record<string, Dress[]>>((acc, dress) => {
     const type = dress.itemType ?? 'dress';
     if (!acc[type]) acc[type] = [];
@@ -91,6 +91,12 @@ export function LandingInventory({ profile, dresses, loading, search, onSearchCh
           حجز موعد عبر واتساب
         </a>
       </div>
+
+      {loadError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {loadError}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-[1fr_190px_190px]">
