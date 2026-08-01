@@ -9,7 +9,7 @@
     "typecheck": "tsc -b",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test:architecture": "node --import tsx --test tests/architecture/architecture-boundaries.test.mjs",
+    "test:architecture": "node --import tsx --test tests/architecture/architecture-boundaries.test.mjs tests/architecture/web-runtime-isolation.test.mjs",
     "test:persistence-engine": "node --import tsx --test tests/persistence-engine.test.mjs",
     "test:shell": "node --import tsx --test tests/app-shell.test.mjs",
     "test:router": "node --import tsx --test tests/app-router.test.mjs",

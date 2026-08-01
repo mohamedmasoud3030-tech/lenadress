@@ -1,30 +1,39 @@
 import { getDesktopInvoke } from '@platform/runtime';
+import {
+  PERSISTENCE_STATUS_EVENT,
+  type PersistenceStatus,
+} from '@shared/persistence/persistenceStatus';
 
 const PREFIX = 'dress-roomshow:';
-export const DESKTOP_SYNC_STATUS_EVENT = 'dress-roomshow:desktop-sync-status';
+
+/**
+ * Desktop island, retained temporarily for compatibility and historical
+ * recovery. The official Web App + PWA runtime never imports this module
+ * (see docs/adr/0001-web-pwa-supabase-only.md). Status updates are typed by
+ * the shared persistence contract and published on the neutral persistence
+ * channel, so the direction of dependency stays Desktop → shared, never
+ * Web → Desktop.
+ */
+export const DESKTOP_SYNC_STATUS_EVENT = PERSISTENCE_STATUS_EVENT;
+export type DesktopSyncStatus = PersistenceStatus;
+
 let previousSnapshot = '';
 let failedSyncAttempts = 0;
 
-export type DesktopSyncStatus =
-  | { state: 'idle'; message: string; updatedAt: string }
-  | { state: 'synced'; message: string; updatedAt: string }
-  | { state: 'browser-fallback'; message: string; updatedAt: string }
-  | { state: 'error'; message: string; updatedAt: string; attempts: number };
-
 type DesktopSyncStatusUpdate =
-  | { state: 'idle'; message: string }
+  | { state: 'syncing'; message: string }
   | { state: 'synced'; message: string }
-  | { state: 'browser-fallback'; message: string }
+  | { state: 'local-only'; message: string }
   | { state: 'error'; message: string; attempts: number };
 
 let desktopSyncStatus: DesktopSyncStatus = {
-  state: 'idle',
+  state: 'syncing',
   message: 'جاري تجهيز مزامنة سطح المكتب.',
   updatedAt: new Date().toISOString(),
 };
 
 function updateDesktopSyncStatus(status: DesktopSyncStatusUpdate): void {
-  desktopSyncStatus = { ...status, updatedAt: new Date().toISOString() } as DesktopSyncStatus;
+  desktopSyncStatus = { ...status, updatedAt: new Date().toISOString() };
   window.dispatchEvent(new CustomEvent(DESKTOP_SYNC_STATUS_EVENT, { detail: desktopSyncStatus }));
 }
 
@@ -97,7 +106,7 @@ async function bootstrapDesktopDatabase(): Promise<void> {
     }, 500);
   } catch {
     updateDesktopSyncStatus({
-      state: 'browser-fallback',
+      state: 'local-only',
       message: 'يعمل التطبيق بتخزين المتصفح المحلي فقط.',
     });
   }

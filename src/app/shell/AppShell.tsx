@@ -8,14 +8,16 @@ import { DesktopNavigation } from './DesktopNavigation';
 import { MobileMoreMenu } from './MobileMoreMenu';
 import { MobileNavigation } from './MobileNavigation';
 import { focusRing } from './navigation';
-import { useDesktopPersistenceStatus } from './useDesktopPersistenceStatus';
+import { usePersistenceStatus } from './usePersistenceStatus';
 
 export function AppShell() {
   const location = useLocation();
-  const desktopSyncStatus = useDesktopPersistenceStatus();
+  const persistenceStatus = usePersistenceStatus();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const showDesktopSyncWarning =
-    desktopSyncStatus.state === 'error' || desktopSyncStatus.state === 'browser-fallback';
+  const showPersistenceNotice =
+    persistenceStatus.state === 'error' ||
+    persistenceStatus.state === 'offline' ||
+    persistenceStatus.state === 'local-only';
 
   return (
     <div className="min-h-screen overflow-hidden text-slate-950" dir="rtl">
@@ -33,9 +35,9 @@ export function AppShell() {
         <AppHeader />
 
         <div className="relative mx-auto w-full min-w-0 max-w-7xl p-4 sm:p-6">
-          {showDesktopSyncWarning && (
+          {showPersistenceNotice && (
             <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
-              {desktopSyncStatus.message}
+              {persistenceStatus.message}
             </div>
           )}
           <div className="mb-4">
