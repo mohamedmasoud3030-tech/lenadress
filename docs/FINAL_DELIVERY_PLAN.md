@@ -2,6 +2,8 @@
 
 > **Status:** Active source of truth  
 > **Tracking issue:** #76  
+> **Release surface:** Official Web App + PWA backed by Supabase per [ADR 0001](adr/0001-web-pwa-supabase-only.md); Tauri/Desktop retained temporarily, out of release scope.
+>
 > **Current planning baseline:** `main@bd376a0e5c3dab8068d5afcd7f62b39a48429d17`
 
 This document replaces every previous roadmap, audit plan, readiness-progress document, and stale delivery branch. Developers and agents must execute from the latest `main`, read issue #76, and use this file as the delivery contract.
@@ -14,8 +16,8 @@ LENA is an Arabic-first, RTL, local-first operating system for one occasion-wear
 
 Supported targets:
 
-- Browser and installable PWA.
-- Tauri desktop application for Windows.
+- Browser and installable PWA — the official release surface per [ADR 0001](adr/0001-web-pwa-supabase-only.md), with Supabase/PostgreSQL as the target centralized source of truth.
+- Tauri desktop application for Windows — **outside the current release scope** (ADR 0001); the source is retained temporarily for compatibility and historical recovery but excluded from the official Web build.
 
 Out of scope for v1.0:
 
@@ -166,7 +168,7 @@ Split current layout responsibilities without visual or route behavior changes:
 - `DesktopNavigation`;
 - `MobileNavigation`;
 - `MobileMoreMenu`;
-- `useDesktopPersistenceStatus`;
+- `usePersistenceStatus` (neutral, typed by `src/shared/persistence/persistenceStatus.ts`);
 - route configuration and route loading fallback.
 
 Extract shared UI only when at least two modules use the same interaction contract.

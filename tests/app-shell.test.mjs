@@ -44,7 +44,7 @@ test('app shell preserves outlet boundary, mobile menu, persistence warning, and
 
   assert.match(shell, /<PersistenceErrorBoundary key={location\.pathname}>/);
   assert.match(shell, /<Outlet \/>/);
-  assert.match(shell, /desktopSyncStatus\.state === 'browser-fallback'/);
+  assert.match(shell, /persistenceStatus\.state === 'local-only'/);
   assert.match(mobileMenu, /onClick={onClose}/);
   assert.equal(legacyLayout.trim(), "export { AppShell as AppLayout } from '@app/shell/AppShell';");
 });

@@ -2,6 +2,8 @@
 
 > **Status:** Active implementation contract  
 > **Tracking:** Issue #76 and `FINAL_DELIVERY_PLAN.md`  
+> **Release surface:** Official Web App + PWA backed by Supabase per [ADR 0001](adr/0001-web-pwa-supabase-only.md); Tauri/Desktop adapters are retained temporarily, excluded from the official Web build.
+>
 > **Migration rule:** Incremental, behavior-preserving, one bounded PR at a time
 
 This document defines how the current codebase will be decomposed into reusable components, independent business modules, cross-module engines, and platform adapters without interrupting delivery or changing the verified business model.
@@ -83,7 +85,7 @@ src/
 │   │   ├── DesktopNavigation.tsx
 │   │   ├── MobileNavigation.tsx
 │   │   ├── MobileMoreMenu.tsx
-│   │   └── useDesktopPersistenceStatus.ts
+│   │   └── usePersistenceStatus.ts
 │   └── App.tsx
 │
 ├── modules/
@@ -304,7 +306,7 @@ Builds stable printable document models for rental contracts, receipts, sale inv
 
 - `storage`: localStorage and in-memory test adapter;
 - `images`: IndexedDB image repository and blob serialization;
-- `desktop`: Tauri snapshot/mirror and desktop events;
+- `desktop`: legacy Tauri snapshot/mirror — retained temporarily and excluded from the official Web/PWA release per [ADR 0001](adr/0001-web-pwa-supabase-only.md); publishes statuses on the shared neutral persistence channel;
 - `browser`: download, file picker, URL, and popup adapters;
 - `camera`: barcode scanner adapter;
 - `printing`: print-window and desktop print adapters;

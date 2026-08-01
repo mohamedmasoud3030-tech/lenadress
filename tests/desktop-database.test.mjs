@@ -89,14 +89,14 @@ test('desktop database publishes typed desktop sync status events after bootstra
   try {
     harness.storage.setItem('dress-roomshow:customers', '[{"id":"customer-1"}]');
     harness.storage.setItem('other-app:key', 'ignored');
-    globalThis.window.addEventListener('dress-roomshow:desktop-sync-status', (event) => {
+    globalThis.window.addEventListener('lena:persistence-status', (event) => {
       events.push(event.detail);
     });
 
     const desktopDatabase = await importDesktopDatabase();
     await waitForAsyncBootstrap();
 
-    assert.equal(desktopDatabase.DESKTOP_SYNC_STATUS_EVENT, 'dress-roomshow:desktop-sync-status');
+    assert.equal(desktopDatabase.DESKTOP_SYNC_STATUS_EVENT, 'lena:persistence-status');
     assert.equal(events.length, 1);
     assert.equal(events[0].state, 'synced');
     assert.equal(events[0].message, 'مزامنة سطح المكتب تعمل.');
@@ -123,7 +123,7 @@ test('desktop database falls back to browser storage when Tauri bootstrap fails'
   });
 
   try {
-    globalThis.window.addEventListener('dress-roomshow:desktop-sync-status', (event) => {
+    globalThis.window.addEventListener('lena:persistence-status', (event) => {
       events.push(event.detail);
     });
 
@@ -131,7 +131,7 @@ test('desktop database falls back to browser storage when Tauri bootstrap fails'
     await waitForAsyncBootstrap();
 
     assert.equal(events.length, 1);
-    assert.equal(events[0].state, 'browser-fallback');
+    assert.equal(events[0].state, 'local-only');
     assert.equal(events[0].message, 'يعمل التطبيق بتخزين المتصفح المحلي فقط.');
     assert.match(events[0].updatedAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.equal(harness.intervals.length, 0);
@@ -152,7 +152,7 @@ test('desktop database emits an error status when save_desktop_snapshot fails af
   });
 
   try {
-    globalThis.window.addEventListener('dress-roomshow:desktop-sync-status', (event) => {
+    globalThis.window.addEventListener('lena:persistence-status', (event) => {
       events.push(event.detail);
     });
 
@@ -199,7 +199,7 @@ test('desktop database returns to synced status after a failed mirror save succe
   });
 
   try {
-    globalThis.window.addEventListener('dress-roomshow:desktop-sync-status', (event) => {
+    globalThis.window.addEventListener('lena:persistence-status', (event) => {
       events.push(event.detail);
     });
 
