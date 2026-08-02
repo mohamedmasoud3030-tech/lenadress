@@ -97,7 +97,7 @@ export function PrintSettingsEditor() {
         </tbody>
       </table>
       <p class="total">الإجمالي: ١٠٥٫٠٠٠ ر.ع.</p>
-      <div class="terms"><b>الشروط والأحكام</b><ol><li>نص تجريبي للتأكد من وضوح الخط والهوامش.</li><li>تأكدي من ظهور هذا السطر كاملاً دون قص.</li></ol></div>
+      <div class="terms"><b>الشروط والأحكام</b><ol><li>فقرة توضيحية للتأكد من وضوح الخط والهوامش.</li><li>تأكدي من ظهور هذا السطر كاملاً دون قص.</li></ol></div>
       <div class="signatures"><span>توقيع المعرض: ______________</span><span>توقيع العميلة: ______________</span></div>
       <div class="doc-footer">إذا ظهر هذا التذييل كاملاً فالهوامش صحيحة.</div>
     `;
