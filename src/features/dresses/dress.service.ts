@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Dress, DressFilters, getDressSecurityDepositAmount } from './dress.types';
 import { allocateCode, generateId, migrateLegacyInventoryStorage, readCollection, reconcileCounter, writeCollection } from '../../services/localDatabase';
 import { recordAudit } from '../audit/audit.service';
