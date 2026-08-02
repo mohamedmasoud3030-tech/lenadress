@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { focusRing, navigation } from './navigation';
+import { useAuth } from '../../features/auth/AuthContext';
 
 type MobileMoreMenuProps = {
   open: boolean;
@@ -7,6 +8,7 @@ type MobileMoreMenuProps = {
 };
 
 export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
+  const { profile } = useAuth();
   if (!open) return null;
 
   return (
@@ -22,7 +24,7 @@ export function MobileMoreMenu({ open, onClose }: MobileMoreMenuProps) {
         className="absolute inset-x-4 bottom-20 max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl"
       >
         <div className="grid grid-cols-3 gap-3">
-          {navigation.map((item) => (
+          {navigation.filter((item) => !item.adminOnly || profile?.role === 'admin').map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

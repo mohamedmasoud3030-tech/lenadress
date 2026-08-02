@@ -4,7 +4,9 @@ import { AppShell } from '@app/shell/AppShell';
 import { LoginPage } from '../../features/auth/LoginPage';
 import { RequireAuth } from './RequireAuth';
 import { DeviceLockGate } from '../../features/device-lock/DeviceLockGate';
+import { CloudDataGate } from '../../features/sync/CloudDataGate';
 import { RouteLoadingFallback } from './RouteLoadingFallback';
+import { RequireAdmin } from './RequireAdmin';
 import {
   AccessoriesPage,
   AppointmentsPage,
@@ -34,15 +36,18 @@ import {
 
 export function AppRoutes() {
   return (
+    <Suspense fallback={<RouteLoadingFallback />}>
     <Routes>
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         element={
           <RequireAuth>
-            <DeviceLockGate>
-              <AppShell />
-            </DeviceLockGate>
+            <CloudDataGate>
+              <DeviceLockGate>
+                <AppShell />
+              </DeviceLockGate>
+            </CloudDataGate>
           </RequireAuth>
         }
       >
@@ -88,9 +93,10 @@ export function AppRoutes() {
             </Suspense>
           }
         />
-        <Route path="preferences" element={<PreferencesPage />} />
+        <Route path="preferences" element={<RequireAdmin><PreferencesPage /></RequireAdmin>} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }

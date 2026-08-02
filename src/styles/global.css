@@ -107,3 +107,8 @@ summary,
   background: #fde68a;
   color: #0f172a;
 }
+html[data-cloud-commit='pending'] #main-content,
+html[data-cloud-commit='pending'] nav {
+  pointer-events: none;
+  cursor: wait;
+}

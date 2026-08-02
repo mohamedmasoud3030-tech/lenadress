@@ -14,17 +14,14 @@
  */
 
 /**
- * - `local-only`: data is stored in this browser only; cloud synchronization
- *   through the central backend is designed but not yet wired to
- *   operational writes.
+ * - `local-only`: retained only for the quarantined legacy native adapter.
  * - `syncing`: a synchronization attempt is currently in progress.
  * - `synced`: local data and the remote store are known to match.
- * - `offline`: the browser reports no connectivity; changes stay local.
+ * - `offline`: the browser reports no connectivity; operational writes are blocked.
  * - `error`: a persistence or synchronization attempt failed.
  *
  * `syncing`/`synced` must only be published by code that actually performs
- * synchronization; nothing in the official Web/PWA runtime may claim cloud
- * synchronization is active while it is not implemented.
+ * synchronization.
  */
 export type PersistenceStatus =
   | { state: 'local-only'; message: string; updatedAt: string }
@@ -52,8 +49,8 @@ export const LOCAL_ONLY_PERSISTENCE_MESSAGE =
  */
 export function createDefaultPersistenceStatus(): PersistenceStatus {
   return {
-    state: 'local-only',
-    message: LOCAL_ONLY_PERSISTENCE_MESSAGE,
+    state: 'syncing',
+    message: 'جارٍ التحقق من اتصال قاعدة بيانات المعرض…',
     updatedAt: new Date().toISOString(),
   };
 }

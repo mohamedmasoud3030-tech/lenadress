@@ -43,7 +43,7 @@ function writeMigrationMarkersRaw(markers: Record<string, unknown>): void {
   }
 }
 
-export const CURRENT_BACKUP_SCHEMA_VERSION = 3;
+export const CURRENT_BACKUP_SCHEMA_VERSION = 4;
 
 export type DatabaseMetadata = {
   applicationId: typeof DATABASE_APPLICATION_ID;
@@ -141,6 +141,10 @@ function runMigrations(metadata: DatabaseMetadata): DatabaseMetadata {
   // Version 2 introduces canonical separation of booking advance vs security deposit
   if (nextMetadata.schemaVersion < 2) {
     nextMetadata = createMetadata(2);
+  }
+  // Version 3 makes the Supabase snapshot the authoritative data source.
+  if (nextMetadata.schemaVersion < 3) {
+    nextMetadata = createMetadata(3);
   }
 
   return nextMetadata;

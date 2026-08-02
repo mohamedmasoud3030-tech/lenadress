@@ -107,10 +107,6 @@ function remaining(reservation: Reservation): number {
 function persist(reservations: Reservation[], updated: Reservation): Reservation {
   const next = { ...updated, remainingAmount: remaining(updated) };
   writeCollection(COLLECTION, reservations.map((item) => item.id === next.id ? next : item));
-  // Best-effort Supabase sync - makes Supabase source of truth for production
-  import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
-      pushReservationToSupabase(next);
-    }).catch(() => { /* ignore */ });
   return next;
 }
 
@@ -264,10 +260,6 @@ export function createReservation(input: CreateReservationInput): Reservation {
       summary: `تم إنشاء الحجز ${reservation.reservationNumber} بعدد ${lines.length} بنود.`,
       nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalTotal, securityTotal, lineCount: lines.length, items: lines.map((line) => line.dressCodeSnapshot) },
     });
-    // Best-effort Supabase sync for production launch
-    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
-        pushReservationToSupabase(withRemaining);
-      }).catch(() => { /* ignore */ });
     return withRemaining;
   }
 
@@ -357,10 +349,6 @@ export function createReservation(input: CreateReservationInput): Reservation {
   const withRemaining = { ...reservation, remainingAmount: remaining(reservation) };
   writeCollection(COLLECTION, [withRemaining, ...reservations]);
   recordAudit({ action: 'create', entityType: 'reservation', entityId: reservation.id, summary: `تم إنشاء الحجز ${reservation.reservationNumber} للفستان ${reservation.dressCode}.`, nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalPrice: agreedRentalPrice, securityDepositAmount } });
-  // Best-effort Supabase sync
-  import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
-      pushReservationToSupabase(withRemaining);
-    }).catch(() => { /* ignore */ });
   return withRemaining;
 }
 
@@ -959,10 +947,6 @@ export function cancelReservation(idOrInput: string | CancelReservationInput): v
     nextValues: { status: 'cancelled', cancellationReason: reason, cancellationPolicyAck: policyAck, cancelledAt: now } 
   });
 
-  // Best-effort Supabase sync for cancellation
-  import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
-      pushReservationToSupabase(nextReservation);
-    }).catch(() => { /* ignore */ });
 }
 
 /**

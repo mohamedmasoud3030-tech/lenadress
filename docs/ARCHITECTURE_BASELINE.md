@@ -1,8 +1,8 @@
 # LENA Architecture Migration Baseline
 
-> **Status:** Active migration inventory  
+> **Status:** Historical migration inventory (not an active delivery source)
 > **Owner:** Phase 0.5 and the bounded refactor PRs that follow  
-> **Release surface:** Official Web App + PWA with Supabase as the target source of truth per [ADR 0001](adr/0001-web-pwa-supabase-only.md); Tauri/Desktop code is retained temporarily, out of release scope.
+> **Release surface:** Official Web App + PWA with Supabase as the active source of truth per [ADR 0001](adr/0001-web-pwa-supabase-only.md); Tauri/Desktop code is retained only outside release scope.
 >
 > **Rule:** Update this file when a hotspot is migrated, split, or a new verified coupling is discovered.
 

@@ -6,19 +6,12 @@ import { DRESS_CATEGORIES } from '../../shared/domain/dressConstants';
 /**
  * Data source for the public /landing page's inventory section.
  *
- * The rest of the app is local-first: `getDresses()` reads from this
- * browser's `localStorage` (see @engines/persistence). That is the right
- * choice for a single-device showroom back office, but it means the public
- * landing page — meant to be opened by a customer on her own phone — showed
- * whatever (usually nothing) happened to be in *her* browser's storage
- * rather than the showroom's actual inventory.
+ * The authenticated application uses a local UI cache hydrated from the
+ * authoritative showroom snapshot. A public visitor cannot use that private
+ * snapshot, so this page reads the narrow anonymous catalogue projection.
  *
- * This repository prefers the shared Supabase `dresses` table (readable
- * anonymously for `status = 'available'` rows only, see migration
- * 0013_landing_public_read_available_dresses.sql) and falls back to the
- * local `getDresses()` behaviour when Supabase isn't configured or the
- * request fails, so the page never hard-crashes and local/demo setups keep
- * working exactly as before.
+ * Local inventory is used only by unconfigured development/test environments;
+ * a configured production failure is surfaced instead of showing stale data.
  */
 
 const KNOWN_CATEGORIES = new Set<string>(DRESS_CATEGORIES);
@@ -34,12 +27,12 @@ type SupabaseDressRow = {
   size: string | null;
   rental_price: number | null;
   sale_price: number | null;
-  deposit_amount: number | null;
+  security_deposit_amount: number | null;
   status: string;
   is_for_rent: boolean;
   is_for_sale: boolean;
-  main_image_url: string | null;
-  dress_images?: { image_url: string; sort_order: number | null }[] | null;
+  item_type: string | null;
+  images: string[] | null;
 };
 
 function normalizeCategory(value: string | null): DressCategory {
@@ -51,27 +44,21 @@ function normalizeItemType(value: string | null): InventoryItemType {
 }
 
 function mapSupabaseRowToDress(row: SupabaseDressRow): Dress {
-  const galleryImages = (row.dress_images ?? [])
-    .slice()
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((image) => image.image_url);
-  const images = row.main_image_url ? [row.main_image_url, ...galleryImages] : galleryImages;
+  const images = (row.images ?? []).filter((image) => typeof image === 'string');
 
   return {
     id: row.id,
     code: row.code,
     name: row.name,
     description: row.description ?? '',
-    // The Supabase schema has no item_type column yet; every landing row is
-    // treated as a plain dress until that column exists.
-    itemType: normalizeItemType(null),
+    itemType: normalizeItemType(row.item_type),
     category: normalizeCategory(row.category),
     color: row.color ?? '',
     size: row.size ?? '',
     purchasePrice: 0,
     rentalPrice: row.rental_price ?? 0,
     salePrice: row.sale_price ?? 0,
-    depositAmount: row.deposit_amount ?? 0, // legacy compat
+    depositAmount: row.security_deposit_amount ?? 0, // legacy compat
     status: row.status === 'available' ? 'available' : 'inactive',
     isForRent: row.is_for_rent,
     isForSale: row.is_for_sale,
@@ -91,10 +78,10 @@ export class LandingInventoryError extends Error {
 async function fetchAvailableDressesFromSupabase(): Promise<Dress[]> {
   const client = getSupabaseClient();
   const { data, error } = await client
-    .from('dresses')
-    .select('id, code, name, description, category, color, size, rental_price, sale_price, deposit_amount, status, is_for_rent, is_for_sale, main_image_url, dress_images(image_url, sort_order)')
+    .from('catalogue_items')
+    .select('id, code, name, description, category, color, size, item_type, rental_price, sale_price, security_deposit_amount, status, is_for_rent, is_for_sale, images')
     .eq('status', 'available')
-    .order('created_at', { ascending: false });
+    .order('updated_at', { ascending: false });
 
   if (error) throw new LandingInventoryError('تعذر تحميل المعروض الحالي من الخادم.', error);
   return (data as SupabaseDressRow[] ?? []).map(mapSupabaseRowToDress);
@@ -141,10 +128,8 @@ export async function loadLandingInventory({
     const dresses = await fetchFromSupabase();
     return { dresses, source: 'supabase' };
   } catch (error) {
-    return {
-      dresses: readLocalInventory(),
-      source: 'local',
-      warning: error instanceof Error ? error.message : 'تعذر الاتصال بالخادم، تم عرض البيانات المحلية إن وُجدت.',
-    };
+    throw error instanceof LandingInventoryError
+      ? error
+      : new LandingInventoryError('تعذر تحميل المعروض الحالي من الخادم.', error);
   }
 }

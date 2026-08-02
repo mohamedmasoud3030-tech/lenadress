@@ -59,38 +59,32 @@ test('returns Supabase inventory when the configured request succeeds', async ()
   assert.equal(localCalls, 0);
 });
 
-test('falls back to local inventory and preserves an Error message when Supabase fails', async () => {
+test('fails closed instead of showing stale browser inventory when Supabase fails', async () => {
   const localDresses = [makeDress('fallback')];
 
-  const result = await loadLandingInventory({
-    isSupabaseConfigured: () => true,
-    fetchAvailableDressesFromSupabase: async () => {
-      throw new Error('تعذر تحميل المعروض الحالي من الخادم.');
-    },
-    getAvailableDressesFromLocalStorage: () => localDresses,
-  });
-
-  assert.deepEqual(result, {
-    dresses: localDresses,
-    source: 'local',
-    warning: 'تعذر تحميل المعروض الحالي من الخادم.',
-  });
+  await assert.rejects(
+    loadLandingInventory({
+      isSupabaseConfigured: () => true,
+      fetchAvailableDressesFromSupabase: async () => {
+        throw new Error('تعذر تحميل المعروض الحالي من الخادم.');
+      },
+      getAvailableDressesFromLocalStorage: () => localDresses,
+    }),
+    /تعذر تحميل المعروض الحالي من الخادم/,
+  );
 });
 
-test('uses the generic warning when Supabase rejects with a non-Error value', async () => {
+test('normalizes non-Error Supabase failures without exposing stale data', async () => {
   const localDresses = [makeDress('fallback')];
 
-  const result = await loadLandingInventory({
-    isSupabaseConfigured: () => true,
-    fetchAvailableDressesFromSupabase: () => Promise.reject({ code: 'offline' }),
-    getAvailableDressesFromLocalStorage: () => localDresses,
-  });
-
-  assert.deepEqual(result, {
-    dresses: localDresses,
-    source: 'local',
-    warning: 'تعذر الاتصال بالخادم، تم عرض البيانات المحلية إن وُجدت.',
-  });
+  await assert.rejects(
+    loadLandingInventory({
+      isSupabaseConfigured: () => true,
+      fetchAvailableDressesFromSupabase: () => Promise.reject({ code: 'offline' }),
+      getAvailableDressesFromLocalStorage: () => localDresses,
+    }),
+    /تعذر تحميل المعروض الحالي من الخادم/,
+  );
 });
 
 test('treats an empty Supabase response as a successful shared inventory result', async () => {
