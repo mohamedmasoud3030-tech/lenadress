@@ -960,12 +960,9 @@ export function cancelReservation(idOrInput: string | CancelReservationInput): v
   });
 
   // Best-effort Supabase sync for cancellation
-  try {
-    // Dynamic import to avoid circular dependency
-    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+  import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
       pushReservationToSupabase(nextReservation);
-    });
-  } catch { /* best-effort */ void 0; }
+    }).catch(() => { /* ignore */ });
 }
 
 /**
