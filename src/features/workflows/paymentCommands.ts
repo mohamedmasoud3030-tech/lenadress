@@ -2,15 +2,6 @@ import { commandBoundary, runCommand } from '@engines/workflows';
 import { addPayment, recordReturnSettlement, type ReturnSettlement } from '../payments/payment.service';
 import type { ManualPaymentType, PaymentMethod, PaymentRecord } from '../payments/payment.types';
 
-/**
- * Atomic money commands.
- *
- * A payment touches the ledger, the reservation balance and the audit log. Any
- * partial application would leave the showroom with money recorded against a
- * reservation that does not reflect it, so the whole sequence runs inside one
- * transaction boundary with duplicate-submit protection.
- */
-
 export type RecordPaymentCommandInput = {
   reservationNumber: string;
   paymentDate: string;
@@ -18,6 +9,7 @@ export type RecordPaymentCommandInput = {
   method: PaymentMethod;
   amount: number;
   notes?: string;
+  retentionReason?: string;
   idempotencyKey?: string;
 };
 
@@ -45,6 +37,7 @@ export type SettleReturnCommandInput = {
   lateFee: number;
   damageFee: number;
   idempotencyKey?: string;
+  retentionReason?: string;
 };
 
 export function settleReturnCommand(input: SettleReturnCommandInput): ReturnSettlement {

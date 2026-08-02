@@ -1,4 +1,5 @@
 import type { ConditionPhoto } from '../delivery-return/deliveryReturn.types';
+import type { DepositClassification, FinancialClassificationMetadata } from '../finance/depositClassification';
 
 export type ReservationStatus = 'pending' | 'confirmed' | 'delivered' | 'returned' | 'cancelled' | 'overdue';
 
@@ -44,8 +45,14 @@ export type ContractLine = {
    * `rentalPrice` is the recorded discount for this line.
    */
   listRentalPrice?: number;
-  /** Refundable deposit or down-payment for this line. */
+  /** @deprecated legacy ambiguous refundable deposit or down-payment for this line. */
   depositAmount: number;
+  /** Canonical refundable security deposit for this line. */
+  securityDepositAmount?: number;
+  /** Canonical booking advance paid toward rental for this line (دفعة الحجز) */
+  bookingAdvanceAmount?: number;
+  /** @deprecated legacy compat - use securityDepositAmount */
+  legacyDepositAmount?: number;
   /** Per-line delivery/return state. */
   deliveryStatus: LineDeliveryStatus;
   /** Photographs of the piece as it left the showroom. */
@@ -95,7 +102,29 @@ export type Reservation = {
    * change would look like a concession that was never granted.
    */
   listRentalPrice?: number;
+  /** @deprecated legacy ambiguous; use securityDepositAmount + bookingAdvanceAmount */
   depositAmount: number;
+  /** Canonical refundable security deposit required (التأمين المسترد) */
+  securityDepositAmount?: number;
+  /** Canonical booking advance amount (دفعة الحجز) that reduces rental receivable */
+  bookingAdvanceAmount?: number;
+  /** Amount of booking advance collected toward rental */
+  bookingAdvanceCollectedAmount?: number;
+  /** Amount of rental payments collected (excluding booking advance and deposit) */
+  rentalCollectedAmount?: number;
+  /** Amount of security deposit collected (liability) */
+  securityDepositCollectedAmount?: number;
+  /** Amount of security deposit refunded */
+  securityDepositRefundedAmount?: number;
+  /** Amount of security deposit retained to cover fees */
+  securityDepositRetainedAmount?: number;
+  /** @deprecated legacy compat */
+  legacyDepositAmount?: number;
+  legacyDepositClassification?: DepositClassification;
+  needsFinancialClassification?: boolean;
+  classificationReason?: string;
+  classifiedAt?: string;
+  classifiedBy?: string;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
@@ -103,6 +132,8 @@ export type Reservation = {
   refundedAmount?: number;
   settledDepositAmount?: number;
   retainedDepositAmount?: number;
+  /** Rental refunds (refunds of rental payments, not deposit refunds) */
+  rentalRefundedAmount?: number;
   notes?: string;
   /**
    * Multi-item contract lines.
@@ -115,7 +146,7 @@ export type Reservation = {
    * reservation fields for backward compatibility.
    */
   lines?: ContractLine[];
-};
+} & Partial<FinancialClassificationMetadata>;
 
 export type ReservationFilters = {
   search: string;
@@ -161,6 +192,8 @@ export type CreateReservationLineInput = {
   returnTime?: string;
   rentalPrice?: number;
   depositAmount?: number;
+  securityDepositAmount?: number;
+  bookingAdvanceAmount?: number;
   notes?: string;
 };
 
@@ -176,6 +209,8 @@ export type CreateReservationInput = {
   returnDate: string;
   returnTime?: string;
   depositAmount: number;
+  securityDepositAmount?: number;
+  bookingAdvanceAmount?: number;
   /** Agreed price when a discount is granted; defaults to the catalogue price. */
   rentalPrice?: number;
   notes?: string;
@@ -205,6 +240,8 @@ export type AddContractLineInput = {
   returnTime?: string;
   rentalPrice?: number;
   depositAmount?: number;
+  securityDepositAmount?: number;
+  bookingAdvanceAmount?: number;
   notes?: string;
 };
 
@@ -228,6 +265,8 @@ export type UpdateContractLineInput = {
   returnTime?: string;
   rentalPrice?: number;
   depositAmount?: number;
+  securityDepositAmount?: number;
+  bookingAdvanceAmount?: number;
   notes?: string;
 };
 
@@ -259,3 +298,19 @@ export type LineReturnInput = {
   nextItemStatus: 'inspection' | 'laundry' | 'maintenance' | 'damaged';
   notes?: string;
 };
+
+export function getReservationSecurityDepositAmount(reservation: Reservation): number {
+  return reservation.securityDepositAmount ?? reservation.depositAmount ?? 0;
+}
+
+export function getReservationBookingAdvanceAmount(reservation: Reservation): number {
+  return reservation.bookingAdvanceAmount ?? 0;
+}
+
+export function getLineSecurityDepositAmount(line: ContractLine): number {
+  return line.securityDepositAmount ?? line.depositAmount ?? 0;
+}
+
+export function getLineBookingAdvanceAmount(line: ContractLine): number {
+  return line.bookingAdvanceAmount ?? 0;
+}

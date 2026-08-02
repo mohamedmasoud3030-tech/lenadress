@@ -74,7 +74,7 @@ test('a completed return clears the deposit liability and recognises its fee onc
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 40,
       idempotencyKey: 'diagnosis-finance-rental',
@@ -82,7 +82,7 @@ test('a completed return clears the deposit liability and recognises its fee onc
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 50,
       idempotencyKey: 'diagnosis-finance-deposit',
@@ -132,7 +132,7 @@ test('multi-item rental income is allocated once across the actual contract line
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'diagnosis-allocation-payment',
@@ -168,7 +168,7 @@ test('performance reporting counts and values every line in a multi-item contrac
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'diagnosis-performance-payment',
@@ -213,7 +213,7 @@ test('a successful delivery increments each item rental count exactly once', () 
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'diagnosis-count-payment',
@@ -253,7 +253,7 @@ test('returning every line separately settles and refunds the contract deposit o
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'diagnosis-partial-rental',
@@ -261,7 +261,7 @@ test('returning every line separately settles and refunds the contract deposit o
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 35,
       idempotencyKey: 'diagnosis-partial-deposit',
@@ -317,7 +317,7 @@ test('uncollected excess return fees are not reported as realised income', () =>
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 40,
       idempotencyKey: 'diagnosis-excess-fee-rental',
@@ -325,7 +325,7 @@ test('uncollected excess return fees are not reported as realised income', () =>
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 50,
       idempotencyKey: 'diagnosis-excess-fee-deposit',

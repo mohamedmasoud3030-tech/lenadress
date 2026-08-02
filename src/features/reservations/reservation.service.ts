@@ -1,10 +1,14 @@
 import { generateId, generateNumber, readCollection, writeCollection } from '../../services/localDatabase';
 import { getTodayISO, isValidTime } from '../../shared/utils/date';
-import { calculateReservationRemainingAmount } from '../../shared/utils/financialCalculations.js';
+import {
+  calculateReservationRemainingAmount,
+  calculateRentalOutstanding,
+} from '../../shared/utils/financialCalculations.js';
 import { getReservationAccessories, releaseAccessoriesForReservation } from '../accessories/reservationAccessory.service';
 import { recordAudit } from '../audit/audit.service';
 import { getCustomers } from '../customers/customer.service';
 import { getDresses, markDressRented, updateDressStatus } from '../dresses/dress.service';
+import { getDressSecurityDepositAmount } from '../dresses/dress.types';
 import { assertReservationCanBeCancelled } from '../integrity/integrity.service';
 import { getAppPreferences } from '../preferences/preferences.service';
 import {
@@ -21,6 +25,9 @@ import {
   syncTopLevelFromLines,
   getReservationLines,
   deriveReservationStatus,
+  calculateLinesRentalPrice,
+  calculateLinesSecurityDeposit,
+  calculateLinesBookingAdvance,
 } from './contractLineHelpers';
 import type {
   AvailabilityCheck,
@@ -37,14 +44,23 @@ import type {
   LineDeliveryInput,
   LineReturnInput,
 } from './reservation.types';
+import {
+  getReservationSecurityDepositAmount,
+  getLineSecurityDepositAmount,
+  getLineBookingAdvanceAmount,
+} from './reservation.types';
 import { createSearchMatcher } from '../../shared/utils/search';
 
 const COLLECTION = 'reservations';
 const activeStatuses = ACTIVE_RESERVATION_STATUSES;
 const reservableDressStatuses = new Set(['available', 'reserved', 'rented']);
 const allowedReturnItemStatuses = new Set(['inspection', 'laundry', 'maintenance', 'damaged']);
-type ReservationPaymentType = 'rental' | 'deposit' | 'penalty' | 'refund' | 'adjustment';
-type RecordReservationPaymentInput = { reservationNumber: string; type: ReservationPaymentType; direction: 'income' | 'refund'; amount: number };
+type RecordReservationPaymentInput = {
+  reservationNumber: string;
+  type: string;
+  direction: 'income' | 'refund';
+  amount: number;
+};
 type SettleReservationReturnInput = {
   reservationNumber: string;
   lateFee: number;
@@ -54,10 +70,43 @@ type SettleReservationReturnInput = {
   retainedDepositAmount: number;
   /** Per-line returns have already posted the assessed fees before the final line closes. */
   feesAlreadyAssessed?: boolean;
+  /** Canonical fields for new flow */
+  securityDepositAmount?: number;
+  securityDepositCollectedAmount?: number;
 };
 
-function remaining(reservation: Reservation): number { return calculateReservationRemainingAmount({ totalAmount: reservation.totalAmount, assessedFeesAmount: reservation.assessedFeesAmount, paidAmount: reservation.paidAmount, settledDepositAmount: reservation.settledDepositAmount, refundedAmount: reservation.refundedAmount }); }
-function persist(reservations: Reservation[], updated: Reservation): Reservation { const next = { ...updated, remainingAmount: remaining(updated) }; writeCollection(COLLECTION, reservations.map((item) => item.id === next.id ? next : item)); return next; }
+function remaining(reservation: Reservation): number {
+  // Canonical: rental outstanding excludes security deposit
+  const hasCanonical = reservation.securityDepositAmount !== undefined || reservation.bookingAdvanceAmount !== undefined;
+  if (hasCanonical) {
+    const rentalTotal = reservation.lines && reservation.lines.length > 0
+      ? calculateLinesRentalPrice(reservation.lines)
+      : reservation.rentalPrice;
+    return calculateRentalOutstanding({
+      rentalTotal,
+      assessedFees: reservation.assessedFeesAmount ?? 0,
+      bookingAdvanceCollected: reservation.bookingAdvanceCollectedAmount ?? reservation.bookingAdvanceAmount ?? 0,
+      rentalCollected: reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0,
+      rentalRefunded: reservation.rentalRefundedAmount ?? 0,
+      retainedDeposit: reservation.securityDepositRetainedAmount ?? reservation.retainedDepositAmount ?? 0,
+    });
+  }
+  // Legacy fallback for old backups
+  return calculateReservationRemainingAmount({
+    totalAmount: reservation.totalAmount,
+    assessedFeesAmount: reservation.assessedFeesAmount,
+    paidAmount: reservation.paidAmount,
+    settledDepositAmount: reservation.settledDepositAmount,
+    refundedAmount: reservation.refundedAmount,
+  });
+}
+
+function persist(reservations: Reservation[], updated: Reservation): Reservation {
+  const next = { ...updated, remainingAmount: remaining(updated) };
+  writeCollection(COLLECTION, reservations.map((item) => item.id === next.id ? next : item));
+  return next;
+}
+
 function hydrateOverdueStatus(reservation: Reservation): Reservation {
   // For multi-item reservations, check if any line has a return date in the past
   // and is still out (delivered but not returned)
@@ -85,10 +134,14 @@ function validateOperationDateTime(value: string, label: string): number {
   return timestamp;
 }
 function assertNoPostedMoneyForContractValueChange(reservation: Reservation): void {
-  const hasPostedMoney = reservation.paidAmount > 0
+  const hasPostedMoney = (reservation.paidAmount ?? 0) > 0
+    || (reservation.rentalCollectedAmount ?? 0) > 0
+    || (reservation.bookingAdvanceCollectedAmount ?? 0) > 0
+    || (reservation.securityDepositCollectedAmount ?? 0) > 0
     || (reservation.refundedAmount ?? 0) > 0
     || (reservation.settledDepositAmount ?? 0) > 0
-    || (reservation.retainedDepositAmount ?? 0) > 0;
+    || (reservation.retainedDepositAmount ?? 0) > 0
+    || (reservation.securityDepositRetainedAmount ?? 0) > 0;
   if (hasPostedMoney) {
     throw new Error('لا يمكن تغيير قيمة العقد بعد تسجيل حركة مالية أو مبالغ محصلة عليه.');
   }
@@ -149,6 +202,10 @@ export function createReservation(input: CreateReservationInput): Reservation {
     assertNoLineConflicts(conflictResults);
 
     const totalAmount = calculateLinesTotal(lines);
+    const rentalTotal = calculateLinesRentalPrice(lines);
+    const securityTotal = calculateLinesSecurityDeposit(lines);
+    const bookingAdvanceTotal = calculateLinesBookingAdvance(lines);
+
     const reservation: Reservation = {
       id: generateId(),
       reservationNumber: generateNumber('RSV'),
@@ -171,26 +228,36 @@ export function createReservation(input: CreateReservationInput): Reservation {
       rentalPrice: lines[0].rentalPrice,
       listRentalPrice: lines[0].listRentalPrice,
       depositAmount: lines[0].depositAmount,
+      securityDepositAmount: securityTotal,
+      bookingAdvanceAmount: bookingAdvanceTotal,
+      bookingAdvanceCollectedAmount: 0,
+      rentalCollectedAmount: 0,
+      securityDepositCollectedAmount: 0,
+      securityDepositRefundedAmount: 0,
+      securityDepositRetainedAmount: 0,
       totalAmount,
       paidAmount: 0,
-      remainingAmount: totalAmount,
+      remainingAmount: rentalTotal, // canonical: rental only
       assessedFeesAmount: 0,
       refundedAmount: 0,
       settledDepositAmount: 0,
       retainedDepositAmount: 0,
+      rentalRefundedAmount: 0,
       notes: input.notes?.trim() || undefined,
       lines,
     };
 
-    writeCollection(COLLECTION, [reservation, ...reservations]);
+    // Recalculate remaining via canonical logic
+    const withRemaining = { ...reservation, remainingAmount: remaining(reservation) };
+    writeCollection(COLLECTION, [withRemaining, ...reservations]);
     recordAudit({
       action: 'create',
       entityType: 'reservation',
       entityId: reservation.id,
       summary: `تم إنشاء الحجز ${reservation.reservationNumber} بعدد ${lines.length} بنود.`,
-      nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, lineCount: lines.length, items: lines.map((line) => line.dressCodeSnapshot) },
+      nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalTotal, securityTotal, lineCount: lines.length, items: lines.map((line) => line.dressCodeSnapshot) },
     });
-    return reservation;
+    return withRemaining;
   }
 
   // ── Single-item path (backward compatible) ───────────────────────────
@@ -207,7 +274,11 @@ export function createReservation(input: CreateReservationInput): Reservation {
   const agreedRentalPrice = input.rentalPrice ?? listRentalPrice;
   if (!Number.isFinite(agreedRentalPrice) || agreedRentalPrice < 0) throw new Error('قيمة الإيجار المتفق عليها غير صالحة.');
   if (agreedRentalPrice > listRentalPrice) throw new Error('قيمة الإيجار المتفق عليها لا يمكن أن تتجاوز السعر المسجل للعنصر.');
-  const totalAmount = agreedRentalPrice + input.depositAmount;
+
+  // Canonical handling: securityDepositAmount prefers new field, fallback to legacy depositAmount
+  const securityDepositAmount = input.securityDepositAmount ?? input.depositAmount ?? 0;
+  const bookingAdvanceAmount = input.bookingAdvanceAmount ?? 0;
+  const totalAmount = agreedRentalPrice + securityDepositAmount;
 
   // Create a single line for consistency
   const line: ContractLine = {
@@ -221,7 +292,10 @@ export function createReservation(input: CreateReservationInput): Reservation {
     returnTime,
     rentalPrice: agreedRentalPrice,
     listRentalPrice,
-    depositAmount: input.depositAmount,
+    depositAmount: securityDepositAmount,
+    securityDepositAmount,
+    bookingAdvanceAmount,
+    legacyDepositAmount: input.depositAmount,
     deliveryStatus: 'pending_delivery',
     lateFee: 0,
     damageFee: 0,
@@ -248,21 +322,31 @@ export function createReservation(input: CreateReservationInput): Reservation {
     status: 'confirmed',
     rentalPrice: agreedRentalPrice,
     listRentalPrice,
-    depositAmount: input.depositAmount,
+    depositAmount: securityDepositAmount,
+    securityDepositAmount,
+    bookingAdvanceAmount,
+    bookingAdvanceCollectedAmount: 0,
+    rentalCollectedAmount: 0,
+    securityDepositCollectedAmount: 0,
+    securityDepositRefundedAmount: 0,
+    securityDepositRetainedAmount: 0,
+    legacyDepositAmount: input.depositAmount,
     totalAmount,
     paidAmount: 0,
-    remainingAmount: totalAmount,
+    remainingAmount: agreedRentalPrice,
     assessedFeesAmount: 0,
     refundedAmount: 0,
     settledDepositAmount: 0,
     retainedDepositAmount: 0,
+    rentalRefundedAmount: 0,
     notes: input.notes?.trim() || undefined,
     lines: [line],
   };
 
-  writeCollection(COLLECTION, [reservation, ...reservations]);
-  recordAudit({ action: 'create', entityType: 'reservation', entityId: reservation.id, summary: `تم إنشاء الحجز ${reservation.reservationNumber} للفستان ${reservation.dressCode}.`, nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount } });
-  return reservation;
+  const withRemaining = { ...reservation, remainingAmount: remaining(reservation) };
+  writeCollection(COLLECTION, [withRemaining, ...reservations]);
+  recordAudit({ action: 'create', entityType: 'reservation', entityId: reservation.id, summary: `تم إنشاء الحجز ${reservation.reservationNumber} للفستان ${reservation.dressCode}.`, nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalPrice: agreedRentalPrice, securityDepositAmount } });
+  return withRemaining;
 }
 
 /**
@@ -290,6 +374,8 @@ export function addContractLine(input: AddContractLineInput): Reservation {
     returnTime: defaults.returnTime,
     rentalPrice: input.rentalPrice,
     depositAmount: input.depositAmount,
+    securityDepositAmount: input.securityDepositAmount,
+    bookingAdvanceAmount: input.bookingAdvanceAmount,
     notes: input.notes,
   };
 
@@ -366,10 +452,10 @@ export function updateContractLine(input: UpdateContractLineInput): Reservation 
   const line = lines[lineIndex];
 
   // If the line is delivered, only allow date/notes changes, not pricing
-  if ((line.deliveryStatus === 'delivered' || line.deliveryStatus === 'late') && (input.rentalPrice !== undefined || input.depositAmount !== undefined)) {
+  if ((line.deliveryStatus === 'delivered' || line.deliveryStatus === 'late') && (input.rentalPrice !== undefined || input.depositAmount !== undefined || input.securityDepositAmount !== undefined || input.bookingAdvanceAmount !== undefined)) {
     throw new Error('لا يمكن تعديل تسعير بند تم تسليمه.');
   }
-  if (input.rentalPrice !== undefined || input.depositAmount !== undefined) {
+  if (input.rentalPrice !== undefined || input.depositAmount !== undefined || input.securityDepositAmount !== undefined || input.bookingAdvanceAmount !== undefined) {
     assertNoPostedMoneyForContractValueChange(reservation);
   }
 
@@ -380,7 +466,9 @@ export function updateContractLine(input: UpdateContractLineInput): Reservation 
     ...(input.returnDate !== undefined && { returnDate: input.returnDate }),
     ...(input.returnTime !== undefined && { returnTime: normalizeTimeInput(input.returnTime, 'وقت الإرجاع') }),
     ...(input.rentalPrice !== undefined && { rentalPrice: input.rentalPrice }),
-    ...(input.depositAmount !== undefined && { depositAmount: input.depositAmount }),
+    ...(input.depositAmount !== undefined && { depositAmount: input.depositAmount, securityDepositAmount: input.depositAmount }),
+    ...(input.securityDepositAmount !== undefined && { securityDepositAmount: input.securityDepositAmount, depositAmount: input.securityDepositAmount }),
+    ...(input.bookingAdvanceAmount !== undefined && { bookingAdvanceAmount: input.bookingAdvanceAmount }),
     ...(input.notes !== undefined && { notes: input.notes?.trim() || undefined }),
   };
 
@@ -393,8 +481,13 @@ export function updateContractLine(input: UpdateContractLineInput): Reservation 
   if (updatedLine.rentalPrice > (updatedLine.listRentalPrice ?? line.rentalPrice)) {
     throw new Error('قيمة الإيجار المتفق عليها لا يمكن أن تتجاوز السعر المسجل للعنصر.');
   }
-  if (!Number.isFinite(updatedLine.depositAmount) || updatedLine.depositAmount < 0) {
-    throw new Error('قيمة العربون غير صالحة.');
+  const secDep = getLineSecurityDepositAmount(updatedLine);
+  if (!Number.isFinite(secDep) || secDep < 0) {
+    throw new Error('قيمة التأمين المسترد غير صالحة.');
+  }
+  const bookAdv = getLineBookingAdvanceAmount(updatedLine);
+  if (!Number.isFinite(bookAdv) || bookAdv < 0) {
+    throw new Error('قيمة دفعة الحجز غير صالحة.');
   }
 
   // If dates changed, re-check conflicts for this line
@@ -421,12 +514,16 @@ export function updateContractLine(input: UpdateContractLineInput): Reservation 
       returnDate: line.returnDate,
       rentalPrice: line.rentalPrice,
       depositAmount: line.depositAmount,
+      securityDepositAmount: getLineSecurityDepositAmount(line),
+      bookingAdvanceAmount: getLineBookingAdvanceAmount(line),
     },
     nextValues: {
       pickupDate: updatedLine.pickupDate,
       returnDate: updatedLine.returnDate,
       rentalPrice: updatedLine.rentalPrice,
       depositAmount: updatedLine.depositAmount,
+      securityDepositAmount: getLineSecurityDepositAmount(updatedLine),
+      bookingAdvanceAmount: getLineBookingAdvanceAmount(updatedLine),
     },
   });
   return persist(reservations, updated);
@@ -478,6 +575,8 @@ export function rescheduleReservation(input: RescheduleReservationInput): Reserv
           dressNameSnapshot: dress.name,
           rentalPrice: dress.rentalPrice,
           listRentalPrice: dress.rentalPrice,
+          securityDepositAmount: getDressSecurityDepositAmount(dress),
+          depositAmount: getDressSecurityDepositAmount(dress),
         } : l);
       }
     }
@@ -539,7 +638,7 @@ export function rescheduleReservation(input: RescheduleReservationInput): Reserv
       excludeReservationNumber: reservation.reservationNumber,
     }, accessoryLinks, reservations)));
 
-  const totalAmount = nextItem.rentalPrice + reservation.depositAmount;
+  const totalAmount = nextItem.rentalPrice + getReservationSecurityDepositAmount(reservation);
   const updated = persist(reservations, {
     ...reservation,
     ...nextItem,
@@ -562,26 +661,139 @@ export function rescheduleReservation(input: RescheduleReservationInput): Reserv
 }
 
 export function recordReservationPayment(input: RecordReservationPaymentInput): Reservation {
-  const reservations = getReservations(); const reservation = reservations.find((item) => item.reservationNumber === input.reservationNumber);
+  const reservations = getReservations();
+  const reservation = reservations.find((item) => item.reservationNumber === input.reservationNumber);
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
   if (reservation.status === 'cancelled') throw new Error('لا يمكن تسجيل حركة مالية على حجز ملغي.');
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('قيمة الدفعة يجب أن تكون أكبر من صفر.');
   if (input.type === 'refund' && input.direction !== 'refund') throw new Error('حركة الاسترجاع غير صالحة.');
   if (input.type !== 'refund' && input.direction === 'refund') throw new Error('اختاري نوع حركة مالية مناسب للاسترجاع.');
-  if (input.direction === 'refund' && input.amount > reservation.paidAmount - (reservation.refundedAmount ?? 0)) throw new Error('قيمة الاسترجاع تتجاوز المبلغ المحصل فعلياً على الحجز.');
-  const extra = input.type === 'penalty' || input.type === 'adjustment';
-  if (input.direction === 'income' && !extra && input.amount > reservation.remainingAmount) throw new Error('قيمة الدفعة تتجاوز الرصيد المتبقي على الحجز.');
-  return persist(reservations, { ...reservation, paidAmount: input.direction === 'income' ? reservation.paidAmount + input.amount : reservation.paidAmount, refundedAmount: (reservation.refundedAmount ?? 0) + (input.direction === 'refund' ? input.amount : 0), assessedFeesAmount: (reservation.assessedFeesAmount ?? 0) + (extra ? input.amount : 0) });
+  if (input.direction === 'refund') {
+    // For rental refunds, check against rental collected
+    const rentalCollected = reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0;
+    const rentalRefunded = reservation.rentalRefundedAmount ?? 0;
+    // Old logic: check against paid - refunded total
+    const legacyAvailable = (reservation.paidAmount ?? 0) - (reservation.refundedAmount ?? 0);
+    if (input.amount > legacyAvailable && input.amount > (rentalCollected - rentalRefunded)) {
+      throw new Error('قيمة الاسترجاع تتجاوز المبلغ المحصل فعلياً على الحجز.');
+    }
+  }
+  const isFee = input.type === 'penalty' || input.type === 'adjustment';
+  const isBookingAdvance = input.type === 'booking_advance';
+  const isRental = input.type === 'rental' || input.type === 'rental_payment';
+  const isSecurityDepositCollection = input.type === 'security_deposit_collection' || input.type === 'deposit';
+
+  if (input.direction === 'income' && !isFee) {
+    // Security deposit collection does NOT reduce rental remaining, so it should NOT be checked against remaining
+    if (isSecurityDepositCollection) {
+      // Allow any amount up to security deposit required?
+      // For now, allow but ensure not negative liability later
+    } else {
+      // Rental and booking advance must not exceed rental remaining (excluding deposit)
+      const rentalRemaining = remaining(reservation);
+      if (input.amount > rentalRemaining + 1e-6) {
+        // For backward compat, if legacy remaining includes deposit, also check legacy
+        const legacyRemaining = calculateReservationRemainingAmount({
+          totalAmount: reservation.totalAmount,
+          assessedFeesAmount: reservation.assessedFeesAmount,
+          paidAmount: reservation.paidAmount,
+          settledDepositAmount: reservation.settledDepositAmount,
+          refundedAmount: reservation.refundedAmount,
+        });
+        if (input.amount > rentalRemaining && input.amount > legacyRemaining) {
+          throw new Error('قيمة الدفعة تتجاوز الرصيد المتبقي على الحجز.');
+        }
+      }
+    }
+  }
+
+  // Update reservation financials based on canonical types
+  const nextReservation: Reservation = { ...reservation };
+
+  if (input.direction === 'income') {
+    if (isBookingAdvance) {
+      nextReservation.bookingAdvanceCollectedAmount = (reservation.bookingAdvanceCollectedAmount ?? reservation.bookingAdvanceAmount ?? 0) + input.amount;
+      nextReservation.bookingAdvanceAmount = nextReservation.bookingAdvanceCollectedAmount;
+      nextReservation.paidAmount = (reservation.rentalCollectedAmount ?? 0) + (nextReservation.bookingAdvanceCollectedAmount ?? 0) + (reservation.bookingAdvanceCollectedAmount ?? 0 ? 0 : 0);
+      // Actually paidAmount should be rental + booking advance for legacy compat
+      nextReservation.paidAmount = (reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0) + input.amount;
+      // Keep rentalCollected separate
+      nextReservation.rentalCollectedAmount = reservation.rentalCollectedAmount ?? 0;
+      // For rental payment accounting, booking advance is separate from rental collected
+      // But paidAmount includes both for legacy remaining fallback
+    } else if (isRental) {
+      nextReservation.rentalCollectedAmount = (reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0) + input.amount;
+      nextReservation.paidAmount = (reservation.paidAmount ?? 0) + input.amount;
+    } else if (isSecurityDepositCollection) {
+      nextReservation.securityDepositCollectedAmount = (reservation.securityDepositCollectedAmount ?? 0) + input.amount;
+      // paidAmount should NOT include security deposit for canonical, but keep legacy paid for old logic?
+      // For new, paidAmount is rental+booking only, so don't add deposit to paidAmount
+      // However to preserve legacy totalAmount logic, we keep paidAmount excluding deposit for new records
+      // If reservation has canonical fields, don't add to paidAmount
+      if (reservation.securityDepositAmount === undefined && reservation.depositAmount !== undefined) {
+        // Legacy: add to paidAmount
+        nextReservation.paidAmount = (reservation.paidAmount ?? 0) + input.amount;
+      }
+    } else {
+      nextReservation.paidAmount = input.direction === 'income' ? (reservation.paidAmount ?? 0) + input.amount : reservation.paidAmount;
+    }
+
+    if (isFee) {
+      nextReservation.assessedFeesAmount = (reservation.assessedFeesAmount ?? 0) + input.amount;
+    }
+  } else {
+    // refund
+    if (isRental || input.type === 'refund') {
+      nextReservation.rentalRefundedAmount = (reservation.rentalRefundedAmount ?? 0) + input.amount;
+      nextReservation.refundedAmount = (reservation.refundedAmount ?? 0) + input.amount;
+    } else {
+      nextReservation.refundedAmount = (reservation.refundedAmount ?? 0) + input.amount;
+    }
+  }
+
+  return persist(reservations, nextReservation);
 }
 
 export function settleReservationReturn(input: SettleReservationReturnInput): Reservation {
-  const reservations = getReservations(); const reservation = reservations.find((item) => item.reservationNumber === input.reservationNumber);
+  const reservations = getReservations();
+  const reservation = reservations.find((item) => item.reservationNumber === input.reservationNumber);
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
   const eligibleStatuses = input.feesAlreadyAssessed ? ['delivered', 'overdue', 'returned'] : ['delivered', 'overdue'];
   if (!eligibleStatuses.includes(reservation.status)) throw new Error('الحجز غير مؤهل لتسوية الاسترجاع حالياً.');
-  if ((reservation.settledDepositAmount ?? 0) > 0) throw new Error('تمت تسوية عربون هذا الحجز بالفعل.');
+  if ((reservation.settledDepositAmount ?? 0) > 0 && (reservation.securityDepositAmount === undefined)) {
+    throw new Error('تمت تسوية عربون هذا الحجز بالفعل.');
+  }
+  // For canonical, check if security deposit already fully settled
+  if (reservation.securityDepositAmount !== undefined) {
+    const collected = reservation.securityDepositCollectedAmount ?? 0;
+    const refunded = reservation.securityDepositRefundedAmount ?? 0;
+    const retained = reservation.securityDepositRetainedAmount ?? 0;
+    const liability = Math.max(collected - refunded - retained, 0);
+    if (liability === 0 && collected > 0 && (reservation.settledDepositAmount ?? 0) > 0) {
+      throw new Error('تمت تسوية التأمين المسترد لهذا الحجز بالفعل.');
+    }
+    // Prevent settlement if needs classification
+    if (reservation.needsFinancialClassification) {
+      throw new Error('هذا الحجز يحتاج مراجعة مالية لتصنيف العربون قبل التسوية.');
+    }
+  }
+
   if (![input.lateFee, input.damageFee, input.refundAmount, input.settledDepositAmount, input.retainedDepositAmount].every((amount) => Number.isFinite(amount) && amount >= 0)) throw new Error('بيانات التسوية المالية غير صالحة.');
-  if (input.refundAmount + input.retainedDepositAmount > input.settledDepositAmount) throw new Error('إجمالي رد العربون والعربون المحتجز يتجاوز قيمة العربون المسوّاة.');
+  if (input.refundAmount + input.retainedDepositAmount > input.settledDepositAmount + 1e-6) {
+    // For canonical, also check against liability
+    if (reservation.securityDepositAmount !== undefined) {
+      const collected = reservation.securityDepositCollectedAmount ?? 0;
+      const refunded = reservation.securityDepositRefundedAmount ?? 0;
+      const retained = reservation.securityDepositRetainedAmount ?? 0;
+      const available = Math.max(collected - refunded - retained, 0);
+      if (input.refundAmount + input.retainedDepositAmount > available + 1e-6) {
+        throw new Error('إجمالي رد التأمين والتأمين المحتجز يتجاوز المبلغ المتاح.');
+      }
+    } else {
+      throw new Error('إجمالي رد العربون والعربون المحتجز يتجاوز قيمة العربون المسوّاة.');
+    }
+  }
+
   return persist(reservations, {
     ...reservation,
     assessedFeesAmount: (reservation.assessedFeesAmount ?? 0)
@@ -589,6 +801,10 @@ export function settleReservationReturn(input: SettleReservationReturnInput): Re
     refundedAmount: (reservation.refundedAmount ?? 0) + input.refundAmount,
     settledDepositAmount: (reservation.settledDepositAmount ?? 0) + input.settledDepositAmount,
     retainedDepositAmount: (reservation.retainedDepositAmount ?? 0) + input.retainedDepositAmount,
+    // Canonical
+    securityDepositRefundedAmount: (reservation.securityDepositRefundedAmount ?? 0) + input.refundAmount,
+    securityDepositRetainedAmount: (reservation.securityDepositRetainedAmount ?? 0) + input.retainedDepositAmount,
+    securityDepositCollectedAmount: reservation.securityDepositCollectedAmount ?? input.securityDepositCollectedAmount ?? 0,
   });
 }
 
@@ -730,4 +946,8 @@ export function returnContractLine(input: LineReturnInput): Reservation {
   });
 
   return persist(reservations, updated);
+}
+
+export function getReservationsNeedingFinancialClassification(): Reservation[] {
+  return getReservations().filter((r) => r.needsFinancialClassification);
 }

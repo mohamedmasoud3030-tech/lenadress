@@ -181,14 +181,16 @@ function getDressMoney(itemCode: string, from: string, to: string, payments: Pay
       };
     });
 
+  const RENTAL_INCOME_TYPES = new Set(['rental', 'rental_payment', 'booking_advance']);
+  const RETAINED_TYPES = new Set(['retained_deposit', 'security_deposit_retention']);
   const rentalCollected = itemPayments
-    .filter(({ payment }) => payment.direction === 'income' && payment.type === 'rental')
+    .filter(({ payment }) => payment.direction === 'income' && RENTAL_INCOME_TYPES.has(payment.type))
     .reduce((total, entry) => total + entry.amount, 0);
   const feesCollected = itemPayments
     .filter(({ payment }) => FEE_TYPES.has(payment.type) && payment.direction === 'income')
     .reduce((total, entry) => total + entry.amount, 0);
   const retainedDeposit = itemPayments
-    .filter(({ payment }) => payment.type === 'retained_deposit' && payment.direction === 'settlement')
+    .filter(({ payment }) => RETAINED_TYPES.has(payment.type) && payment.direction === 'settlement')
     .reduce((total, entry) => total + entry.amount, 0);
   // Automatic return refunds are deposits, not reversals of rental revenue.
   const rentalRefunds = itemPayments
@@ -217,15 +219,15 @@ function getDressMoney(itemCode: string, from: string, to: string, payments: Pay
   const revenueLines: PerformanceRevenueLine[] = [
     ...itemPayments
       .filter(({ payment }) => (
-        (payment.direction === 'income' && (payment.type === 'rental' || FEE_TYPES.has(payment.type)))
-        || (payment.direction === 'settlement' && payment.type === 'retained_deposit')
+        (payment.direction === 'income' && (RENTAL_INCOME_TYPES.has(payment.type) || FEE_TYPES.has(payment.type)))
+        || (payment.direction === 'settlement' && RETAINED_TYPES.has(payment.type))
       ))
       .map(({ payment, amount }) => ({
         reference: payment.paymentNumber,
         date: payment.paymentDate,
-        kind: payment.type === 'rental'
+        kind: RENTAL_INCOME_TYPES.has(payment.type)
           ? ('rental' as const)
-          : payment.type === 'retained_deposit'
+          : RETAINED_TYPES.has(payment.type)
             ? ('retained_deposit' as const)
             : ('fee' as const),
         amount,

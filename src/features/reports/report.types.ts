@@ -59,6 +59,12 @@ export type FinancialSummary = {
   feesCollected: number;
   /** Rental + sale + fees + retained deposits (excludes refundable deposits). */
   recognisedIncome: number;
+  /** Booking advance collected (دفعة الحجز) */
+  bookingAdvanceCollected?: number;
+  /** Security deposit collected (التأمين المسترد) */
+  securityDepositCollected?: number;
+  securityDepositRefunded?: number;
+  securityDepositRetained?: number;
 };
 
 export type DateRangeFilter = {

@@ -4,6 +4,7 @@ import { addExpense } from '../expenses/expense.service';
 import { getReservations } from '../reservations/reservation.service';
 import { assertNoConflicts, findAccessoryConflicts } from '../reservations/reservationConflicts';
 import { getAccessories, getAccessoryById, isAccessoryBookable, updateAccessoryStatus } from './accessory.service';
+import { getAccessorySecurityDepositAmount, getReservationAccessorySecurityDeposit } from './accessory.types';
 import type {
   Accessory,
   AccessoryReturnCondition,
@@ -38,11 +39,20 @@ const RETURN_CONDITION_STATUS = {
 } as const;
 
 export function getReservationAccessories(): ReservationAccessory[] {
-  return readCollection<ReservationAccessory>(COLLECTION, []);
+  return readCollection<ReservationAccessory>(COLLECTION, []).map((link) => ({
+    ...link,
+    securityDepositAmount: getReservationAccessorySecurityDeposit(link),
+    depositAmount: getReservationAccessorySecurityDeposit(link),
+  }));
 }
 
 function saveLinks(links: ReservationAccessory[]): void {
-  writeCollection(COLLECTION, links);
+  const normalized = links.map((link) => ({
+    ...link,
+    securityDepositAmount: getReservationAccessorySecurityDeposit(link),
+    depositAmount: getReservationAccessorySecurityDeposit(link),
+  }));
+  writeCollection(COLLECTION, normalized);
 }
 
 export function getAccessoriesForReservation(reservationNumber: string): ReservationAccessory[] {
@@ -89,6 +99,7 @@ export function attachAccessoryToReservation(input: AttachAccessoryInput): Reser
     ),
   );
 
+  const securityDeposit = getAccessorySecurityDepositAmount(accessory);
   const link: ReservationAccessory = {
     id: generateId(),
     reservationNumber: reservation.reservationNumber,
@@ -96,7 +107,9 @@ export function attachAccessoryToReservation(input: AttachAccessoryInput): Reser
     accessoryCodeSnapshot: accessory.code,
     accessoryNameSnapshot: accessory.name,
     rentalPrice: accessory.rentalPrice ?? 0,
-    depositAmount: accessory.depositAmount ?? 0,
+    depositAmount: securityDeposit,
+    securityDepositAmount: securityDeposit,
+    bookingAdvanceAmount: 0,
     notes: input.notes?.trim() || undefined,
   };
 
@@ -107,7 +120,7 @@ export function attachAccessoryToReservation(input: AttachAccessoryInput): Reser
     entityType: 'accessory',
     entityId: link.id,
     summary: `تمت إضافة الملحق ${accessory.code} إلى الحجز ${reservation.reservationNumber}.`,
-    nextValues: { reservationNumber: reservation.reservationNumber, accessoryCode: accessory.code },
+    nextValues: { reservationNumber: reservation.reservationNumber, accessoryCode: accessory.code, securityDepositAmount: securityDeposit },
   });
   return link;
 }

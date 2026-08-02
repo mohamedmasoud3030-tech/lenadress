@@ -86,7 +86,7 @@ test('a collected refundable deposit is a liability, never revenue', () => {
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 50,
       idempotencyKey: 'p-dep',
@@ -118,7 +118,7 @@ test('a retained deposit becomes income while the refunded part clears the liabi
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 40,
       idempotencyKey: 'p-rent',
@@ -126,7 +126,7 @@ test('a retained deposit becomes income while the refunded part clears the liabi
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 50,
       idempotencyKey: 'p-dep2',
@@ -269,7 +269,7 @@ test('reports, the finance layer and the daily close read the same movements', (
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 40,
       idempotencyKey: 'p1',
@@ -312,7 +312,7 @@ test('reports, the finance layer and the daily close read the same movements', (
   }
 });
 
-test('outstanding rental balances match the reservation ledger', () => {
+test('outstanding rental balances match the reservation ledger - deposit excluded', () => {
   installStorage();
   try {
     const customer = addCustomer({ name: 'مريم', phone: '90000001', status: 'normal' });
@@ -323,20 +323,22 @@ test('outstanding rental balances match the reservation ledger', () => {
       pickupDate: today,
       returnDate: futureDate(2),
       depositAmount: 50,
+      securityDepositAmount: 50,
       idempotencyKey: 'r5',
     });
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 40,
       idempotencyKey: 'p2',
     });
 
     const outstanding = getOutstandingRentalBalances();
-    assert.equal(outstanding.length, 1);
-    assert.equal(outstanding[0].remainingAmount, 50, 'the unpaid deposit is still outstanding');
+    // After paying rental 40 fully (rentalPrice 40), remaining rental should be 0
+    // Security deposit 50 is not part of rental remaining
+    assert.equal(outstanding.length, 0, 'rental fully paid, no outstanding rental; deposit is liability not rental balance');
   } finally {
     cleanup();
   }

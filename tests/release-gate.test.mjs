@@ -153,7 +153,7 @@ test('a refundable deposit is never treated as revenue', async () => {
   assert.match(finance, /depositRetained/);
   assert.match(finance, /recognisedIncome/);
   // Recognised income must be built from realised money, not from gross collections.
-  assert.match(finance, /const recognisedIncome = netRentalRevenue \+ saleRevenue \+ totalFees \+ adjustments/);
+  assert.match(finance, /const recognisedIncome = netRentalRevenue \+ netBookingAdvanceRevenue \+ saleRevenue \+ totalFees \+ adjustments/);
   assert.doesNotMatch(finance, /const recognisedIncome = [^;]*depositRetained/, 'retained cash must not duplicate its settlement fee');
 });
 

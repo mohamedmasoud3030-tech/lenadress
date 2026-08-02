@@ -122,7 +122,9 @@ test('the rental contract states the deposit is refundable and lists the terms',
   installStorage();
   try {
     const html = buildRentalContractHtml(reservation());
-    assert.match(html, /العربون مبلغ تأمين مسترد/);
+    assert.match(html, /التأمين المسترد/);
+    assert.match(html, /دفعة الحجز/);
+    assert.match(html, /المتبقي من الإيجار/);
     assert.match(html, /الشروط والأحكام/);
     assert.match(html, /رسوم تأخير/);
     assert.match(html, /توقيع العميلة/);

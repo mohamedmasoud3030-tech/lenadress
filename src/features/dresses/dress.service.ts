@@ -1,4 +1,4 @@
-import { Dress, DressFilters } from './dress.types';
+import { Dress, DressFilters, getDressSecurityDepositAmount } from './dress.types';
 import { allocateCode, generateId, migrateLegacyInventoryStorage, readCollection, reconcileCounter, writeCollection } from '../../services/localDatabase';
 import { recordAudit } from '../audit/audit.service';
 import { assertDressCanBeArchived, getDressHardDeleteBlockers } from '../integrity/integrity.service';
@@ -16,15 +16,10 @@ function getRetiredCodes(): RetiredCode[] {
   return readCollection<RetiredCode>(RETIRED_CODES_COLLECTION, []);
 }
 
-/**
- * Every code the system has ever handed out and can still observe: live items
- * plus codes retired by deletion. Used so a code is never reused.
- */
 function getReservedCodes(dresses: Dress[]): string[] {
   return [...dresses.map((dress) => dress.code), ...getRetiredCodes().map((entry) => entry.code)].filter(Boolean);
 }
 
-/** Raises the durable counter after migration or restore so codes stay monotonic. */
 export function reconcileInventoryCodeCounter(): number {
   return reconcileCounter(INVENTORY_CODE_COUNTER, INVENTORY_CODE_PREFIX, getReservedCodes(getDressesFromStorage()));
 }
@@ -35,12 +30,26 @@ export function allocateInventoryCode(): string {
 
 function getDressesFromStorage(): Dress[] {
   migrateLegacyInventoryStorage();
-  return readCollection<Dress>(INVENTORY_COLLECTION, []);
+  return readCollection<Dress>(INVENTORY_COLLECTION, []).map((d) => {
+    const rec = d as unknown as Record<string, unknown>;
+    const def = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : 0;
+    const dep = typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : 0;
+    return {
+      ...d,
+      defaultSecurityDepositAmount: def,
+      depositAmount: dep,
+    };
+  });
 }
 
 function saveDressesToStorage(dresses: Dress[]): void {
   migrateLegacyInventoryStorage();
-  writeCollection<Dress>(INVENTORY_COLLECTION, dresses);
+  const normalized = dresses.map((d) => ({
+    ...d,
+    defaultSecurityDepositAmount: getDressSecurityDepositAmount(d),
+    depositAmount: getDressSecurityDepositAmount(d),
+  }));
+  writeCollection<Dress>(INVENTORY_COLLECTION, normalized);
 }
 
 export function getDresses(): Dress[] {
@@ -48,7 +57,6 @@ export function getDresses(): Dress[] {
 }
 
 export function getDressesAsync(): Promise<Dress[]> {
-  // Returns a promise for future IndexedDB compatibility
   return Promise.resolve(getDressesFromStorage());
 }
 
@@ -58,18 +66,20 @@ export function getDressByCode(code: string): Dress | undefined {
 }
 
 export type AddDressServiceInput = Omit<Dress, 'id' | 'code' | 'timesRented' | 'barcode'> & {
-  /** Accepted temporarily for compatibility; persisted identity is always derived from the allocated code. */
   barcode?: string;
 };
 
-function assertValidDress(input: Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'>): void {
+function assertValidDress(input: Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number }): void {
   if (!input.name.trim()) throw new Error('اسم العنصر مطلوب.');
+
+  const rec = input as unknown as Record<string, unknown>;
+  const securityDeposit = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : input.depositAmount ?? 0;
 
   const moneyFields: Array<[number, string]> = [
     [input.purchasePrice, 'سعر الشراء'],
     [input.rentalPrice, 'سعر الإيجار'],
     [input.salePrice, 'سعر البيع'],
-    [input.depositAmount, 'مبلغ التأمين'],
+    [securityDeposit, 'مبلغ التأمين المسترد'],
   ];
   moneyFields.forEach(([value, label]) => {
     if (!Number.isFinite(value) || value < 0) {
@@ -83,9 +93,11 @@ function assertValidDress(input: Pick<Dress, 'name' | 'purchasePrice' | 'rentalP
 }
 
 export function addDress(input: AddDressServiceInput): Dress {
-  assertValidDress(input);
+  assertValidDress(input as unknown as Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number });
   const dresses = getDressesFromStorage();
   const code = allocateInventoryCode();
+
+  const securityDeposit = getDressSecurityDepositAmount(input as Dress);
 
   const newDress: Dress = {
     ...input,
@@ -95,6 +107,8 @@ export function addDress(input: AddDressServiceInput): Dress {
     code,
     barcode: generateDressBarcodeValue(code),
     timesRented: 0,
+    defaultSecurityDepositAmount: securityDeposit,
+    depositAmount: securityDeposit,
   };
 
   dresses.push(newDress);
@@ -110,6 +124,7 @@ export function addDress(input: AddDressServiceInput): Dress {
       status: newDress.status,
       isForRent: newDress.isForRent,
       isForSale: newDress.isForSale,
+      defaultSecurityDepositAmount: securityDeposit,
     },
   });
   return newDress;
@@ -122,7 +137,7 @@ export function updateDress(code: string, updates: Partial<Dress>): Dress | null
   if (index === -1) return null;
 
   const current = dresses[index];
-  const next: Dress = {
+  const nextRaw: Dress = {
     ...current,
     ...updates,
     id: current.id,
@@ -130,7 +145,13 @@ export function updateDress(code: string, updates: Partial<Dress>): Dress | null
     barcode: current.barcode,
     timesRented: current.timesRented,
   };
-  assertValidDress(next);
+  const sec = getDressSecurityDepositAmount(nextRaw);
+  const next: Dress = {
+    ...nextRaw,
+    defaultSecurityDepositAmount: sec,
+    depositAmount: sec,
+  };
+  assertValidDress(next as unknown as Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number });
   dresses[index] = next;
 
   saveDressesToStorage(dresses);
@@ -141,7 +162,6 @@ export function updateDressStatus(code: string, status: Dress['status']): Dress 
   return updateDress(code, { status });
 }
 
-/** Marks one completed handover without exposing the historical counter to callers. */
 export function markDressRented(code: string): Dress | null {
   const dresses = getDressesFromStorage();
   const index = dresses.findIndex((dress) => dress.code === code);
@@ -214,10 +234,6 @@ export function summarizeDresses(): { total: number; available: number; rented: 
   };
 }
 
-/**
- * Archives an item instead of deleting it. Archived items stay in storage so
- * reports, invoices and history keep resolving, but they leave the working set.
- */
 export function archiveDress(code: string): Dress | null {
   const dresses = getDressesFromStorage();
   const dress = dresses.find((item) => item.code === code);
@@ -261,10 +277,6 @@ export function getDressDeletionBlockers(code: string): string[] {
   return getDressHardDeleteBlockers(dress.code, dress.status);
 }
 
-/**
- * Hard delete is only permitted for a brand-new item with no operational or
- * financial history. The code is retired permanently and never reused.
- */
 export function deleteDress(code: string): boolean {
   const dresses = getDressesFromStorage();
   const dress = dresses.find((item) => item.code === code);
