@@ -5,6 +5,10 @@ import {
   fetchAvailableDressesFromSupabase,
   loadLandingInventory,
 } from '../src/pages/landing/landingDress.repository.ts';
+import {
+  buildAppointmentInquiryMessage,
+  buildQuickInquiryMessage,
+} from '../src/pages/landing/landingWhatsapp.ts';
 
 function makeDress(id) {
   return {
@@ -157,4 +161,17 @@ test('public catalogue fails closed when REST returns an error status', async ()
     }),
     /تعذر تحميل المعروض الحالي من الخادم/,
   );
+});
+
+test('public booking messages identify the exact item and do not promise an unconfirmed reservation', () => {
+  const item = { code: 'D-101', name: 'فستان سهرة كحلي', size: 'M', color: 'كحلي' };
+  const booking = buildAppointmentInquiryMessage(item);
+  const inquiry = buildQuickInquiryMessage(item);
+
+  assert.match(booking, /طلب موعد/);
+  assert.match(booking, /D-101/);
+  assert.match(booking, /المقاس: M/);
+  assert.match(booking, /تأكيد الموعد وتوفر القطعة/);
+  assert.doesNotMatch(booking, /تم تأكيد|حجز مؤكد/);
+  assert.match(inquiry, /D-101/);
 });
