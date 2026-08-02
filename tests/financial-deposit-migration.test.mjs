@@ -27,7 +27,6 @@ function writeRaw(store, collection, items) {
 test('unresolved legacy depositAmount must not be silently copied into canonical field as confirmed', async () => {
   const store = installStorage();
   try {
-    const { readCollection } = await import('../src/engines/persistence/persistenceEngine.ts');
     const { resetMigrationMarkers } = await import('../src/engines/persistence/migrationRunner.ts');
     const { migrateFinancialDepositFields } = await import('../src/engines/persistence/financialDepositMigration.ts');
 
