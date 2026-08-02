@@ -81,6 +81,10 @@ test('authenticated staff hydrates cloud state and cannot open administrator set
   await page.getByLabel('البريد الإلكتروني').fill('staff@example.test');
   await page.getByLabel('كلمة المرور').fill('valid-test-password');
   await page.getByRole('button', { name: 'دخول' }).click();
+  await expect(page.getByRole('heading', { name: 'تأمين هذا الجهاز' })).toBeVisible();
+  await page.getByLabel('رقم القفل الجديد').fill('123456');
+  await page.getByLabel('تأكيد رقم القفل').fill('123456');
+  await page.getByRole('button', { name: 'تأمين الجهاز والمتابعة' }).click();
   await expect(page.getByText('لوحة التحكم', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('الإعدادات والنسخ', { exact: true })).toHaveCount(0);
   await page.goto('/preferences');
