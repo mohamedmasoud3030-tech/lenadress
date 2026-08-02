@@ -1,6 +1,7 @@
 -- 0014_booking_advance_vs_security_deposit
 -- Purpose: Separate booking advance (دفعة الحجز) from refundable security deposit (التأمين المسترد)
 -- without destroying legacy deposit_amount. Implements financial correctness invariants.
+-- Risk fix: unresolved legacy depositAmount must NOT be silently copied into canonical field as confirmed.
 --
 -- Canonical definitions:
 -- - booking_advance_amount: money paid in advance toward rental obligation, reduces rental receivable, not liability
@@ -20,6 +21,7 @@ alter table public.dresses
 
 -- Keep legacy deposit_amount for transition, but ensure new canonical is used going forward
 -- Backfill canonical from legacy where canonical is still 0
+-- For dresses, deposit_amount is catalogue suggestion, not a payment, so copying as suggested deposit is safe
 update public.dresses
 set default_security_deposit_amount = deposit_amount
 where default_security_deposit_amount = 0 and deposit_amount <> 0;
@@ -48,14 +50,21 @@ alter table public.reservations
   add column if not exists classified_at timestamptz,
   add column if not exists classified_by uuid references public.profiles(id) on delete set null;
 
--- Backfill security_deposit_amount from legacy deposit_amount for existing rows where new is 0
+-- CRITICAL FIX for unresolved legacy handling:
+-- Do NOT silently copy deposit_amount into canonical security_deposit_amount or booking_advance_amount as confirmed.
+-- For unresolved records, preserve original in legacy_deposit_amount, set classification unresolved, needs_financial_classification true,
+-- and keep canonical fields at 0 so they do NOT affect rental balance or security-deposit liability and are NOT refundable/retainable automatically.
+-- Only populate canonical automatically when deterministic evidence proves classification (handled in app-layer migration, not here in SQL, to avoid silent misclassification).
+-- In SQL migration, we conservatively mark all legacy rows with deposit_amount as unresolved; app-layer migration can later promote to security_deposit when evidence found (return settlement etc).
 update public.reservations
-set security_deposit_amount = deposit_amount,
-    legacy_deposit_amount = deposit_amount,
+set legacy_deposit_amount = deposit_amount,
     legacy_deposit_classification = 'unresolved',
     needs_financial_classification = true,
-    classification_reason = 'Legacy deposit_amount present without settlement evidence; requires review'
-where security_deposit_amount = 0 and deposit_amount <> 0;
+    classification_reason = 'Legacy deposit_amount present without deterministic evidence; preserved as legacy, canonical remains 0 until reviewed - not refundable/retainable automatically, does not affect rental balance or liability'
+where legacy_deposit_amount is null and deposit_amount <> 0;
+
+-- Ensure canonical fields remain 0 for unresolved (do not make refundable/retainable automatically)
+-- security_deposit_amount, booking_advance_amount, collected/refunded/retained stay default 0 for unresolved
 
 -- Non-negative checks
 do $$
@@ -87,6 +96,7 @@ begin
 end $$;
 
 -- Liability invariant: refunded + retained <= collected
+-- For unresolved rows, collected is 0, so refunded+retained must be 0, preventing automatic refund/retention of unresolved legacy amount
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'reservations_security_deposit_liability_check') then
@@ -96,8 +106,6 @@ begin
 end $$;
 
 -- ── payments: canonical movement types ───────────────────────────────────────
--- payments currently has payment_type text; we keep it permissive for legacy but document canonical types
--- Add optional canonical columns for breakdown (optional, additive)
 alter table public.payments
   add column if not exists booking_advance_amount numeric(12,3) not null default 0,
   add column if not exists security_deposit_amount numeric(12,3) not null default 0,
@@ -119,7 +127,6 @@ end $$;
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'payments_idempotency_key_unique') then
-    -- Only unique when idempotency_key is not null
     create unique index if not exists payments_idempotency_key_unique_idx on public.payments (reservation_id, idempotency_key) where idempotency_key is not null;
   end if;
 end $$;
@@ -144,7 +151,8 @@ begin
   end if;
 end $$;
 
--- Backfill returns canonical from legacy deposit_refund_amount
+-- Backfill returns canonical from legacy deposit_refund_amount is safe because returns are explicit settlement events
+-- But still preserve legacy and ensure canonical not used for unresolved (returns are settlement evidence, so they imply security deposit)
 update public.returns
 set security_deposit_refund_amount = deposit_refund_amount
 where security_deposit_refund_amount = 0 and deposit_refund_amount <> 0;
@@ -152,11 +160,12 @@ where security_deposit_refund_amount = 0 and deposit_refund_amount <> 0;
 -- Preserve RLS: no policy changes, existing policies remain (checked in 0008-0012)
 -- Preserve triggers: refresh_reservation_payment_totals continues to work;
 -- its logic summing payments into paid_amount remains for legacy, new columns are independent.
--- To avoid silent misclassification, we do NOT auto-classify legacy rows with RLS or triggers;
--- classification stays as unresolved until admin review.
+-- To avoid silent misclassification, we do NOT auto-classify legacy rows as confirmed security_deposit or booking_advance in SQL;
+-- SQL migration marks all as unresolved with canonical 0. App-layer migration (financialDepositMigration.ts) can promote to security_deposit when deterministic evidence exists (return settlement, payment history), with repeatable safe logic and user review for remaining unresolved.
 
 -- Comment for rollback documentation
-comment on column public.reservations.booking_advance_amount is 'دفعة الحجز: money paid in advance toward rental, reduces rental receivable, not liability';
-comment on column public.reservations.security_deposit_amount is 'التأمين المسترد: refundable security deposit required, liability not revenue';
-comment on column public.reservations.security_deposit_collected_amount is 'Actual collected security deposit liability';
-comment on column public.reservations.legacy_deposit_classification is 'booking_advance | security_deposit | mixed | unresolved | reviewed';
+comment on column public.reservations.booking_advance_amount is 'دفعة الحجز: money paid in advance toward rental, reduces rental receivable once, not liability, not refunded via deposit settlement until reviewed';
+comment on column public.reservations.security_deposit_amount is 'التأمين المسترد: refundable security deposit required, liability not revenue, remains 0 for unresolved legacy until reviewed';
+comment on column public.reservations.security_deposit_collected_amount is 'Actual collected security deposit liability, 0 for unresolved until reviewed and collected via canonical type';
+comment on column public.reservations.legacy_deposit_classification is 'booking_advance | security_deposit | mixed | unresolved | reviewed - unresolved means preserved as legacy, not refundable/retainable automatically';
+comment on column public.reservations.needs_financial_classification is 'true when legacy deposit_amount ambiguous and requires explicit reviewed classification before settlement';
