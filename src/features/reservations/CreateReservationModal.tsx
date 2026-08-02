@@ -80,7 +80,7 @@ function nextLineKey() { return `line-${++lineKeyCounter}`; }
 export function CreateReservationModal({ open, onClose, onCreated, prefill }: CreateReservationModalProps) {
   const fieldId = useId();
   const [submitError, setSubmitError] = useState<unknown>(null);
-  const { current: currentStep, next: nextStep, prev: prevStep, goTo: goToStep } = useStepper(4);
+  const { current: currentStep, goTo: goToStep } = useStepper(4);
   const steps = [
     { id: 'customer', label: 'العميلة', description: 'اختيار العميلة' },
     { id: 'dates', label: 'التواريخ', description: 'الاستلام والإرجاع' },
@@ -289,6 +289,7 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
   return (
     <Modal open={open} onClose={closeModal} title="حجز جديد">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <Stepper steps={steps} currentStep={currentStep} onStepChange={goToStep} />
         {submitError !== null && (
           <UserFacingErrorAlert error={submitError} fallback="تعذر إنشاء الحجز. حاولي مرة أخرى." />
         )}

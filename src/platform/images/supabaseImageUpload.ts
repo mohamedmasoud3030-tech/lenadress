@@ -20,7 +20,18 @@ function dataUrlToBlob(dataUrl: string): Blob {
 
 function generateStoragePath(dressId: string, mimeType: string): string {
   const ext = mimeType.includes('webp') ? 'webp' : mimeType.includes('png') ? 'png' : 'jpg';
-  const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  // Use crypto-backed ID, never Math.random for persisted identifiers
+  let id: string;
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    id = crypto.randomUUID();
+  } else if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    id = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  } else {
+    // Fallback to timestamp + counter (still not Math.random)
+    id = `${Date.now()}-${Math.floor(performance.now()).toString(36)}`;
+  }
   return `${dressId}/${id}.${ext}`;
 }
 
