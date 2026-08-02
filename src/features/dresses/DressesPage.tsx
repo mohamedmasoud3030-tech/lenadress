@@ -461,7 +461,7 @@ export function DressesPage() {
         <LoadingState label="جاري تحميل المخزون…" />
       ) : groupByDesign ? (
         designSummaries.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
             {designSummaries.map((summary) => <DesignCard key={summary.design.id} summary={summary} />)}
           </div>
         ) : (
@@ -483,7 +483,7 @@ export function DressesPage() {
         )
       ) : filteredDresses.length > 0 ? (
         viewMode === 'grid' ? (
-          <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3">
             {filteredDresses.map((dress) => (
               <Link
                 key={dress.id}

@@ -117,6 +117,19 @@ export function addDress(input: AddDressServiceInput): Dress {
 
   dresses.push(newDress);
   saveDressesToStorage(dresses);
+  // Upload compressed images to Supabase Storage catalogue-images for production (small size)
+  if (newDress.images && newDress.images.length > 0) {
+    import('@platform/images/supabaseImageUpload').then(({ uploadMultipleCompressedImages }) => {
+      uploadMultipleCompressedImages(newDress.id, newDress.images).then((results) => {
+        if (results.length > 0) {
+          import('../../features/sync/supabaseSync').then(({ pushDressToSupabase }) => {
+            const updatedDress = { ...newDress, images: results.map((r: { publicUrl: string }) => r.publicUrl) };
+            pushDressToSupabase(updatedDress as unknown as Dress);
+          }).catch(() => { /* ignore */ });
+        }
+      }).catch(() => { /* ignore */ });
+    }).catch(() => { /* ignore */ });
+  }
   recordAudit({
     action: 'create',
     entityType: 'dress',
