@@ -1,4 +1,4 @@
-import { Filter, HeartHandshake, Search } from 'lucide-react';
+import { Filter, HeartHandshake, Search, Sparkles } from 'lucide-react';
 import type { Dress } from '../../../features/dresses/dress.types';
 import { INVENTORY_ITEM_TYPE_LABELS } from '../../../shared/domain/dressConstants';
 import { formatMoneyOMR } from '../../../shared/utils/format';
@@ -17,16 +17,23 @@ type Props = { profile: LandingProfile; dresses: Dress[]; loading: boolean; load
 function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfile }) {
   const primaryImage = dress.images[0];
   const typeLabel = INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress'];
-  const appointmentLink = buildLandingWhatsAppLink(profile, buildAppointmentInquiryMessage(dress.name));
-  const inquiryLink = buildLandingWhatsAppLink(profile, buildQuickInquiryMessage(dress.name));
+  const bookingItem = { code: dress.code, name: dress.name, size: dress.size, color: dress.color };
+  const appointmentLink = buildLandingWhatsAppLink(profile, buildAppointmentInquiryMessage(bookingItem));
+  const inquiryLink = buildLandingWhatsAppLink(profile, buildQuickInquiryMessage(bookingItem));
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
       {primaryImage ? (
         <img src={primaryImage} alt={dress.name} className="h-48 sm:h-64 md:h-72 w-full object-cover" loading="lazy" />
       ) : (
-        <div className="flex h-48 sm:h-64 md:h-72 items-center justify-center bg-gradient-to-br from-violet-100 via-white to-amber-50">
-          <p className="text-sm font-medium text-slate-500">لا توجد صورة متاحة حالياً</p>
+        <div role="img" aria-label={`صورة توضيحية لفئة ${dress.category}`} className="relative flex h-48 sm:h-64 md:h-72 items-center justify-center overflow-hidden bg-gradient-to-br from-violet-200 via-stone-50 to-amber-100">
+          <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/40" />
+          <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-violet-300/25" />
+          <div className="relative text-center text-violet-950">
+            <Sparkles aria-hidden="true" className="mx-auto h-10 w-10" />
+            <p className="mt-3 text-xl font-black tracking-wide">LENA</p>
+            <p className="mt-1 text-sm font-bold text-violet-800">{dress.category}</p>
+          </div>
         </div>
       )}
       <div className="space-y-4 p-5">
@@ -36,7 +43,7 @@ function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfi
             <h3 className="mt-1 text-lg font-black text-slate-950">{dress.name}</h3>
             <p className="mt-1 text-sm leading-6 text-slate-500">{dress.description || 'قطعة متاحة حالياً ويمكن معاينتها وتجربتها خلال الموعد داخل المعرض.'}</p>
           </div>
-          <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">متاح</span>
+          <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">متاح للطلب</span>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-xl bg-stone-50 p-3">
@@ -58,9 +65,10 @@ function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfi
           {dress.isForSale && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">للبيع</span>}
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <a href={appointmentLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">حجز موعد للتجربة</a>
+          <a href={appointmentLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">طلب موعد للتجربة</a>
           <a href={inquiryLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-stone-100">استفسار سريع</a>
         </div>
+        <p className="text-center text-xs leading-5 text-slate-500">يؤكد المعرض الموعد وتوفر القطعة بعد استلام الطلب.</p>
       </div>
     </article>
   );
@@ -82,13 +90,13 @@ export function LandingInventory({ profile, dresses, loading, loadError, search,
     <section id="available-dresses" className="mt-12 space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-bold text-violet-700">المعروض الحالي من المخزون</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">العناصر المتاحة الآن</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">هذا القسم متصل بالبيانات الفعلية المتاحة، ويعرض كل أنواع المخزون: الفساتين، الإكسسوارات، الحقائب، الأحذية، الطرح والشالات، وغيرها.</p>
+          <p className="text-sm font-bold text-violet-700">اختاري قطعتك</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">المعروض الآن</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">تصفحي الفساتين والإكسسوارات والحقائب والملحقات، ثم أرسلي طلب الموعد للقطعة التي أعجبتك.</p>
         </div>
         <a href={headerAppointmentLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-stone-100">
           <HeartHandshake className="h-4 w-4" />
-          حجز موعد عبر واتساب
+          طلب موعد عبر واتساب
         </a>
       </div>
 
@@ -101,7 +109,7 @@ export function LandingInventory({ profile, dresses, loading, loadError, search,
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-[1fr_190px_190px]">
           <label className="relative block">
-            <span className="sr-only">ابحثي في المخزون</span>
+            <span className="sr-only">ابحثي في المعروض</span>
             <Search className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input type="search" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="ابحثي بالاسم أو الفئة أو اللون أو المقاس" className="h-12 w-full rounded-xl border border-slate-200 bg-stone-50 pr-11 text-sm outline-none transition focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/30" />
           </label>
@@ -142,7 +150,7 @@ export function LandingInventory({ profile, dresses, loading, loadError, search,
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
           <p className="text-lg font-semibold text-slate-900">لا توجد عناصر مطابقة حالياً</p>
           <p className="mt-2 text-sm text-slate-500">جرّبي تغيير البحث أو الفلاتر، أو انتقلي لحجز موعد للاستفسار عن المتاح من بقية الفئات والخدمات.</p>
-          <a href={emptyStateAppointmentLink} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">حجز موعد للاستفسار</a>
+          <a href={emptyStateAppointmentLink} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">إرسال استفسار</a>
         </div>
       ) : typeEntries.length === 1 ? (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
