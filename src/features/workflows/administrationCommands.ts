@@ -256,7 +256,7 @@ export function migrateImagesCommand(idempotencyKey?: string): Promise<ImageMigr
         action: 'migrate-images',
         entityType: 'storage',
         entityId: new Date().toISOString(),
-        summary: `تم ترحيل ${result.migrated} صورة إلى IndexedDB.`,
+        summary: `تم تحسين طريقة حفظ ${result.migrated} صورة قديمة.`,
       });
     }
     return result;
