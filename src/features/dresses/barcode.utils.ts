@@ -52,7 +52,7 @@ export function getBarcodeRuntimeSupportStatus(): { supported: boolean; message:
 
   return {
     supported: true,
-    message: 'دعم الكاميرا متاح مبدئيًا، لكن ما زال يلزم اختبار فعلي على جهاز حقيقي.',
+    message: 'الكاميرا جاهزة للمسح. يتوفر الإدخال اليدوي إذا تعذر فتحها.',
   };
 }
 
