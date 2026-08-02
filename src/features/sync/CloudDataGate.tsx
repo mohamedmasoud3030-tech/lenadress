@@ -31,17 +31,17 @@ export function CloudDataGate({ children }: { children: ReactNode }) {
   const hydrate = useCallback(async () => {
     setFailure(null);
     setReady(false);
-    publishStatus({ state: 'syncing', message: 'جارٍ تحميل قاعدة بيانات المعرض الآمنة…', updatedAt: new Date().toISOString() });
+    publishStatus({ state: 'syncing', message: 'جارٍ تحميل بيانات المعرض…', updatedAt: new Date().toISOString() });
     try {
       const remote = await fetchShowroomState();
       importDatabaseBackup(remote.snapshot);
       revisionRef.current = remote.revision;
       document.documentElement.dataset.cloudCommit = 'ready';
-      publishStatus({ state: 'synced', message: 'البيانات محفوظة ومتزامنة مع الخادم.', updatedAt: new Date().toISOString() });
+      publishStatus({ state: 'synced', message: 'بيانات المعرض جاهزة.', updatedAt: new Date().toISOString() });
       setReady(true);
     } catch (reason) {
       void reportClientError('cloud.hydrate', reason);
-      const message = reason instanceof Error ? reason.message : 'تعذر تحميل بيانات المعرض من الخادم.';
+      const message = reason instanceof Error ? reason.message : 'تعذر تحميل بيانات المعرض. تحققي من الإنترنت وحاولي مجددًا.';
       document.documentElement.dataset.cloudCommit = 'error';
       publishStatus({ state: 'error', message, updatedAt: new Date().toISOString(), attempts: 1 });
       setFailure(message);
@@ -58,7 +58,7 @@ export function CloudDataGate({ children }: { children: ReactNode }) {
       if (!detail) return;
       queueRef.current = queueRef.current.then(async () => {
         committingRef.current = true;
-        publishStatus({ state: 'syncing', message: 'جارٍ اعتماد العملية في الخادم…', updatedAt: new Date().toISOString() });
+        publishStatus({ state: 'syncing', message: 'جارٍ حفظ العملية…', updatedAt: new Date().toISOString() });
         try {
           revisionRef.current = await commitShowroomState({
             expectedRevision: revisionRef.current,
@@ -67,11 +67,11 @@ export function CloudDataGate({ children }: { children: ReactNode }) {
             commandName: detail.commandName,
           });
           document.documentElement.dataset.cloudCommit = 'ready';
-          publishStatus({ state: 'synced', message: 'تم اعتماد العملية وحفظها في الخادم.', updatedAt: new Date().toISOString() });
+          publishStatus({ state: 'synced', message: 'تم حفظ العملية بنجاح.', updatedAt: new Date().toISOString() });
         } catch (reason) {
           void reportClientError('cloud.commit', reason);
           restoreDatabaseSnapshot(detail.before);
-          const message = reason instanceof Error ? reason.message : 'فشل حفظ العملية في الخادم.';
+          const message = reason instanceof Error ? reason.message : 'تعذر حفظ العملية. لم يُسجل أي تغيير.';
           document.documentElement.dataset.cloudCommit = 'error';
           publishStatus({ state: 'error', message, updatedAt: new Date().toISOString(), attempts: 1 });
           setFailure(message);
