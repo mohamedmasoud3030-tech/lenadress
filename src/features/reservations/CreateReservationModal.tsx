@@ -21,6 +21,7 @@ import { getReservationTimeDefaults } from './reservation.service';
 import { getBufferSettings } from './reservationConflicts';
 import type { Reservation, CreateReservationLineInput } from './reservation.types';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
+import { Stepper, useStepper } from '../../components/shared/Stepper';
 
 const reservationSchema = z.object({
   customerId: z.string().min(1, 'اختاري العميلة.'),
@@ -79,6 +80,13 @@ function nextLineKey() { return `line-${++lineKeyCounter}`; }
 export function CreateReservationModal({ open, onClose, onCreated, prefill }: CreateReservationModalProps) {
   const fieldId = useId();
   const [submitError, setSubmitError] = useState<unknown>(null);
+  const { current: currentStep, next: nextStep, prev: prevStep, goTo: goToStep } = useStepper(4);
+  const steps = [
+    { id: 'customer', label: 'العميلة', description: 'اختيار العميلة' },
+    { id: 'dates', label: 'التواريخ', description: 'الاستلام والإرجاع' },
+    { id: 'items', label: 'القطع', description: 'اختيار الفساتين' },
+    { id: 'summary', label: 'الملخص', description: 'المراجعة والدفع' },
+  ];
   const [submissionKey] = useState(() => createSubmissionKey('rsv'));
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dresses, setDresses] = useState<Dress[]>([]);
