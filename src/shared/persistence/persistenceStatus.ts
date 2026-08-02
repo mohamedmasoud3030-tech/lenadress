@@ -14,7 +14,7 @@
  */
 
 /**
- * - `local-only`: retained only for the quarantined legacy desktop adapter.
+ * - `local-only`: retained only for the quarantined legacy native adapter.
  * - `syncing`: a synchronization attempt is currently in progress.
  * - `synced`: local data and the remote store are known to match.
  * - `offline`: the browser reports no connectivity; operational writes are blocked.
