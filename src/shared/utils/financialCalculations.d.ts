@@ -22,7 +22,7 @@ export type SecurityDepositLiabilityInput = {
 };
 
 export type ReturnSettlementCalculationInput = {
-  depositAmount: number;
+  depositAmount: number; // legacy compat
   depositCollected: number;
   totalCollected: number;
   previouslyRefundedAmount?: number;

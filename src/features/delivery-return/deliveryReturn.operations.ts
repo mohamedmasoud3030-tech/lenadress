@@ -137,7 +137,7 @@ function getBaseRecord(reservation: Reservation): DeliveryReturnRecord {
   return getDeliveryReturnRecords().find((item) => item.reservationNumber === reservation.reservationNumber) ?? {
     id: generateId(), reservationNumber: reservation.reservationNumber, customerId: reservation.customerId, inventoryItemId: reservation.inventoryItemId, customerName: reservation.customerName,
     customerPhone: reservation.customerPhone, dressCode: reservation.dressCode, dressName: reservation.dressName,
-    status: 'pending_delivery', depositAmount: getReservationDepositTotal(reservation), lateFee: 0, damageFee: 0,
+    status: 'pending_delivery', depositAmount: getReservationDepositTotal(reservation), lateFee: 0, damageFee: 0, // legacy compat
     depositRefundAmount: getReservationDepositTotal(reservation),
   };
 }

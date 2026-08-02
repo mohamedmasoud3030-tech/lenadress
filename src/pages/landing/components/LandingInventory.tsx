@@ -51,7 +51,7 @@ function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfi
         <div className="rounded-xl border border-slate-100 bg-white p-4">
           <p className="text-xs font-semibold text-slate-400">السعر</p>
           <p className="mt-2 text-sm font-bold text-slate-900">{getLandingDressPriceLabel(dress)}</p>
-          {dress.isForRent && dress.depositAmount > 0 && <p className="mt-2 text-xs text-slate-500">التأمين: {formatMoneyOMR(dress.depositAmount)}</p>}
+          {dress.isForRent && dress.depositAmount > 0 && <p className="mt-2 text-xs text-slate-500">التأمين: {formatMoneyOMR(dress.depositAmount)}</p>} // legacy compat
         </div>
         <div className="flex flex-wrap gap-2">
           {dress.isForRent && <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">للإيجار</span>}

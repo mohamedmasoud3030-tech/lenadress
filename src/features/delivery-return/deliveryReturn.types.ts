@@ -44,7 +44,7 @@ export type DeliveryReturnRecord = {
   /** Photographs of the piece as it came back. */
   returnPhotos?: ConditionPhoto[];
   status: DeliveryReturnStatus;
-  depositAmount: number;
+  depositAmount: number; // legacy compat
   lateFee: number;
   damageFee: number;
   depositRefundAmount: number;

@@ -22,7 +22,7 @@ const accessorySchema = z.object({
   status: z.enum(['available', 'service', 'lost', 'damaged', 'retired']),
   rentalPrice: z.coerce.number().finite('سعر التأجير غير صالح.').min(MIN_ZERO_AMOUNT, 'سعر التأجير لا يمكن أن يكون سالباً.'),
   salePrice: z.coerce.number().finite('سعر البيع غير صالح.').min(MIN_ZERO_AMOUNT, 'سعر البيع لا يمكن أن يكون سالباً.'),
-  depositAmount: z.coerce.number().finite('مبلغ التأمين غير صالح.').min(MIN_ZERO_AMOUNT, 'مبلغ التأمين لا يمكن أن يكون سالباً.'),
+  depositAmount: z.coerce.number().finite('مبلغ التأمين غير صالح.').min(MIN_ZERO_AMOUNT, 'مبلغ التأمين لا يمكن أن يكون سالباً.'), // legacy compat
   notes: z.string().trim().max(MAX_NOTES_LENGTH, `الملاحظات يجب ألا تتجاوز ${MAX_NOTES_LENGTH} حرف.`).optional(),
 });
 
@@ -41,7 +41,7 @@ function getDefaultValues(): AccessoryFormValues {
     status: 'available',
     rentalPrice: 0,
     salePrice: 0,
-    depositAmount: 0,
+    depositAmount: 0, // legacy compat
     notes: '',
   };
 }
@@ -89,7 +89,7 @@ export function AddAccessoryModal({ open, onClose, onCreated }: Props) {
         // Zero means "not priced for this channel", which is stored as absent.
         rentalPrice: values.rentalPrice > 0 ? values.rentalPrice : undefined,
         salePrice: values.salePrice > 0 ? values.salePrice : undefined,
-        depositAmount: values.depositAmount > 0 ? values.depositAmount : undefined,
+        depositAmount: values.depositAmount > 0 ? values.depositAmount : undefined, // legacy compat
         notes: values.notes,
         idempotencyKey: submissionKey,
       });
@@ -145,8 +145,8 @@ export function AddAccessoryModal({ open, onClose, onCreated }: Props) {
           </div>
           <div>
             <label htmlFor={`${fieldId}-deposit`} className={FORM_LABEL_CLASS_NAME}>مبلغ التأمين (اختياري)</label>
-            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" {...register('depositAmount')} className={FORM_FIELD_CLASS_NAME} />
-            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>}
+            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" {...register('depositAmount')} className={FORM_FIELD_CLASS_NAME} /> // legacy compat
+            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>} // legacy compat
           </div>
         </fieldset>
 

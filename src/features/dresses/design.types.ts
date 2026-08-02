@@ -58,7 +58,7 @@ export type DesignVariantInput = {
   /** Overrides the design default when provided. */
   rentalPrice?: number;
   salePrice?: number;
-  depositAmount?: number;
+  depositAmount?: number; // legacy compat
   /** How many identical pieces of this size and colour to create. */
   quantity?: number;
 };

@@ -62,7 +62,7 @@ function AccessoryCard({
         </div>
         <div className="rounded-xl bg-stone-50 p-3">
           <dt className="text-xs text-slate-400">تأمين</dt>
-          <dd className="mt-1 font-bold text-slate-900">{accessory.depositAmount ? formatMoneyOMR(accessory.depositAmount) : '—'}</dd>
+          <dd className="mt-1 font-bold text-slate-900">{accessory.depositAmount ? formatMoneyOMR(accessory.depositAmount) : '—'}</dd> // legacy compat
         </div>
       </dl>
 

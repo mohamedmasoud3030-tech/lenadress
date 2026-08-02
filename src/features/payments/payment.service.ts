@@ -181,21 +181,27 @@ function auditPaymentMovement(payment: PaymentRecord): void {
   });
 }
 
-function isSecurityDepositCollectionType(type: string): boolean {
-  return type === 'security_deposit_collection' || type === 'deposit';
-}
 function isSecurityDepositRefundType(type: string): boolean {
   return type === 'security_deposit_refund';
 }
 function isSecurityDepositRetentionType(type: string): boolean {
   return type === 'security_deposit_retention' || type === 'retained_deposit';
 }
+function isRentalRefundType(type: string): boolean {
+  return type === 'refund';
+}
 
 export function addPayment(input: AddPaymentInput): PaymentRecord {
   const reservation = getReservations().find((item) => item.reservationNumber === input.reservationNumber);
-  const isRefundDirection = input.type === 'refund' || input.type === 'security_deposit_refund';
-  const isSettlementType = input.type === 'security_deposit_retention';
-  const direction: PaymentDirection = isRefundDirection ? 'refund' : isSettlementType ? 'settlement' : 'income';
+
+  // Strict separation of refund types per blocker #1 - do NOT use existence of securityDepositCollectedAmount to decide type
+  const isRentalRefund = isRentalRefundType(input.type);
+  const isDepositRefund = isSecurityDepositRefundType(input.type);
+  const isRetention = isSecurityDepositRetentionType(input.type);
+  let direction: PaymentDirection;
+  if (isRentalRefund || isDepositRefund) direction = 'refund';
+  else if (isRetention) direction = 'settlement';
+  else direction = 'income';
 
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
   if (!input.paymentDate) throw new Error('تاريخ الدفع مطلوب.');
@@ -203,23 +209,15 @@ export function addPayment(input: AddPaymentInput): PaymentRecord {
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('قيمة الدفعة يجب أن تكون أكبر من صفر.');
   assertBusinessDateOpen(input.paymentDate);
 
-  // Prevent ambiguous new records: disallow 'deposit' type for new runtime unless explicitly allowed as legacy
   if (input.type === 'deposit') {
-    // For new records, we require explicit canonical type. But allow legacy for backward compat reading.
-    // Instead of blocking completely, we map to security_deposit_collection but warn that new code must use canonical.
-    // To enforce new semantics, we throw if reservation has canonical fields and type is ambiguous 'deposit'
     if (reservation.securityDepositAmount !== undefined) {
       throw new Error('نوع الحركة deposit غامض؛ استخدمي security_deposit_collection أو booking_advance أو rental_payment.');
     }
   }
 
-  // Security deposit liability checks
-  if (isSecurityDepositCollectionType(input.type) && direction === 'income') {
-    // collection creates liability, always allowed, but must not be negative later
-  }
-
-  if (isSecurityDepositRefundType(input.type) || (input.type === 'refund' && reservation.securityDepositCollectedAmount !== undefined)) {
-    // Refund must not exceed available refundable liability
+  // ---- Blocker 1: separate refund guards ----
+  if (isDepositRefund) {
+    // Security deposit refund checks ONLY against securityDepositCollected, Refunded, Retained
     const collected = reservation.securityDepositCollectedAmount ?? 0;
     const refunded = reservation.securityDepositRefundedAmount ?? 0;
     const retained = reservation.securityDepositRetainedAmount ?? 0;
@@ -227,9 +225,37 @@ export function addPayment(input: AddPaymentInput): PaymentRecord {
     if (input.amount > available + 1e-6) {
       throw new Error('قيمة استرداد التأمين المسترد تتجاوز المبلغ المتاح للاسترداد.');
     }
+  } else if (isRentalRefund) {
+    // Rental refund checks against rentalCollected, bookingAdvanceCollected only when cancellation policy documented, rentalRefunded
+    // For implementation: check against rentalCollected + (bookingAdvanceCollected if cancellation) - rentalRefunded
+    // We treat bookingAdvanceCollected as allowed when notes contain cancellation keyword or reservation already has bookingAdvanceCollected
+    // But per spec, bookingAdvanceCollected only when applying documented cancellation policy.
+    // So we compute available as rentalCollected - rentalRefunded, plus bookingAdvanceCollected if cancellation policy present.
+    // Cancellation policy detection: if reservation status is cancelled? But at this point it's not cancelled yet, so we check notes for keyword إلغاء or cancel, or allow bookingAdvanceCollected as part of total rental refund when explicitly needed.
+    // For strictness, we allow bookingAdvanceCollected as part of available, but we document that it's only for cancellation.
+    const rentalCollected = reservation.rentalCollectedAmount ?? 0;
+    const rentalRefunded = reservation.rentalRefundedAmount ?? 0;
+    const bookingAdvanceCollected = reservation.bookingAdvanceCollectedAmount ?? 0;
+    // If notes indicate cancellation policy, include booking advance
+    const hasCancellationEvidence = input.notes && /إلغاء|cancel|سياسة/i.test(input.notes);
+    const available = hasCancellationEvidence
+      ? rentalCollected + bookingAdvanceCollected - rentalRefunded
+      : rentalCollected - rentalRefunded;
+    // Legacy fallback for old backups that used paidAmount
+    const legacyAvailable = (reservation.paidAmount ?? 0) - (reservation.refundedAmount ?? 0);
+    if (input.amount > available + 1e-6 && input.amount > legacyAvailable + 1e-6) {
+      // If booking advance exists and we didn't include it, try inclusive check with explicit cancellation note requirement
+      const totalAvailableIncludingBooking = rentalCollected + bookingAdvanceCollected - rentalRefunded;
+      if (input.amount > totalAvailableIncludingBooking + 1e-6) {
+        throw new Error('قيمة استرجاع الإيجار تتجاوز المبلغ المحصل فعلياً للإيجار.');
+      } else if (!hasCancellationEvidence && bookingAdvanceCollected > 0) {
+        // If trying to refund booking advance without cancellation policy, require note
+        throw new Error('رد دفعة الحجز يتطلب تطبيق سياسة إلغاء موثقة مع سبب واضح.');
+      }
+    }
   }
 
-  if (isSecurityDepositRetentionType(input.type)) {
+  if (isRetention) {
     if (!input.retentionReason || !input.retentionReason.trim()) {
       throw new Error('سبب احتجاز التأمين المسترد مطلوب.');
     }
@@ -240,30 +266,41 @@ export function addPayment(input: AddPaymentInput): PaymentRecord {
     if (input.amount > available + 1e-6) {
       throw new Error('قيمة احتجاز التأمين المسترد تتجاوز المبلغ المتاح.');
     }
+    // Retention must cover proven fees with clear reason - we already require reason, and assignment happens in settlement
   }
 
-  // Idempotency: if a payment with same idempotency key exists, return it
+  // ---- Blocker 3: idempotency scoped to reservation + operation/type + key ----
   if (input.idempotencyKey) {
-    const existing = getPayments().find((p) => p.idempotencyKey === input.idempotencyKey);
-    if (existing) return existing;
+    const scopedExisting = getPayments().find(
+      (p) => p.reservationNumber === input.reservationNumber && p.idempotencyKey === input.idempotencyKey,
+    );
+    if (scopedExisting) {
+      const payloadMatches =
+        scopedExisting.type === (input.type === 'rental' ? 'rental_payment' : input.type) &&
+        Math.abs(scopedExisting.amount - input.amount) < 1e-6 &&
+        scopedExisting.method === input.method &&
+        scopedExisting.direction === direction;
+      if (payloadMatches) {
+        return scopedExisting;
+      }
+      // Same key, same reservation, but different payload -> reject reuse
+      throw new Error('إعادة استخدام مفتاح idempotency مع حمولة مختلفة غير مسموحة لنفس الحجز.');
+    }
+    // Do NOT return payment from other reservation - scoped search ensures we don't
+    // Global check is intentionally NOT used here to prevent cross-reservation leak
   }
 
   // Map manual type to canonical for storage
   let canonicalType: PaymentType = input.type as PaymentType;
   if (input.type === 'rental') canonicalType = 'rental_payment';
-  // Keep deposit as is for legacy, but new records should use security_deposit_collection
-  // For booking_advance, keep as is
 
+  // ---- Blocker 2: settlement must be passed as real movement, not converted to income ----
   const updatedReservation = recordReservationPayment({
     reservationNumber: reservation.reservationNumber,
     type: input.type,
-    direction: direction === 'refund' ? 'refund' : 'income',
+    direction, // income | refund | settlement - no conversion to income
     amount: input.amount,
   });
-
-  // For security deposit collection/refund/retention, we need to also update reservation's security deposit counters
-  // The reservation service already handles some, but we ensure explicit
-  // For refund/retention, the settlement function is separate; for manual refunds we handle here
 
   const payment = createPaymentRecord(updatedReservation, {
     paymentDate: input.paymentDate,
@@ -299,33 +336,24 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
   const payments = getPayments();
   const reservationPayments = payments.filter((payment) => payment.reservationNumber === reservation.reservationNumber);
 
-  // Canonical security deposit handling
+  // Canonical security deposit handling - derive from reservation fields, fallback to payment history only for collected
   const securityDepositAmount = getReservationDepositTotal(reservation);
-  const securityDepositCollected = reservation.securityDepositCollectedAmount ??
-    reservationPayments
-      .filter((p) => p.type === 'security_deposit_collection' || p.type === 'deposit')
-      .filter((p) => p.direction === 'income')
-      .reduce((sum, p) => sum + p.amount, 0);
+  const securityDepositCollected = reservation.securityDepositCollectedAmount ?? 0;
+  const securityDepositRefunded = reservation.securityDepositRefundedAmount ?? 0;
+  const securityDepositRetained = reservation.securityDepositRetainedAmount ?? 0;
 
-  const securityDepositRefunded = reservation.securityDepositRefundedAmount ??
-    reservationPayments
-      .filter((p) => p.type === 'security_deposit_refund' || (p.type === 'refund' && p.source === 'return'))
-      .reduce((sum, p) => sum + p.amount, 0);
+  // For legacy backups where collected fields not yet set, derive from payment history (only then)
+  const securityDepositCollectedFromHistory = securityDepositCollected > 0
+    ? securityDepositCollected
+    : reservationPayments
+        .filter((p) => p.type === 'security_deposit_collection' || p.type === 'deposit')
+        .filter((p) => p.direction === 'income')
+        .reduce((sum, p) => sum + p.amount, 0);
 
-  const securityDepositRetained = reservation.securityDepositRetainedAmount ??
-    reservationPayments
-      .filter((p) => p.type === 'security_deposit_retention' || p.type === 'retained_deposit')
-      .reduce((sum, p) => sum + p.amount, 0);
+  const rentalCollected = reservation.rentalCollectedAmount ?? 0;
+  const bookingAdvanceCollected = reservation.bookingAdvanceCollectedAmount ?? 0;
 
-  const rentalCollected = reservation.rentalCollectedAmount ??
-    reservationPayments
-      .filter((p) => p.type === 'rental' || p.type === 'rental_payment' || p.type === 'booking_advance')
-      .filter((p) => p.direction === 'income')
-      .reduce((sum, p) => sum + p.amount, 0);
-
-  const totalCollected = reservationPayments
-    .filter((p) => p.direction === 'income')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const totalCollected = securityDepositCollectedFromHistory + rentalCollected + bookingAdvanceCollected;
 
   const previouslyRefundedAmount = reservationPayments
     .filter((p) => p.direction === 'refund')
@@ -334,7 +362,7 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
   // Use canonical settlement calculation
   const settlement = calculateReturnSettlement({
     securityDepositAmount,
-    securityDepositCollected,
+    securityDepositCollected: securityDepositCollectedFromHistory,
     securityDepositRefunded,
     securityDepositRetained,
     totalCollected,
@@ -349,7 +377,7 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
 
   // Enforce non-negative liability and no over-refund/retention
   const available = calculateSecurityDepositLiability({
-    collected: securityDepositCollected,
+    collected: securityDepositCollectedFromHistory,
     refunded: securityDepositRefunded,
     retained: securityDepositRetained,
   });
@@ -357,9 +385,12 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
     throw new Error('إجمالي رد التأمين والتأمين المحتجز يتجاوز المبلغ المتاح.');
   }
 
-  if (retainedDepositAmount > 0 && !input.retentionReason && (input.lateFee + input.damageFee) === 0) {
-    // Require reason if retained without explicit fee reason
-    // But lateFee/damageFee already imply reason, so allow
+  // Retention must have clear reason and cover proven fees - validation
+  if (retainedDepositAmount > 0) {
+    if (!input.retentionReason && (input.lateFee + input.damageFee) === 0) {
+      // If retained but no fee and no reason, require reason
+      throw new Error('سبب احتجاز التأمين المسترد مطلوب عند وجود مبلغ محتجز بدون رسوم مثبتة.');
+    }
   }
 
   const updatedReservation = settleReservationReturn({
@@ -371,7 +402,7 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
     retainedDepositAmount,
     feesAlreadyAssessed: input.feesAlreadyAssessed,
     securityDepositAmount,
-    securityDepositCollectedAmount: securityDepositCollected,
+    securityDepositCollectedAmount: securityDepositCollectedFromHistory,
   });
 
   const movements: PaymentRecord[] = [

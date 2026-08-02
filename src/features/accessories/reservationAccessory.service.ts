@@ -42,7 +42,7 @@ export function getReservationAccessories(): ReservationAccessory[] {
   return readCollection<ReservationAccessory>(COLLECTION, []).map((link) => ({
     ...link,
     securityDepositAmount: getReservationAccessorySecurityDeposit(link),
-    depositAmount: getReservationAccessorySecurityDeposit(link),
+    depositAmount: getReservationAccessorySecurityDeposit(link), // legacy compat
   }));
 }
 
@@ -50,7 +50,7 @@ function saveLinks(links: ReservationAccessory[]): void {
   const normalized = links.map((link) => ({
     ...link,
     securityDepositAmount: getReservationAccessorySecurityDeposit(link),
-    depositAmount: getReservationAccessorySecurityDeposit(link),
+    depositAmount: getReservationAccessorySecurityDeposit(link), // legacy compat
   }));
   writeCollection(COLLECTION, normalized);
 }
@@ -107,7 +107,7 @@ export function attachAccessoryToReservation(input: AttachAccessoryInput): Reser
     accessoryCodeSnapshot: accessory.code,
     accessoryNameSnapshot: accessory.name,
     rentalPrice: accessory.rentalPrice ?? 0,
-    depositAmount: securityDeposit,
+    depositAmount: securityDeposit, // legacy compat
     securityDepositAmount: securityDeposit,
     bookingAdvanceAmount: 0,
     notes: input.notes?.trim() || undefined,

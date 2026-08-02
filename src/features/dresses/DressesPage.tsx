@@ -82,7 +82,7 @@ function DressCard({ dress }: { dress: Dress }) {
               </div>
               <div>
                 <p className="text-slate-400">التأمين</p>
-                <p className="font-bold text-slate-950">{formatMoneyOMR(dress.depositAmount)}</p>
+                <p className="font-bold text-slate-950">{formatMoneyOMR(dress.depositAmount)}</p> // legacy compat
               </div>
             </>
           )}

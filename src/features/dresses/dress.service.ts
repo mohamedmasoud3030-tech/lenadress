@@ -32,12 +32,12 @@ function getDressesFromStorage(): Dress[] {
   migrateLegacyInventoryStorage();
   return readCollection<Dress>(INVENTORY_COLLECTION, []).map((d) => {
     const rec = d as unknown as Record<string, unknown>;
-    const def = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : 0;
-    const dep = typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : 0;
+    const def = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : 0; // legacy compat
+    const dep = typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : 0; // legacy compat
     return {
       ...d,
       defaultSecurityDepositAmount: def,
-      depositAmount: dep,
+      depositAmount: dep, // legacy compat
     };
   });
 }
@@ -47,7 +47,7 @@ function saveDressesToStorage(dresses: Dress[]): void {
   const normalized = dresses.map((d) => ({
     ...d,
     defaultSecurityDepositAmount: getDressSecurityDepositAmount(d),
-    depositAmount: getDressSecurityDepositAmount(d),
+    depositAmount: getDressSecurityDepositAmount(d), // legacy compat
   }));
   writeCollection<Dress>(INVENTORY_COLLECTION, normalized);
 }
@@ -69,11 +69,11 @@ export type AddDressServiceInput = Omit<Dress, 'id' | 'code' | 'timesRented' | '
   barcode?: string;
 };
 
-function assertValidDress(input: Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number }): void {
+function assertValidDress(input: Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number }): void { // legacy compat
   if (!input.name.trim()) throw new Error('اسم العنصر مطلوب.');
 
   const rec = input as unknown as Record<string, unknown>;
-  const securityDeposit = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : input.depositAmount ?? 0;
+  const securityDeposit = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : input.depositAmount ?? 0; // legacy compat
 
   const moneyFields: Array<[number, string]> = [
     [input.purchasePrice, 'سعر الشراء'],
@@ -93,7 +93,7 @@ function assertValidDress(input: Pick<Dress, 'name' | 'purchasePrice' | 'rentalP
 }
 
 export function addDress(input: AddDressServiceInput): Dress {
-  assertValidDress(input as unknown as Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number });
+  assertValidDress(input as unknown as Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number }); // legacy compat
   const dresses = getDressesFromStorage();
   const code = allocateInventoryCode();
 
@@ -108,7 +108,7 @@ export function addDress(input: AddDressServiceInput): Dress {
     barcode: generateDressBarcodeValue(code),
     timesRented: 0,
     defaultSecurityDepositAmount: securityDeposit,
-    depositAmount: securityDeposit,
+    depositAmount: securityDeposit, // legacy compat
   };
 
   dresses.push(newDress);
@@ -149,9 +149,9 @@ export function updateDress(code: string, updates: Partial<Dress>): Dress | null
   const next: Dress = {
     ...nextRaw,
     defaultSecurityDepositAmount: sec,
-    depositAmount: sec,
+    depositAmount: sec, // legacy compat
   };
-  assertValidDress(next as unknown as Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number });
+  assertValidDress(next as unknown as Pick<Dress, 'name' | 'purchasePrice' | 'rentalPrice' | 'salePrice' | 'depositAmount' | 'isForRent' | 'isForSale'> & { defaultSecurityDepositAmount?: number }); // legacy compat
   dresses[index] = next;
 
   saveDressesToStorage(dresses);

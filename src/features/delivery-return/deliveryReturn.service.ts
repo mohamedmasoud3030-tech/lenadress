@@ -13,11 +13,11 @@ const COLLECTION = 'delivery-return';
 const trackedReservationStatuses = new Set<Reservation['status']>(['pending', 'confirmed', 'delivered', 'overdue']);
 
 export function calculateDepositRefund(
-  depositAmount: number,
+  depositAmount: number, // legacy compat
   lateFee: number,
   damageFee: number,
 ): number {
-  return Math.max(depositAmount - lateFee - damageFee, 0);
+  return Math.max(depositAmount - lateFee - damageFee, 0); // legacy compat
 }
 
 function createProjectedRecord(reservation: Reservation): DeliveryReturnRecord {
@@ -31,10 +31,10 @@ function createProjectedRecord(reservation: Reservation): DeliveryReturnRecord {
     dressCode: reservation.dressCode,
     dressName: reservation.dressName,
     status: reservation.status === 'delivered' ? 'delivered' : reservation.status === 'overdue' ? 'late' : 'pending_delivery',
-    depositAmount: reservation.depositAmount,
+    depositAmount: reservation.depositAmount, // legacy compat
     lateFee: 0,
     damageFee: 0,
-    depositRefundAmount: reservation.depositAmount,
+    depositRefundAmount: reservation.depositAmount, // legacy compat
   };
 }
 

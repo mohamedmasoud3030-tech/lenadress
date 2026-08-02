@@ -26,7 +26,7 @@ const dressSchema = z
     purchasePrice: z.coerce.number().finite('سعر الشراء غير صالح.').min(MIN_ZERO_AMOUNT, 'سعر الشراء لا يمكن أن يكون سالباً.'),
     rentalPrice: z.coerce.number().finite('سعر الإيجار غير صالح.').min(MIN_ZERO_AMOUNT, 'سعر الإيجار لا يمكن أن يكون سالباً.'),
     salePrice: z.coerce.number().finite('سعر البيع غير صالح.').min(MIN_ZERO_AMOUNT, 'سعر البيع لا يمكن أن يكون سالباً.'),
-    depositAmount: z.coerce.number().finite('قيمة التأمين غير صالحة.').min(MIN_ZERO_AMOUNT, 'قيمة التأمين لا يمكن أن تكون سالبة.'),
+    depositAmount: z.coerce.number().finite('قيمة التأمين غير صالحة.').min(MIN_ZERO_AMOUNT, 'قيمة التأمين لا يمكن أن تكون سالبة.'), // legacy compat
     status: z.enum(initialStatuses),
     isForRent: z.boolean(),
     isForSale: z.boolean(),
@@ -87,7 +87,7 @@ function getDefaultValues(): DressFormValues {
     purchasePrice: 0,
     rentalPrice: 0,
     salePrice: 0,
-    depositAmount: 0,
+    depositAmount: 0, // legacy compat
     status: 'available',
     isForRent: true,
     isForSale: false,
@@ -139,7 +139,7 @@ export function AddDressModal({ open, onClose, onCreated }: AddDressModalProps) 
         description: values.description || '',
         rentalPrice: values.isForRent ? values.rentalPrice : 0,
         salePrice: values.isForSale ? values.salePrice : 0,
-        depositAmount: values.isForRent ? values.depositAmount : 0,
+        depositAmount: values.isForRent ? values.depositAmount : 0, // legacy compat
         notes: values.notes || undefined,
         idempotencyKey: createSubmissionKey('inventory-create'),
       });
@@ -235,8 +235,8 @@ export function AddDressModal({ open, onClose, onCreated }: AddDressModalProps) 
           </div>
           <div>
             <label htmlFor={`${fieldId}-deposit`} className={FORM_LABEL_CLASS_NAME}>التأمين (ر.ع)</label>
-            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" readOnly={!isForRent || !supportsDeposit} {...register('depositAmount')} className={dressFieldClassName} />
-            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>}
+            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" readOnly={!isForRent || !supportsDeposit} {...register('depositAmount')} className={dressFieldClassName} /> // legacy compat
+            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>} // legacy compat
           </div>
           <div>
             <label htmlFor={`${fieldId}-sale-price`} className={FORM_LABEL_CLASS_NAME}>سعر البيع (ر.ع)</label>

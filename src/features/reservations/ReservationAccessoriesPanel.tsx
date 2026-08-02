@@ -92,7 +92,7 @@ export function ReservationAccessoriesPanel({ reservation }: { reservation: Rese
                 <p className="mt-0.5 text-xs text-slate-500">
                   {link.accessory ? ACCESSORY_CATEGORY_LABELS[link.accessory.category] : 'ملحق محذوف'}
                   {link.rentalPrice > 0 ? ` · تأجير ${formatMoneyOMR(link.rentalPrice)}` : ''}
-                  {link.depositAmount > 0 ? ` · تأمين ${formatMoneyOMR(link.depositAmount)}` : ''}
+                  {link.depositAmount > 0 ? ` · تأمين ${formatMoneyOMR(link.depositAmount)}` : ''} // legacy compat
                 </p>
                 <p className="mt-0.5 text-xs font-bold text-slate-600">
                   {link.returnedAt

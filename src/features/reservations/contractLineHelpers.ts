@@ -54,8 +54,8 @@ export function buildLineFromInput(
     throw new Error('قيمة الإيجار المتفق عليها لا يمكن أن تتجاوز السعر المسجل للعنصر.');
   }
 
-  // Canonical security deposit: prefer securityDepositAmount, fallback to legacy depositAmount, then dress default
-  const rawSecurityDeposit = input.securityDepositAmount ?? input.depositAmount ?? getDressSecurityDepositAmount(dress);
+  // Canonical security deposit: prefer securityDepositAmount, fallback to legacy depositAmount, then dress default // legacy compat
+  const rawSecurityDeposit = input.securityDepositAmount ?? input.depositAmount ?? getDressSecurityDepositAmount(dress); // legacy compat
   const securityDepositAmount = rawSecurityDeposit ?? 0;
   if (!Number.isFinite(securityDepositAmount) || securityDepositAmount < 0) {
     throw new Error('قيمة التأمين المسترد غير صالحة.');
@@ -67,7 +67,7 @@ export function buildLineFromInput(
   }
 
   // Legacy field kept for backward compatibility
-  const depositAmount = securityDepositAmount;
+  const depositAmount = securityDepositAmount; // legacy compat: deprecated field synced
 
   const pickupDate = input.pickupDate ?? defaults.pickupDate;
   const returnDate = input.returnDate ?? defaults.returnDate;
@@ -89,7 +89,7 @@ export function buildLineFromInput(
     returnTime: isValidTime(returnTime) ? returnTime : undefined,
     rentalPrice: agreedRentalPrice,
     listRentalPrice,
-    depositAmount,
+    depositAmount, // legacy compat
     securityDepositAmount,
     bookingAdvanceAmount,
     legacyDepositAmount: input.depositAmount,
@@ -268,7 +268,8 @@ export function syncTopLevelFromLines(reservation: Reservation): Reservation {
     returnTime: primary.returnTime,
     rentalPrice: primary.rentalPrice,
     listRentalPrice: primary.listRentalPrice,
-    depositAmount: primary.depositAmount,
+    depositAmount: primary.securityDepositAmount ?? primary.depositAmount, // legacy compat
+
     securityDepositAmount: getLineSecurityDepositAmount(primary),
     bookingAdvanceAmount: getLineBookingAdvanceAmount(primary),
     totalAmount,
@@ -335,7 +336,7 @@ export function getReservationLines(reservation: Reservation): ContractLine[] {
     returnTime: reservation.returnTime,
     rentalPrice: reservation.rentalPrice,
     listRentalPrice: reservation.listRentalPrice,
-    depositAmount: reservation.depositAmount,
+    depositAmount: reservation.securityDepositAmount ?? reservation.depositAmount, // legacy compat
     securityDepositAmount: getReservationSecurityDepositAmount(reservation),
     bookingAdvanceAmount: getReservationBookingAdvanceAmount(reservation),
     deliveryStatus: deriveLineDeliveryStatus(reservation.status),

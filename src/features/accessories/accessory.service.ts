@@ -40,12 +40,12 @@ export function allocateAccessoryCode(): string {
 export function getAccessories(): Accessory[] {
   return readCollection<Accessory>(COLLECTION, []).map((a) => {
     const rec = a as unknown as Record<string, unknown>;
-    const def = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : 0;
-    const dep = typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : 0;
+    const def = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : 0; // legacy compat
+    const dep = typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : 0; // legacy compat
     return {
       ...a,
       defaultSecurityDepositAmount: def,
-      depositAmount: dep,
+      depositAmount: dep, // legacy compat
     };
   });
 }
@@ -54,7 +54,7 @@ function saveAccessories(accessories: Accessory[]): void {
   const normalized = accessories.map((a) => ({
     ...a,
     defaultSecurityDepositAmount: getAccessorySecurityDepositAmount(a),
-    depositAmount: getAccessorySecurityDepositAmount(a),
+    depositAmount: getAccessorySecurityDepositAmount(a), // legacy compat
   }));
   writeCollection(COLLECTION, normalized);
 }
@@ -79,7 +79,7 @@ export function addAccessory(input: AddAccessoryInput): Accessory {
 
   const accessories = getAccessories();
   const code = allocateAccessoryCode();
-  const secDeposit = input.defaultSecurityDepositAmount ?? input.depositAmount ?? 0;
+  const secDeposit = input.defaultSecurityDepositAmount ?? input.depositAmount ?? 0; // legacy compat
   const accessory: Accessory = {
     id: generateId(),
     code,
@@ -89,7 +89,7 @@ export function addAccessory(input: AddAccessoryInput): Accessory {
     status: input.status ?? 'available',
     salePrice: normalizeOptionalAmount(input.salePrice, 'سعر بيع الملحق'),
     rentalPrice: normalizeOptionalAmount(input.rentalPrice, 'سعر تأجير الملحق'),
-    depositAmount: normalizeOptionalAmount(secDeposit, 'مبلغ التأمين المسترد'),
+    depositAmount: normalizeOptionalAmount(secDeposit, 'مبلغ التأمين المسترد'), // legacy compat
     defaultSecurityDepositAmount: normalizeOptionalAmount(secDeposit, 'مبلغ التأمين المسترد'),
     notes: input.notes?.trim() || undefined,
     image: input.image || undefined,
@@ -112,7 +112,7 @@ export function updateAccessory(id: string, updates: UpdateAccessoryInput): Acce
   if (!accessory) throw new Error('الملحق المحدد غير موجود.');
 
   const rec = updates as unknown as Record<string, unknown>;
-  const secDepositRaw = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : undefined;
+  const secDepositRaw = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : undefined; // legacy compat
   const next: Accessory = {
     ...accessory,
     ...updates,
@@ -121,7 +121,7 @@ export function updateAccessory(id: string, updates: UpdateAccessoryInput): Acce
     barcode: accessory.barcode,
     salePrice: 'salePrice' in updates ? normalizeOptionalAmount(updates.salePrice, 'سعر بيع الملحق') : accessory.salePrice,
     rentalPrice: 'rentalPrice' in updates ? normalizeOptionalAmount(updates.rentalPrice, 'سعر تأجير الملحق') : accessory.rentalPrice,
-    depositAmount: secDepositRaw !== undefined ? normalizeOptionalAmount(secDepositRaw, 'مبلغ التأمين المسترد') : accessory.depositAmount,
+    depositAmount: secDepositRaw !== undefined ? normalizeOptionalAmount(secDepositRaw, 'مبلغ التأمين المسترد') : accessory.depositAmount, // legacy compat
     defaultSecurityDepositAmount: secDepositRaw !== undefined ? normalizeOptionalAmount(secDepositRaw, 'مبلغ التأمين المسترد') : accessory.defaultSecurityDepositAmount,
   };
 

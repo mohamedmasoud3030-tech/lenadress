@@ -12,7 +12,7 @@ export type CreateReservationCommandInput = {
   pickupTime?: string;
   returnDate: string;
   returnTime?: string;
-  depositAmount: number;
+  depositAmount: number; // legacy compat
   securityDepositAmount?: number;
   bookingAdvanceAmount?: number;
   rentalPrice?: number;
@@ -48,7 +48,7 @@ export type AddContractLineCommandInput = {
   returnDate?: string;
   returnTime?: string;
   rentalPrice?: number;
-  depositAmount?: number;
+  depositAmount?: number; // legacy compat
   securityDepositAmount?: number;
   bookingAdvanceAmount?: number;
   notes?: string;
@@ -83,7 +83,7 @@ export function removeContractLineCommand(input: RemoveContractLineCommandInput)
 export type UpdateContractLineCommandInput = {
   reservationNumber: string; lineId: string;
   pickupDate?: string; pickupTime?: string; returnDate?: string; returnTime?: string;
-  rentalPrice?: number; depositAmount?: number; securityDepositAmount?: number; bookingAdvanceAmount?: number;
+  rentalPrice?: number; depositAmount?: number; securityDepositAmount?: number; bookingAdvanceAmount?: number; // legacy compat
   notes?: string; idempotencyKey?: string;
 };
 export function updateContractLineCommand(input: UpdateContractLineCommandInput): Reservation {
