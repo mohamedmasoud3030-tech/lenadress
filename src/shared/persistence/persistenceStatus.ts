@@ -40,7 +40,7 @@ export type PersistenceStatusState = PersistenceStatus['state'];
 export const PERSISTENCE_STATUS_EVENT = 'lena:persistence-status';
 
 export const LOCAL_ONLY_PERSISTENCE_MESSAGE =
-  'البيانات المحلية متاحة مؤقتًا، وجارٍ الانتقال إلى المزامنة السحابية.';
+  'تعذر الاتصال بحفظ البيانات المركزي. العمليات الجديدة متوقفة لحماية السجلات.';
 
 /**
  * Default status for the official Web/PWA runtime during the current
@@ -50,7 +50,7 @@ export const LOCAL_ONLY_PERSISTENCE_MESSAGE =
 export function createDefaultPersistenceStatus(): PersistenceStatus {
   return {
     state: 'syncing',
-    message: 'جارٍ التحقق من اتصال قاعدة بيانات المعرض…',
+    message: 'جارٍ تجهيز بيانات المعرض…',
     updatedAt: new Date().toISOString(),
   };
 }

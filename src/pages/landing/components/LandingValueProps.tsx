@@ -1,9 +1,9 @@
-import { ShieldCheck, ShoppingBag, Sparkles } from 'lucide-react';
+import { CalendarCheck, ShoppingBag, Sparkles } from 'lucide-react';
 
 const items = [
-  { title: 'معاينة أولية أوضح', description: 'عرض العميلة للخيارات الحالية بطريقة منظمة قبل الزيارة الفعلية.', icon: Sparkles, iconClass: 'bg-violet-50 text-violet-700' },
-  { title: 'فئات أوسع من الفساتين فقط', description: 'يمكن عرض الإكسسوارات والحقائب والملحقات ضمن نفس واجهة المعرض.', icon: ShoppingBag, iconClass: 'bg-emerald-50 text-emerald-700' },
-  { title: 'مناسبة لإعادة البيع', description: 'بيانات المعرض قابلة للتبديل لكل عميل عبر ملف محتوى مركزي بدل النصوص الثابتة.', icon: ShieldCheck, iconClass: 'bg-amber-50 text-amber-700' },
+  { title: 'اختيار أسهل قبل الزيارة', description: 'شاهدي الألوان والمقاسات والأسعار وحددي القطع التي ترغبين في تجربتها.', icon: Sparkles, iconClass: 'bg-violet-50 text-violet-700' },
+  { title: 'كل ما يكمل الإطلالة', description: 'فساتين وإكسسوارات وحقائب وملحقات في مكان واحد.', icon: ShoppingBag, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { title: 'طلب موعد مباشر', description: 'أرسلي طلبك عبر واتساب وسيؤكد لكِ المعرض الموعد والتوفر.', icon: CalendarCheck, iconClass: 'bg-amber-50 text-amber-700' },
 ];
 
 export function LandingValueProps() {

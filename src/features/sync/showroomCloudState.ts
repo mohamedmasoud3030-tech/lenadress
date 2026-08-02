@@ -35,13 +35,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeSnapshot(value: unknown): LocalDatabaseBackup {
   if (!isRecord(value) || value.applicationId !== DATABASE_APPLICATION_ID || !isRecord(value.collections)) {
-    throw new ShowroomCloudError('بيانات الخادم غير صالحة. تم إيقاف التشغيل لحماية السجلات.', 'LENA_INVALID_REMOTE_STATE');
+    throw new ShowroomCloudError('تعذر التحقق من بيانات المعرض. تم إيقاف التشغيل لحماية السجلات.', 'LENA_INVALID_REMOTE_STATE');
   }
 
   const collections = Object.fromEntries(
     Object.entries(value.collections).map(([name, items]) => {
       if (!Array.isArray(items)) {
-        throw new ShowroomCloudError(`قسم البيانات ${name} غير صالح.`, 'LENA_INVALID_REMOTE_STATE');
+        throw new ShowroomCloudError(`تعذر قراءة قسم ${name} من بيانات المعرض.`, 'LENA_INVALID_REMOTE_STATE');
       }
       return [name, items];
     }),
@@ -83,7 +83,7 @@ export async function fetchShowroomState(): Promise<RemoteShowroomState> {
     .select('snapshot, revision, updated_at')
     .eq('id', 'main')
     .single();
-  if (error) throw new ShowroomCloudError('تعذر تحميل قاعدة بيانات المعرض من الخادم.', error.code, error);
+  if (error) throw new ShowroomCloudError('تعذر تحميل بيانات المعرض. تحققي من الإنترنت وحاولي مجددًا.', error.code, error);
   const row = data as ShowroomStateRow;
   return { snapshot: normalizeSnapshot(row.snapshot), revision: Number(row.revision), updatedAt: row.updated_at };
 }
@@ -105,14 +105,14 @@ export async function commitShowroomState(input: {
     throw new ShowroomCloudError(
       code === 'LENA_REVISION_CONFLICT'
         ? 'تغيّرت البيانات من جهاز آخر. أُعيد تحميل أحدث نسخة لحمايتها من الكتابة فوقها.'
-        : 'فشل حفظ العملية في الخادم. لم يتم اعتماد التغيير محليًا.',
+        : 'تعذر حفظ العملية. لم يُسجل أي تغيير.',
       code,
       error,
     );
   }
   const result = Array.isArray(data) ? data[0] : data;
   if (!isRecord(result) || typeof result.revision !== 'number') {
-    throw new ShowroomCloudError('لم يؤكد الخادم حفظ العملية.', 'LENA_INVALID_COMMIT_RESPONSE');
+    throw new ShowroomCloudError('لم يكتمل تأكيد حفظ العملية. أعيدي المحاولة.', 'LENA_INVALID_COMMIT_RESPONSE');
   }
   return result.revision;
 }
@@ -127,4 +127,3 @@ export function subscribeToShowroomChanges(onChange: () => void): RealtimeChanne
 export async function unsubscribeFromShowroomChanges(channel: RealtimeChannel): Promise<void> {
   await getSupabaseClient().removeChannel(channel);
 }
-

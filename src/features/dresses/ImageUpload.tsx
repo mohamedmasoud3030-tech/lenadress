@@ -138,7 +138,7 @@ export function ImageUpload({ images, onChange, maxImages = 5 }: ImageUploadProp
 
       {shouldShowStorageWarning && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
-          الصور الحالية كبيرة نسبيًا للتخزين داخل المتصفح. إذا ظهرت مشاكل حفظ لاحقًا، قللي عدد الصور أو استخدمي صورًا أصغر حجمًا.
+          الصور الحالية كبيرة نسبيًا. لتسريع الحفظ، قللي عدد الصور أو اختاري صورًا أصغر حجمًا.
         </div>
       )}
 

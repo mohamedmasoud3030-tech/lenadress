@@ -86,7 +86,7 @@ test('the shared persistence contract is pure, neutral, and typed', async () => 
 
   const fallback = shared.createDefaultPersistenceStatus();
   assert.equal(fallback.state, 'syncing');
-  assert.equal(fallback.message, 'جارٍ التحقق من اتصال قاعدة بيانات المعرض…');
+  assert.equal(fallback.message, 'جارٍ تجهيز بيانات المعرض…');
   assert.match(fallback.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
 
   assert.equal(shared.isPersistenceStatus(fallback), true);
