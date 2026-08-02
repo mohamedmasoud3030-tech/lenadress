@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/shared/Modal';
@@ -21,7 +21,14 @@ import { getReservationTimeDefaults } from './reservation.service';
 import { getBufferSettings } from './reservationConflicts';
 import type { Reservation, CreateReservationLineInput } from './reservation.types';
 import { createSubmissionKey } from '../../shared/utils/submissionKey';
-import { Stepper, useStepper } from '../../components/shared/Stepper';
+import { Stepper, useStepper, type Step } from '../../components/shared/Stepper';
+
+const RESERVATION_STEPS: Step[] = [
+  { id: 'customer', label: 'العميلة', description: 'اختيار العميلة' },
+  { id: 'dates', label: 'التواريخ', description: 'الاستلام والإرجاع' },
+  { id: 'items', label: 'القطع', description: 'اختيار الفساتين' },
+  { id: 'summary', label: 'الملخص', description: 'المراجعة والدفع' },
+];
 
 const reservationSchema = z.object({
   customerId: z.string().min(1, 'اختاري العميلة.'),
@@ -80,13 +87,7 @@ function nextLineKey() { return `line-${++lineKeyCounter}`; }
 export function CreateReservationModal({ open, onClose, onCreated, prefill }: CreateReservationModalProps) {
   const fieldId = useId();
   const [submitError, setSubmitError] = useState<unknown>(null);
-  const { current: currentStep, goTo: goToStep } = useStepper(4);
-  const steps = [
-    { id: 'customer', label: 'العميلة', description: 'اختيار العميلة' },
-    { id: 'dates', label: 'التواريخ', description: 'الاستلام والإرجاع' },
-    { id: 'items', label: 'القطع', description: 'اختيار الفساتين' },
-    { id: 'summary', label: 'الملخص', description: 'المراجعة والدفع' },
-  ];
+  const { current: currentStep, next: nextStep, prev: previousStep, goTo: goToStep, reset: resetStep } = useStepper(RESERVATION_STEPS.length);
   const [submissionKey] = useState(() => createSubmissionKey('rsv'));
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dresses, setDresses] = useState<Dress[]>([]);
@@ -98,6 +99,7 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
     handleSubmit,
     reset,
     setValue,
+    trigger,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<ReservationFormValues>({
@@ -213,10 +215,11 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
       }
 
       setSubmitError(null);
+      resetStep();
     } catch (error: unknown) {
       setSubmitError(error);
     }
-  }, [open, reset, prefill?.dressCode, prefill?.pickupDate, prefill?.returnDate]);
+  }, [open, reset, resetStep, prefill?.dressCode, prefill?.pickupDate, prefill?.returnDate]);
 
   // Auto-fill rental price and security deposit when a dress is selected
   useEffect(() => {
@@ -237,12 +240,59 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
   const closeModal = () => {
     setSubmitError(null);
     setLines([]);
+    resetStep();
     onClose();
+  };
+
+  const hasSelectedLine = lines.some((line) => Boolean(line.dressId));
+
+  const goToNextStep = async () => {
+    setSubmitError(null);
+
+    if (currentStep === 0) {
+      if (await trigger('customerId', { shouldFocus: true })) nextStep();
+      return;
+    }
+
+    if (currentStep === 1) {
+      const datesAreValid = await trigger(
+        ['pickupDate', 'pickupTime', 'returnDate', 'returnTime'],
+        { shouldFocus: true },
+      );
+      if (!datesAreValid) return;
+      if (returnDate <= pickupDate) {
+        setSubmitError('يجب أن يكون تاريخ الإرجاع بعد تاريخ الاستلام.');
+        return;
+      }
+      nextStep();
+      return;
+    }
+
+    if (currentStep === 2) {
+      if (!hasSelectedLine) {
+        setSubmitError('اختاري قطعة واحدة على الأقل قبل مراجعة الحجز.');
+        return;
+      }
+      nextStep();
+    }
+  };
+
+  const handleInvalidSubmit = (fieldErrors: FieldErrors<ReservationFormValues>) => {
+    if (fieldErrors.customerId) {
+      goToStep(0);
+      return;
+    }
+    if (fieldErrors.pickupDate || fieldErrors.pickupTime || fieldErrors.returnDate || fieldErrors.returnTime) {
+      goToStep(1);
+      return;
+    }
+    goToStep(3);
   };
 
   const onSubmit = (formValues: ReservationFormValues) => {
     if (lines.length === 0 || lines.every((l) => !l.dressId)) {
       setSubmitError('اختاري قطعة واحدة على الأقل.');
+      goToStep(2);
       return;
     }
 
@@ -288,60 +338,69 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
 
   return (
     <Modal open={open} onClose={closeModal} title="حجز جديد">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <Stepper steps={steps} currentStep={currentStep} onStepChange={goToStep} />
+      <form onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)} className="space-y-5">
+        <Stepper steps={RESERVATION_STEPS} currentStep={currentStep} onStepChange={goToStep} idPrefix={fieldId} />
         {submitError !== null && (
           <UserFacingErrorAlert error={submitError} fallback="تعذر إنشاء الحجز. حاولي مرة أخرى." />
         )}
 
-        <SearchableSelect
-          label="العميلة"
-          required
-          value={watch('customerId')}
-          onChange={(customerId) => setValue('customerId', customerId, { shouldValidate: true })}
-          options={customerOptions}
-          placeholder="اختاري العميلة"
-          searchPlaceholder="ابحثي بالاسم أو رقم الهاتف…"
-          error={errors.customerId?.message}
-          unavailableText="لا توجد عميلات مسجلات بعد."
-        />
+        {currentStep === 0 && (
+          <section id={`${fieldId}-panel-customer`} aria-labelledby={`${fieldId}-step-customer`}>
+            <SearchableSelect
+              label="العميلة"
+              required
+              value={watch('customerId')}
+              onChange={(customerId) => setValue('customerId', customerId, { shouldValidate: true })}
+              options={customerOptions}
+              placeholder="اختاري العميلة"
+              searchPlaceholder="ابحثي بالاسم أو رقم الهاتف…"
+              error={errors.customerId?.message}
+              unavailableText="لا توجد عميلات مسجلات بعد."
+            />
+          </section>
+        )}
 
-        <fieldset className="grid gap-4 md:grid-cols-2">
-          <legend className="sr-only">فترة الحجز وأوقاتها</legend>
-          <div>
-            <label htmlFor={`${fieldId}-pickup`} className={FORM_LABEL_CLASS_NAME}>تاريخ الاستلام</label>
-            <input id={`${fieldId}-pickup`} type="date" min={getTodayISO()} {...register('pickupDate')} className={FORM_FIELD_CLASS_NAME} />
-            {errors.pickupDate && <p className={FORM_ERROR_CLASS_NAME}>{errors.pickupDate.message}</p>}
-          </div>
-          <div>
-            <label htmlFor={`${fieldId}-pickup-time`} className={FORM_LABEL_CLASS_NAME}>وقت الاستلام</label>
-            <input id={`${fieldId}-pickup-time`} type="time" {...register('pickupTime')} className={FORM_FIELD_CLASS_NAME} />
-            {errors.pickupTime && <p className={FORM_ERROR_CLASS_NAME}>{errors.pickupTime.message}</p>}
-          </div>
-          <div>
-            <label htmlFor={`${fieldId}-return`} className={FORM_LABEL_CLASS_NAME}>تاريخ الإرجاع</label>
-            <input id={`${fieldId}-return`} type="date" min={getTodayISO()} {...register('returnDate')} className={FORM_FIELD_CLASS_NAME} />
-            {errors.returnDate && <p className={FORM_ERROR_CLASS_NAME}>{errors.returnDate.message}</p>}
-          </div>
-          <div>
-            <label htmlFor={`${fieldId}-return-time`} className={FORM_LABEL_CLASS_NAME}>وقت الإرجاع</label>
-            <input id={`${fieldId}-return-time`} type="time" {...register('returnTime')} className={FORM_FIELD_CLASS_NAME} />
-            {errors.returnTime && <p className={FORM_ERROR_CLASS_NAME}>{errors.returnTime.message}</p>}
-          </div>
-        </fieldset>
+        {currentStep === 1 && (
+          <section id={`${fieldId}-panel-dates`} aria-labelledby={`${fieldId}-step-dates`} className="space-y-4">
+            <fieldset className="grid gap-4 md:grid-cols-2">
+              <legend className="sr-only">فترة الحجز وأوقاتها</legend>
+              <div>
+                <label htmlFor={`${fieldId}-pickup`} className={FORM_LABEL_CLASS_NAME}>تاريخ الاستلام</label>
+                <input id={`${fieldId}-pickup`} type="date" min={getTodayISO()} {...register('pickupDate')} className={FORM_FIELD_CLASS_NAME} />
+                {errors.pickupDate && <p className={FORM_ERROR_CLASS_NAME}>{errors.pickupDate.message}</p>}
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-pickup-time`} className={FORM_LABEL_CLASS_NAME}>وقت الاستلام</label>
+                <input id={`${fieldId}-pickup-time`} type="time" {...register('pickupTime')} className={FORM_FIELD_CLASS_NAME} />
+                {errors.pickupTime && <p className={FORM_ERROR_CLASS_NAME}>{errors.pickupTime.message}</p>}
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-return`} className={FORM_LABEL_CLASS_NAME}>تاريخ الإرجاع</label>
+                <input id={`${fieldId}-return`} type="date" min={getTodayISO()} {...register('returnDate')} className={FORM_FIELD_CLASS_NAME} />
+                {errors.returnDate && <p className={FORM_ERROR_CLASS_NAME}>{errors.returnDate.message}</p>}
+              </div>
+              <div>
+                <label htmlFor={`${fieldId}-return-time`} className={FORM_LABEL_CLASS_NAME}>وقت الإرجاع</label>
+                <input id={`${fieldId}-return-time`} type="time" {...register('returnTime')} className={FORM_FIELD_CLASS_NAME} />
+                {errors.returnTime && <p className={FORM_ERROR_CLASS_NAME}>{errors.returnTime.message}</p>}
+              </div>
+            </fieldset>
 
-        <p className="rounded-xl bg-stone-50 px-3 py-2 text-xs leading-5 text-slate-600">
-          يتم حجز مدة التجهيز قبل التسليم ({bufferDays.preparationDaysBeforePickup} يوم) ومدة التنظيف بعد الإرجاع ({bufferDays.cleaningDaysAfterReturn} يوم) تلقائياً، ولا يمكن حجز نفس العنصر خلالها.
-        </p>
+            <p className="rounded-xl bg-stone-50 px-3 py-2 text-xs leading-5 text-slate-600">
+              يتم حجز مدة التجهيز قبل التسليم ({bufferDays.preparationDaysBeforePickup} يوم) ومدة التنظيف بعد الإرجاع ({bufferDays.cleaningDaysAfterReturn} يوم) تلقائياً، ولا يمكن حجز نفس العنصر خلالها.
+            </p>
+          </section>
+        )}
 
         {/* ── Contract Lines ─────────────────────────────────────────────── */}
-        <div className="space-y-3">
+        {currentStep === 2 && (
+          <section id={`${fieldId}-panel-items`} aria-labelledby={`${fieldId}-step-items`} className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-800">القطع</h3>
             <button
               type="button"
               onClick={addLine}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-slate-950 px-3 text-xs font-bold text-white transition hover:bg-slate-800"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-950 px-3 text-xs font-bold text-white transition hover:bg-slate-800"
             >
               <Plus aria-hidden="true" className="h-3.5 w-3.5" />
               إضافة قطعة
@@ -385,7 +444,7 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
                     <button
                       type="button"
                       onClick={() => removeLine(entry.key)}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-700"
                       aria-label="حذف القطعة"
                     >
                       <Trash2 aria-hidden="true" className="h-4 w-4" />
@@ -404,7 +463,7 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
                       <p className="mt-1 font-bold text-slate-950">{selectedDress.color}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-amber-800\">المقاس</p>
+                      <p className="text-xs font-bold text-amber-800">المقاس</p>
                       <p className="mt-1 font-bold text-slate-950">{selectedDress.size}</p>
                     </div>
                   </div>
@@ -456,41 +515,46 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
               </div>
             );
           })}
-        </div>
+          </section>
+        )}
 
-        <label className={FORM_LABEL_CLASS_NAME}>
-          ملاحظات
-          <textarea rows={3} maxLength={MAX_NOTES_LENGTH} {...register('notes')} className={FORM_FIELD_CLASS_NAME} placeholder="ملاحظات اختيارية عن التجهيز أو الاستلام" />
-          {errors.notes && <p className={FORM_ERROR_CLASS_NAME}>{errors.notes.message}</p>}
-        </label>
+        {currentStep === 3 && (
+          <section id={`${fieldId}-panel-summary`} aria-labelledby={`${fieldId}-step-summary`} className="space-y-4">
+            <label className={FORM_LABEL_CLASS_NAME}>
+              ملاحظات
+              <textarea rows={3} maxLength={MAX_NOTES_LENGTH} {...register('notes')} className={FORM_FIELD_CLASS_NAME} placeholder="ملاحظات اختيارية عن التجهيز أو الاستلام" />
+              {errors.notes && <p className={FORM_ERROR_CLASS_NAME}>{errors.notes.message}</p>}
+            </label>
 
-        {lines.length > 0 && lines.some((l) => l.dressId) && (
-          <div className="space-y-2 rounded-xl bg-slate-950 p-4 text-white">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-300">إجمالي الإيجار</span>
-              <span className="font-bold">{formatMoneyOMR(rentalTotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-300">دفعة الحجز</span>
-              <span className="font-bold text-emerald-300">{formatMoneyOMR(bookingAdvanceTotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-300">المتبقي من الإيجار بعد دفعة الحجز</span>
-              <span className="font-bold text-amber-300">{formatMoneyOMR(remainingRentalAfterBooking)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-300">التأمين المسترد (التزام)</span>
-              <span className="font-bold text-violet-300">{formatMoneyOMR(securityDepositTotal)}</span>
-            </div>
-            <div className="flex justify-between border-t border-white/10 pt-2 text-sm font-extrabold">
-              <span>إجمالي المبلغ النقدي للتحصيل اليوم (إيجار + تأمين)</span>
-              <span className="text-amber-300">{formatMoneyOMR(cashToCollectToday)}</span>
-            </div>
-            {totalDiscount > 0 && (
-              <span className="block text-xs font-medium text-amber-300">خصم إجمالي: {formatMoneyOMR(totalDiscount)}</span>
+            {hasSelectedLine && (
+              <div className="space-y-2 rounded-xl bg-slate-950 p-4 text-white">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-300">إجمالي الإيجار</span>
+                  <span className="font-bold">{formatMoneyOMR(rentalTotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-300">دفعة الحجز</span>
+                  <span className="font-bold text-emerald-300">{formatMoneyOMR(bookingAdvanceTotal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-300">المتبقي من الإيجار بعد دفعة الحجز</span>
+                  <span className="font-bold text-amber-300">{formatMoneyOMR(remainingRentalAfterBooking)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-300">التأمين المسترد (التزام)</span>
+                  <span className="font-bold text-violet-300">{formatMoneyOMR(securityDepositTotal)}</span>
+                </div>
+                <div className="flex justify-between border-t border-white/10 pt-2 text-sm font-extrabold">
+                  <span>إجمالي المبلغ النقدي للتحصيل اليوم (إيجار + تأمين)</span>
+                  <span className="text-amber-300">{formatMoneyOMR(cashToCollectToday)}</span>
+                </div>
+                {totalDiscount > 0 && (
+                  <span className="block text-xs font-medium text-amber-300">خصم إجمالي: {formatMoneyOMR(totalDiscount)}</span>
+                )}
+                <p className="text-[11px] leading-4 text-slate-400">التأمين المسترد التزام قابل للاسترداد ولا يُحتسب ضمن الإيراد. دفعة الحجز تقلل المتبقي من الإيجار مرة واحدة ولا تدخل في تسوية التأمين.</p>
+              </div>
             )}
-            <p className="text-[11px] leading-4 text-slate-400">التأمين المسترد التزام قابل للاسترداد ولا يُحتسب ضمن الإيراد. دفعة الحجز تقلل المتبقي من الإيجار مرة واحدة ولا تدخل في تسوية التأمين.</p>
-          </div>
+          </section>
         )}
 
         <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
@@ -501,13 +565,36 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
           >
             إلغاء
           </button>
-          <button
-            type="submit"
-            disabled={isSubmitting || customers.length === 0 || lines.length === 0 || lines.every((l) => !l.dressId)}
-            className="min-h-11 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-          >
-            {isSubmitting ? 'جارٍ الحفظ...' : 'إنشاء الحجز'}
-          </button>
+          {currentStep > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setSubmitError(null);
+                previousStep();
+              }}
+              className="min-h-11 rounded-xl border border-slate-300 px-5 py-2 text-sm font-bold text-slate-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
+              السابق
+            </button>
+          )}
+          {currentStep < RESERVATION_STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={() => void goToNextStep()}
+              disabled={currentStep === 0 && customers.length === 0}
+              className="min-h-11 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
+              التالي
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={isSubmitting || !hasSelectedLine}
+              className="min-h-11 rounded-xl bg-slate-950 px-5 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
+              {isSubmitting ? 'جارٍ الحفظ...' : 'إنشاء الحجز'}
+            </button>
+          )}
         </div>
       </form>
     </Modal>

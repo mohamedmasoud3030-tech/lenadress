@@ -375,6 +375,7 @@ excluded by explicit instruction. Full reasoning in `docs/PHASE_13_OPERATIONAL_G
   - Evidence: `docs/RUNTIME_QA.md` section 2 with the automated gate matrix and the daily journey walkthrough.
 - [ ] **NEXT — 4.02:** Phone evidence at 390×844 and 360×740.
   - Automated: overflow, safe area, modal scrolling and tap targets are enforced by `tests/ui-contract.test.mjs`. Outstanding: device capture per route.
+  - Integrity follow-up: PR #135 makes the reservation stepper a validated four-panel mobile flow and prevents unsafe or racing image sync. `tests/mobile-polish-regression.test.mjs` covers the regression; real-device capture remains outstanding and this item stays open.
 - [x] **4.03:** PWA manifest, icons, bundled Arabic font and offline shell verified from real build output.
   - Evidence: `tests/pwa-build-contract.test.mjs`. Fixed two real defects: dropped font `@import`s and a service worker that precached neither fonts nor a navigation fallback. Manual on-device install remains outstanding.
 - [ ] **PENDING — 4.04:** Compatible Tauri Windows build, install, launch, relaunch, persistence, backup, restore, and printing.

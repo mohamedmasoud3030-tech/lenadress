@@ -1,5 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getSupabaseClient, isSupabaseConfigured } from '../../lib/supabaseClient';
+
+const CATALOGUE_BUCKET = 'catalogue-images';
+const MAX_CATALOGUE_IMAGE_BYTES = 10 * 1024 * 1024;
+const SUPPORTED_IMAGE_DATA_URL = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/;
+const SAFE_STORAGE_SEGMENT = /^[A-Za-z0-9_-]+$/;
 
 export type UploadResult = {
   path: string;
@@ -7,9 +11,16 @@ export type UploadResult = {
   bytes: number;
 };
 
+export type UploadOutcome = {
+  sourceIndex: number;
+  result: UploadResult | null;
+};
+
 function dataUrlToBlob(dataUrl: string): Blob {
-  const [header, base64] = dataUrl.split(',');
-  const mime = header.match(/:(.*?);/)?.[1] ?? 'image/webp';
+  const match = SUPPORTED_IMAGE_DATA_URL.exec(dataUrl);
+  if (!match) throw new Error('Unsupported image data URL.');
+
+  const [, mime, base64] = match;
   const binary = atob(base64);
   const array = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -18,27 +29,31 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([array], { type: mime });
 }
 
+function getImageExtension(mimeType: string): string {
+  if (mimeType.includes('webp')) return 'webp';
+  if (mimeType.includes('png')) return 'png';
+  return 'jpg';
+}
+
 function generateStoragePath(dressId: string, mimeType: string): string {
-  const ext = mimeType.includes('webp') ? 'webp' : mimeType.includes('png') ? 'png' : 'jpg';
-  // Use crypto-backed ID, never Math.random for persisted identifiers
-  let id: string;
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    id = crypto.randomUUID();
-  } else if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    id = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-  } else {
-    // Fallback to timestamp + counter (still not Math.random)
-    id = `${Date.now()}-${Math.floor(performance.now()).toString(36)}`;
+  if (!SAFE_STORAGE_SEGMENT.test(dressId)) throw new TypeError('Unsafe catalogue item identifier.');
+
+  const ext = getImageExtension(mimeType);
+  if (typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') {
+    throw new TypeError('Secure random identifiers are unavailable.');
   }
+  const id = crypto.randomUUID();
   return `${dressId}/${id}.${ext}`;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**
  * Uploads a compressed dataUrl to Supabase Storage catalogue-images bucket.
- * Returns public URL and path. Best-effort: returns null if not configured or not authenticated.
- * Ensures small size: compressed dataUrl is already 1280px max, WebP 0.82.
+ * Returns public URL and path. Best-effort: returns null if not configured,
+ * unauthenticated, invalid, or larger than the bucket limit.
  */
 export async function uploadCompressedImageToSupabase(
   dressId: string,
@@ -50,22 +65,18 @@ export async function uploadCompressedImageToSupabase(
   try {
     const client = getSupabaseClient();
     const { data: sessionData } = await client.auth.getSession();
-    if (!sessionData.session) {
-      // No authenticated user, skip (RLS will block anon upload if bucket is private, but catalogue-images is public)
-      // We still try to upload as anon if bucket allows public insert? catalogue-images is public, but policy may require authenticated.
-      // For now, try anyway and let storage handle.
-    }
+    if (!sessionData.session) return null;
 
     const blob = dataUrlToBlob(dataUrl);
-    // Enforce small size: if > 2MB after compression, still upload but log warning
-    if (blob.size > 2 * 1024 * 1024) {
-      console.warn(`Compressed image still large: ${blob.size} bytes for dress ${dressId}`);
+    if (blob.size > MAX_CATALOGUE_IMAGE_BYTES) {
+      console.warn(`Catalogue image exceeds bucket limit: ${blob.size} bytes for dress ${dressId}`);
+      return null;
     }
 
     const mimeType = blob.type || 'image/webp';
     const path = generateStoragePath(dressId, mimeType);
 
-    const { error } = await client.storage.from('catalogue-images').upload(path, blob, {
+    const { error } = await client.storage.from(CATALOGUE_BUCKET).upload(path, blob, {
       contentType: mimeType,
       upsert: false,
     });
@@ -75,14 +86,14 @@ export async function uploadCompressedImageToSupabase(
       return null;
     }
 
-    const { data: publicUrlData } = client.storage.from('catalogue-images').getPublicUrl(path);
+    const { data: publicUrlData } = client.storage.from(CATALOGUE_BUCKET).getPublicUrl(path);
     return {
       path,
       publicUrl: publicUrlData.publicUrl,
       bytes: blob.size,
     };
-  } catch (e) {
-    console.warn('uploadCompressedImageToSupabase exception', (e as any)?.message);
+  } catch (error: unknown) {
+    console.warn('uploadCompressedImageToSupabase exception', getErrorMessage(error));
     return null;
   }
 }
@@ -90,20 +101,30 @@ export async function uploadCompressedImageToSupabase(
 export async function uploadMultipleCompressedImages(
   dressId: string,
   dataUrls: string[],
-): Promise<UploadResult[]> {
-  const results: UploadResult[] = [];
-  for (const dataUrl of dataUrls) {
+): Promise<UploadOutcome[]> {
+  const outcomes: UploadOutcome[] = [];
+  for (const [sourceIndex, dataUrl] of dataUrls.entries()) {
     const result = await uploadCompressedImageToSupabase(dressId, dataUrl);
-    if (result) results.push(result);
+    outcomes.push({ sourceIndex, result });
   }
-  return results;
+  return outcomes;
+}
+
+export function getSuccessfulUploadUrls(outcomes: UploadOutcome[]): string[] {
+  const urls: string[] = [];
+  for (const outcome of outcomes) {
+    if (outcome.result) urls.push(outcome.result.publicUrl);
+  }
+  return urls;
 }
 
 export async function deleteSupabaseImage(path: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
     const client = getSupabaseClient();
-    const { error } = await client.storage.from('catalogue-images').remove([path]);
+    const { data: sessionData } = await client.auth.getSession();
+    if (!sessionData.session) return false;
+    const { error } = await client.storage.from(CATALOGUE_BUCKET).remove([path]);
     if (error) {
       console.warn('Supabase storage delete failed', error.message);
       return false;

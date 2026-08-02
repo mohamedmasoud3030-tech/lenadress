@@ -66,6 +66,18 @@ function mapReservationToSupabaseRow(reservation: Reservation): Record<string, u
   };
 }
 
+export function getRemoteCatalogueImageUrl(images: string[] | undefined): string | null {
+  for (const image of images ?? []) {
+    try {
+      const url = new URL(image);
+      if (url.protocol === 'https:' || url.protocol === 'http:') return url.toString();
+    } catch {
+      // Local data URLs and malformed values must never be written into a URL column.
+    }
+  }
+  return null;
+}
+
 function mapDressToSupabaseRow(dress: Dress): Record<string, unknown> {
   return {
     id: dress.id,
@@ -83,7 +95,7 @@ function mapDressToSupabaseRow(dress: Dress): Record<string, unknown> {
     status: dress.status,
     is_for_rent: dress.isForRent,
     is_for_sale: dress.isForSale,
-    main_image_url: dress.images?.[0],
+    main_image_url: getRemoteCatalogueImageUrl(dress.images),
     notes: dress.notes,
   };
 }
