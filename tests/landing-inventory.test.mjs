@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadLandingInventory } from '../src/pages/landing/landingDress.repository.ts';
+import { URL } from 'node:url';
+import {
+  fetchAvailableDressesFromSupabase,
+  loadLandingInventory,
+} from '../src/pages/landing/landingDress.repository.ts';
 
 function makeDress(id) {
   return {
@@ -101,4 +105,56 @@ test('treats an empty Supabase response as a successful shared inventory result'
 
   assert.deepEqual(result, { dresses: [], source: 'supabase' });
   assert.equal(localCalls, 0);
+});
+
+test('public catalogue uses a direct anonymous REST request and maps the narrow projection', async () => {
+  let request;
+  const dresses = await fetchAvailableDressesFromSupabase({
+    getConfig: () => ({ url: 'https://project.supabase.co', publishableKey: 'public-key' }),
+    fetcher: async (input, init) => {
+      request = { url: String(input), headers: init.headers };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [{
+        id: 'remote',
+        code: 'D-remote',
+        name: 'فستان مباشر',
+        description: null,
+        category: 'سهرة',
+        color: 'أسود',
+        size: 'M',
+        item_type: 'dress',
+        rental_price: 25,
+        sale_price: null,
+        security_deposit_amount: 10,
+        status: 'available',
+        is_for_rent: true,
+        is_for_sale: false,
+          images: [],
+        }],
+      };
+    },
+  });
+
+  const url = new URL(request.url);
+  assert.equal(url.pathname, '/rest/v1/catalogue_items');
+  assert.equal(url.searchParams.get('status'), 'eq.available');
+  assert.equal(url.searchParams.get('order'), 'updated_at.desc');
+  assert.match(url.searchParams.get('select'), /security_deposit_amount/);
+  assert.equal(request.headers.apikey, 'public-key');
+  assert.equal(request.headers.Authorization, 'Bearer public-key');
+  assert.equal(dresses.length, 1);
+  assert.equal(dresses[0].name, 'فستان مباشر');
+  assert.equal(dresses[0].status, 'available');
+});
+
+test('public catalogue fails closed when REST returns an error status', async () => {
+  await assert.rejects(
+    fetchAvailableDressesFromSupabase({
+      getConfig: () => ({ url: 'https://project.supabase.co', publishableKey: 'public-key' }),
+      fetcher: async () => ({ ok: false, status: 403 }),
+    }),
+    /تعذر تحميل المعروض الحالي من الخادم/,
+  );
 });
