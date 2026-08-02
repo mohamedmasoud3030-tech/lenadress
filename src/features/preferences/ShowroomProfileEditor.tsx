@@ -85,7 +85,7 @@ export function ShowroomProfileEditor() {
         <span className="text-xs text-slate-400">يظهر في صفحة العرض للعميلات</span>
       </div>
       <p className="mt-2 text-sm leading-6 text-slate-500">
-        عدّلي هذه الحقول لتخصيص صفحة العرض &quot;اللاندينج&quot; لكل عميل يشتري التطبيق. القيم الافتراضية مأخوذة من الملف الثابت.
+        عدّلي الاسم والوصف وبيانات التواصل التي تظهر للعميلات في صفحة المعرض العامة.
       </p>
 
       {saved && (
@@ -111,14 +111,14 @@ export function ShowroomProfileEditor() {
         </label>
       </div>
 
-      {/* Hero */}
+      {/* Main introduction */}
       <div className="mt-5 grid gap-4">
         <label className={labelCls}>
-          عنوان البطل (Hero Title)
+          العنوان الرئيسي
           <input value={fields.heroTitle} onChange={(e) => set('heroTitle', e.target.value)} className={inputCls} placeholder={landingShowroomProfile.heroTitle} />
         </label>
         <label className={labelCls}>
-          وصف البطل (Hero Description)
+          الوصف الرئيسي
           <textarea rows={3} value={fields.heroDescription} onChange={(e) => set('heroDescription', e.target.value)} className={inputCls} placeholder={landingShowroomProfile.heroDescription} />
         </label>
       </div>
