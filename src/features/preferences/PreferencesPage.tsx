@@ -3,9 +3,6 @@ import { DatabaseBackup, Download, HardDrive, RotateCcw, Save, Upload } from 'lu
 import { PageHeader } from '../../components/shared/PageHeader';
 import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAlert';
 import { StorageCapacityIndicator } from '../../components/shared/StorageCapacityIndicator';
-import {
-  CURRENT_STORAGE_SCHEMA_VERSION,
-} from '../../services/localDatabase';
 import { isIndexedDBAvailable } from '../../services/imageStorage.service';
 import { getAppPreferences, type AppPreferences } from './preferences.service';
 import {
@@ -90,9 +87,9 @@ export function PreferencesPage() {
     try {
       const result = await migrateImagesCommand();
       if (result.skipped) {
-        setFeedback('الصور مهاجرة مسبقاً أو IndexedDB غير متاح.');
+        setFeedback('الصور محفوظة بالفعل بالطريقة المحسّنة، أو أن الجهاز لا يدعم نقلها الآن.');
       } else {
-        setFeedback(`تم ترحيل ${result.migrated} صورة إلى IndexedDB بنجاح.`);
+        setFeedback(`تم تحسين حفظ ${result.migrated} صورة بنجاح.`);
       }
       setError(null);
     } catch (migrateError: unknown) {
@@ -112,12 +109,12 @@ export function PreferencesPage() {
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
           <DatabaseBackup aria-hidden="true" className="h-6 w-6 text-amber-700" />
-          <div><h2 className="text-lg font-bold">إدارة البيانات</h2><p className="mt-1 text-sm text-slate-500">إصدار هيكل التخزين: {CURRENT_STORAGE_SCHEMA_VERSION}</p></div>
+          <div><h2 className="text-lg font-bold">النسخ الاحتياطي والاستعادة</h2><p className="mt-1 text-sm text-slate-500">احتفظي بنسخة آمنة قبل استبدال البيانات أو تصفيرها.</p></div>
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">صدّري نسخة قبل أي استيراد أو تصفير. الاستيراد يستبدل البيانات الحالية فقط بعد تأكيد صريح.</p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" onClick={() => void exportBackup()} disabled={isExporting} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"><Download aria-hidden="true" className="h-4 w-4" />{isExporting ? 'جارٍ تجهيز النسخة...' : 'تصدير نسخة JSON'}</button>
-          <button type="button" onClick={() => importInput.current?.click()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-800 hover:bg-stone-100"><Upload aria-hidden="true" className="h-4 w-4" />استيراد نسخة JSON</button>
+          <button type="button" onClick={() => void exportBackup()} disabled={isExporting} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"><Download aria-hidden="true" className="h-4 w-4" />{isExporting ? 'جارٍ تجهيز النسخة...' : 'تنزيل نسخة احتياطية'}</button>
+          <button type="button" onClick={() => importInput.current?.click()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-800 hover:bg-stone-100"><Upload aria-hidden="true" className="h-4 w-4" />استعادة نسخة احتياطية</button>
           <input ref={importInput} type="file" accept="application/json,.json" className="hidden" onChange={(event) => void importBackup(event.target.files?.[0])} />
           <button type="button" onClick={resetAllData} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300 px-4 py-2 text-sm font-bold text-rose-700 hover:bg-rose-50"><RotateCcw aria-hidden="true" className="h-4 w-4" />تصفير جميع البيانات</button>
         </div>
@@ -126,16 +123,16 @@ export function PreferencesPage() {
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
           <HardDrive aria-hidden="true" className="h-6 w-6 text-violet-700" />
-          <div><h2 className="text-lg font-bold">تخزين الصور</h2><p className="mt-1 text-sm text-slate-500">نقل الصور من localStorage إلى IndexedDB لتوفير مساحة أكبر.</p></div>
+          <div><h2 className="text-lg font-bold">تحسين حفظ الصور</h2><p className="mt-1 text-sm text-slate-500">نقل الصور القديمة إلى مساحة أكثر ملاءمة داخل الجهاز.</p></div>
         </div>
-        <p className="mt-3 text-sm leading-6 text-slate-600">IndexedDB يوفر سعة تخزين أكبر بكثير من localStorage، مما يمنع مشاكل الحفظ عند كثرة الصور. اضغطي الزر لترحيل الصور الحالية.</p>
+        <p className="mt-3 text-sm leading-6 text-slate-600">استخدمي هذه العملية مرة واحدة إذا كانت لديك صور قديمة كثيرة، لتقليل احتمالات امتلاء المساحة أثناء العمل.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button type="button" onClick={() => void migrateImages()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
             <HardDrive aria-hidden="true" className="h-4 w-4" />
-            ترحيل الصور إلى IndexedDB
+            تحسين حفظ الصور القديمة
           </button>
           {!isIndexedDBAvailable() && (
-            <p className="self-center text-xs font-bold text-amber-700">IndexedDB غير متاح في هذا المتصفح.</p>
+            <p className="self-center text-xs font-bold text-amber-700">هذا الجهاز لا يدعم نقل الصور القديمة تلقائيًا.</p>
           )}
         </div>
       </article>
