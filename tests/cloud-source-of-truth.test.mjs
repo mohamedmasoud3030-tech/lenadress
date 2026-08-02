@@ -39,7 +39,9 @@ test('public catalogue is a narrow anonymous projection and Vercel serves SPA de
   const vercel = JSON.parse(await read('vercel.json'));
   assert.match(migration, /catalogue_items_public_available/);
   assert.match(migration, /grant select on table public\.catalogue_items to anon/);
-  assert.match(landing, /\.from\('catalogue_items'\)/);
+  assert.match(landing, /\/rest\/v1\/catalogue_items/);
+  assert.match(landing, /apikey: publishableKey/);
+  assert.match(landing, /status', 'eq\.available'/);
   assert.ok(vercel.rewrites.some((rule) => rule.destination === '/index.html'));
   const headers = vercel.headers.flatMap((entry) => entry.headers.map((header) => header.key));
   for (const required of ['Content-Security-Policy', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']) {
