@@ -1,4 +1,5 @@
-import { getSupabaseClient, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../lib/supabaseClient';
+import { getSupabaseConfig } from '../../config/env';
 import { getDresses } from '../../features/dresses/dress.service';
 import type { Dress, DressCategory, InventoryItemType } from '../../features/dresses/dress.types';
 import { DRESS_CATEGORIES } from '../../shared/domain/dressConstants';
@@ -75,16 +76,42 @@ export class LandingInventoryError extends Error {
   }
 }
 
-async function fetchAvailableDressesFromSupabase(): Promise<Dress[]> {
-  const client = getSupabaseClient();
-  const { data, error } = await client
-    .from('catalogue_items')
-    .select('id, code, name, description, category, color, size, item_type, rental_price, sale_price, security_deposit_amount, status, is_for_rent, is_for_sale, images')
-    .eq('status', 'available')
-    .order('updated_at', { ascending: false });
+const CATALOGUE_COLUMNS = [
+  'id', 'code', 'name', 'description', 'category', 'color', 'size', 'item_type',
+  'rental_price', 'sale_price', 'security_deposit_amount', 'status', 'is_for_rent',
+  'is_for_sale', 'images',
+].join(',');
 
-  if (error) throw new LandingInventoryError('تعذر تحميل المعروض الحالي من الخادم.', error);
-  return (data as SupabaseDressRow[] ?? []).map(mapSupabaseRowToDress);
+export async function fetchAvailableDressesFromSupabase({
+  getConfig = getSupabaseConfig,
+  fetcher = globalThis.fetch,
+}: Partial<{
+  getConfig: typeof getSupabaseConfig;
+  fetcher: typeof fetch;
+}> = {}): Promise<Dress[]> {
+  const { url, publishableKey } = getConfig();
+  const endpoint = new URL('/rest/v1/catalogue_items', url);
+  endpoint.searchParams.set('select', CATALOGUE_COLUMNS);
+  endpoint.searchParams.set('status', 'eq.available');
+  endpoint.searchParams.set('order', 'updated_at.desc');
+
+  try {
+    const response = await fetcher(endpoint, {
+      headers: {
+        Accept: 'application/json',
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Catalogue request failed with status ${response.status}.`);
+    }
+    const data: unknown = await response.json();
+    if (!Array.isArray(data)) throw new Error('Catalogue response is not an array.');
+    return (data as SupabaseDressRow[]).map(mapSupabaseRowToDress);
+  } catch (error) {
+    throw new LandingInventoryError('تعذر تحميل المعروض الحالي من الخادم.', error);
+  }
 }
 
 function getAvailableDressesFromLocalStorage(): Dress[] {
