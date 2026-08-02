@@ -108,11 +108,9 @@ function persist(reservations: Reservation[], updated: Reservation): Reservation
   const next = { ...updated, remainingAmount: remaining(updated) };
   writeCollection(COLLECTION, reservations.map((item) => item.id === next.id ? next : item));
   // Best-effort Supabase sync - makes Supabase source of truth for production
-  try {
-    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+  import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
       pushReservationToSupabase(next);
-    });
-  } catch { /* best-effort */ void 0; }
+    }).catch(() => { /* ignore */ });
   return next;
 }
 
@@ -267,11 +265,9 @@ export function createReservation(input: CreateReservationInput): Reservation {
       nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalTotal, securityTotal, lineCount: lines.length, items: lines.map((line) => line.dressCodeSnapshot) },
     });
     // Best-effort Supabase sync for production launch
-    try {
-      import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
         pushReservationToSupabase(withRemaining);
-      });
-    } catch { /* best-effort */ void 0; }
+      }).catch(() => { /* ignore */ });
     return withRemaining;
   }
 
@@ -362,11 +358,9 @@ export function createReservation(input: CreateReservationInput): Reservation {
   writeCollection(COLLECTION, [withRemaining, ...reservations]);
   recordAudit({ action: 'create', entityType: 'reservation', entityId: reservation.id, summary: `تم إنشاء الحجز ${reservation.reservationNumber} للفستان ${reservation.dressCode}.`, nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalPrice: agreedRentalPrice, securityDepositAmount } });
   // Best-effort Supabase sync
-  try {
-    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+  import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
       pushReservationToSupabase(withRemaining);
-    });
-  } catch { /* best-effort */ void 0; }
+    }).catch(() => { /* ignore */ });
   return withRemaining;
 }
 

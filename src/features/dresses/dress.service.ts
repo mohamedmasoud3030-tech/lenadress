@@ -51,12 +51,9 @@ function saveDressesToStorage(dresses: Dress[]): void {
   }));
   writeCollection<Dress>(INVENTORY_COLLECTION, normalized);
   // Best-effort Supabase sync for production
-  try {
-    import('../../features/sync/supabaseSync').then(({ pushDressToSupabase }) => {
-      // Push only the last changed or all? For simplicity push all in background
+  import('../../features/sync/supabaseSync').then(({ pushDressToSupabase }) => {
       normalized.slice(-1).forEach((d) => pushDressToSupabase(d));
-    });
-  } catch { /* best-effort */ void 0; }
+    }).catch(() => { /* ignore */ });
 }
 
 export function getDresses(): Dress[] {

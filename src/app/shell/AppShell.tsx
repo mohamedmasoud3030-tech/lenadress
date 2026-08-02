@@ -17,11 +17,9 @@ export function AppShell() {
 
   useEffect(() => {
     // Trigger background Supabase sync for production launch - makes Supabase source of truth
-    try {
-      import('../../features/sync/supabaseSync').then(({ triggerBackgroundSync }) => {
-        triggerBackgroundSync();
-      });
-    } catch { /* ignore */ void 0; }
+    import('../../features/sync/supabaseSync').then(({ triggerBackgroundSync }) => {
+      triggerBackgroundSync();
+    }).catch(() => { /* ignore */ });
   }, []);
   const showPersistenceNotice =
     persistenceStatus.state === 'error' ||

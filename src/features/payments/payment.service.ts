@@ -299,11 +299,9 @@ export function addPayment(input: AddPaymentInput): PaymentRecord {
   writeCollection(COLLECTION, [payment, ...getPayments()]);
   auditPaymentMovement(payment);
   // Best-effort Supabase sync
-  try {
-    import('../../features/sync/supabaseSync').then(({ pushPaymentToSupabase }) => {
+  import('../../features/sync/supabaseSync').then(({ pushPaymentToSupabase }) => {
       pushPaymentToSupabase(payment);
-    });
-  } catch { /* best-effort */ void 0; }
+    }).catch(() => { /* ignore */ });
   return payment;
 }
 
@@ -455,11 +453,9 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
   writeCollection(COLLECTION, [...movements, ...payments]);
   movements.forEach(auditPaymentMovement);
   // Supabase sync for each movement
-  try {
-    import('../../features/sync/supabaseSync').then(({ pushPaymentToSupabase }) => {
+  import('../../features/sync/supabaseSync').then(({ pushPaymentToSupabase }) => {
       movements.forEach((m) => pushPaymentToSupabase(m));
-    });
-  } catch { /* best-effort */ void 0; }
+    }).catch(() => { /* ignore */ });
   return { refundAmount, retainedDepositAmount, settledDepositAmount, movements };
 }
 

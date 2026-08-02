@@ -115,11 +115,9 @@ export function addCustomer(input: AddCustomerInput): Customer {
     nextValues: { name: customer.name, phone: customer.phone, status: customer.status },
   });
   // Best-effort Supabase sync
-  try {
-    import('../../features/sync/supabaseSync').then(({ pushCustomerToSupabase }) => {
+  import('../../features/sync/supabaseSync').then(({ pushCustomerToSupabase }) => {
       pushCustomerToSupabase(customer);
-    });
-  } catch { /* best-effort */ void 0; }
+    }).catch(() => { /* ignore */ });
   return customer;
 }
 
