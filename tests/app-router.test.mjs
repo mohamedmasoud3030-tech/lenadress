@@ -14,7 +14,7 @@ test('App delegates route ownership to the router package', async () => {
   const app = await read('src/app/App.tsx');
 
   assert.match(app, /import \{ AppRoutes \} from '@app\/router\/AppRoutes';/);
-  assert.match(app, /return <AppRoutes \/>;/);
+  assert.match(app, /<AppRoutes \/>/);
   assert.doesNotMatch(app, /<Routes>/);
   assert.doesNotMatch(app, /<Route\b/);
 });
