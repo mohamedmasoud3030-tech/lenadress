@@ -9,22 +9,14 @@ import type {
   AddAccessoryInput,
   UpdateAccessoryInput,
 } from './accessory.types';
+import { getAccessorySecurityDepositAmount } from './accessory.types';
 import { createSearchMatcher } from '../../shared/utils/search';
-
-/**
- * Accessory catalogue.
- *
- * Codes come from the same monotonic allocator as inventory items and are
- * retired, never reused. The barcode is always derived from the code so a
- * reprinted label is identical after reload, backup and restore.
- */
 
 const COLLECTION = 'accessories';
 const RETIRED_CODES_COLLECTION = 'retired-codes';
 const ACCESSORY_CODE_COUNTER = 'accessory-code';
 const ACCESSORY_CODE_PREFIX = 'ACC';
 
-/** States in which the accessory is physically unavailable for a new booking. */
 const UNAVAILABLE_STATUSES = new Set<AccessoryStatus>(['lost', 'damaged', 'retired']);
 
 type RetiredCode = { code: string; retiredAt: string };
@@ -46,18 +38,31 @@ export function allocateAccessoryCode(): string {
 }
 
 export function getAccessories(): Accessory[] {
-  return readCollection<Accessory>(COLLECTION, []);
+  return readCollection<Accessory>(COLLECTION, []).map((a) => {
+    const rec = a as unknown as Record<string, unknown>;
+    const def = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : 0; // legacy compat
+    const dep = typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : 0; // legacy compat
+    return {
+      ...a,
+      defaultSecurityDepositAmount: def,
+      depositAmount: dep, // legacy compat
+    };
+  });
 }
 
 function saveAccessories(accessories: Accessory[]): void {
-  writeCollection(COLLECTION, accessories);
+  const normalized = accessories.map((a) => ({
+    ...a,
+    defaultSecurityDepositAmount: getAccessorySecurityDepositAmount(a),
+    depositAmount: getAccessorySecurityDepositAmount(a), // legacy compat
+  }));
+  writeCollection(COLLECTION, normalized);
 }
 
 export function getAccessoryById(id: string): Accessory | undefined {
   return getAccessories().find((item) => item.id === id);
 }
 
-/** Resolves a scanned barcode or a typed stock code to exactly one accessory. */
 export function getAccessoryByBarcode(value: string): Accessory | undefined {
   return getAccessories().find((item) => identityMatchesBarcode(item, value));
 }
@@ -74,6 +79,7 @@ export function addAccessory(input: AddAccessoryInput): Accessory {
 
   const accessories = getAccessories();
   const code = allocateAccessoryCode();
+  const secDeposit = input.defaultSecurityDepositAmount ?? input.depositAmount ?? 0; // legacy compat
   const accessory: Accessory = {
     id: generateId(),
     code,
@@ -83,7 +89,8 @@ export function addAccessory(input: AddAccessoryInput): Accessory {
     status: input.status ?? 'available',
     salePrice: normalizeOptionalAmount(input.salePrice, 'سعر بيع الملحق'),
     rentalPrice: normalizeOptionalAmount(input.rentalPrice, 'سعر تأجير الملحق'),
-    depositAmount: normalizeOptionalAmount(input.depositAmount, 'مبلغ تأمين الملحق'),
+    depositAmount: normalizeOptionalAmount(secDeposit, 'مبلغ التأمين المسترد'), // legacy compat
+    defaultSecurityDepositAmount: normalizeOptionalAmount(secDeposit, 'مبلغ التأمين المسترد'),
     notes: input.notes?.trim() || undefined,
     image: input.image || undefined,
   };
@@ -94,7 +101,7 @@ export function addAccessory(input: AddAccessoryInput): Accessory {
     entityType: 'accessory',
     entityId: accessory.id,
     summary: `تمت إضافة الملحق ${accessory.code} — ${accessory.name}.`,
-    nextValues: { code: accessory.code, category: accessory.category, status: accessory.status },
+    nextValues: { code: accessory.code, category: accessory.category, status: accessory.status, defaultSecurityDepositAmount: secDeposit },
   });
   return accessory;
 }
@@ -104,16 +111,18 @@ export function updateAccessory(id: string, updates: UpdateAccessoryInput): Acce
   const accessory = accessories.find((item) => item.id === id);
   if (!accessory) throw new Error('الملحق المحدد غير موجود.');
 
+  const rec = updates as unknown as Record<string, unknown>;
+  const secDepositRaw = typeof rec['defaultSecurityDepositAmount'] === 'number' ? rec['defaultSecurityDepositAmount'] as number : typeof rec['depositAmount'] === 'number' ? rec['depositAmount'] as number : undefined; // legacy compat
   const next: Accessory = {
     ...accessory,
     ...updates,
     name: updates.name?.trim() || accessory.name,
-    // Identity is never editable: the code and barcode stay bound together.
     code: accessory.code,
     barcode: accessory.barcode,
     salePrice: 'salePrice' in updates ? normalizeOptionalAmount(updates.salePrice, 'سعر بيع الملحق') : accessory.salePrice,
     rentalPrice: 'rentalPrice' in updates ? normalizeOptionalAmount(updates.rentalPrice, 'سعر تأجير الملحق') : accessory.rentalPrice,
-    depositAmount: 'depositAmount' in updates ? normalizeOptionalAmount(updates.depositAmount, 'مبلغ تأمين الملحق') : accessory.depositAmount,
+    depositAmount: secDepositRaw !== undefined ? normalizeOptionalAmount(secDepositRaw, 'مبلغ التأمين المسترد') : accessory.depositAmount, // legacy compat
+    defaultSecurityDepositAmount: secDepositRaw !== undefined ? normalizeOptionalAmount(secDepositRaw, 'مبلغ التأمين المسترد') : accessory.defaultSecurityDepositAmount,
   };
 
   saveAccessories(accessories.map((item) => (item.id === id ? next : item)));
@@ -132,10 +141,6 @@ export function updateAccessoryStatus(id: string, status: AccessoryStatus): Acce
   return updateAccessory(id, { status });
 }
 
-/**
- * Retires the accessory instead of deleting it, so reservations, contracts and
- * reports keep resolving its code and name.
- */
 export function retireAccessory(id: string): Accessory {
   const accessory = getAccessoryById(id);
   if (!accessory) throw new Error('الملحق المحدد غير موجود.');

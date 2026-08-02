@@ -9,6 +9,7 @@ import {
   getTodayReport,
 } from './report.service';
 import type { DateRangeFilter } from './report.types';
+import { getReservationsNeedingFinancialClassification } from '../reservations/reservation.service';
 
 export function ReportsPage() {
   const [range, setRange] = useState<DateRangeFilter>({ from: '', to: '' });
@@ -24,6 +25,7 @@ export function ReportsPage() {
     () => dressPerformance.filter((dress) => dress.requiresReview).length,
     [dressPerformance],
   );
+  const needsClassification = useMemo(() => getReservationsNeedingFinancialClassification(), [appliedRange, today]);
 
   const applyRange = () => {
     if (range.from && range.to && range.from > range.to) {
@@ -39,19 +41,35 @@ export function ReportsPage() {
     <section className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">التقارير التشغيلية والمالية</h1>
-        <p className="mt-2 text-slate-600">نظرة موحدة على الإيرادات والمصروفات وأداء دورة حياة الفساتين اعتماداً على بيانات النظام المحلية.</p>
+        <p className="mt-2 text-slate-600">نظرة موحدة على الإيرادات والمصروفات وأداء دورة حياة الفساتين مع فصل دفعة الحجز عن التأمين المسترد.</p>
       </div>
 
       {feedback && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">{feedback}</div>}
 
+      {needsClassification.length > 0 && (
+        <article className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-rose-900">سجلات تحتاج مراجعة مالية — تصنيف العربون</h2>
+          <p className="mt-1 text-sm text-rose-800">يوجد {needsClassification.length} حجز قديم يحتوي على مبلغ عربون غامض (depositAmount) بدون دليل تسوية. تم حفظ القيمة الأصلية كـ legacyDepositAmount وتم وضع علامة needsFinancialClassification. لا يُسمح بالتسوية التلقائية حتى المراجعة.</p>
+          <div className="mt-3 space-y-2 text-xs">
+            {needsClassification.slice(0, 10).map((r) => (
+              <div key={r.id} className="flex justify-between rounded-xl bg-white p-2">
+                <span>{r.reservationNumber} — {r.customerName} — {r.dressCode}</span>
+                <span>الأصل: {r.legacyDepositAmount} ر.ع — {r.classificationReason}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي الفساتين</p><p className="mt-2 text-2xl font-bold">{summary.totalDresses}</p></article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">الحجوزات النشطة</p><p className="mt-2 text-2xl font-bold">{summary.activeReservations}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي التحصيل</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.totalCollected)}</p></article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي التحصيل النقدي</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.totalCollected)}</p></article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">فساتين تحتاج مراجعة</p><p className="mt-2 text-2xl font-bold text-amber-700">{dressesRequiringReview}</p></article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي المصروفات</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.totalExpenses)}</p></article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">صافي حركة النقد</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.netAmount)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">عميلات عليهن رصيد</p><p className="mt-2 text-2xl font-bold">{summary.customersWithBalance}</p></article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">عميلات عليهن رصيد إيجار</p><p className="mt-2 text-2xl font-bold">{summary.customersWithBalance}</p></article>
+        <article className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">حجوزات تحتاج تصنيف مالي</p><p className="mt-2 text-2xl font-bold text-rose-700">{needsClassification.length}</p></article>
       </div>
 
       <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -103,7 +121,7 @@ export function ReportsPage() {
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold">أرصدة العميلات</h2>
+          <h2 className="text-lg font-semibold">أرصدة العميلات - المتبقي من الإيجار</h2>
           {customerBalances.length === 0 ? <p className="mt-3 text-sm text-slate-500">لا توجد عميلات عليهن رصيد.</p> : (
             <div className="mt-3 space-y-2 text-sm">{customerBalances.map((customer) => <div key={customer.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-3"><p>{customer.name} - {customer.phone}</p><p className="font-semibold text-rose-700">{formatReportMoney(customer.remainingBalance)}</p></div>)}</div>
           )}
@@ -111,22 +129,28 @@ export function ReportsPage() {
       </div>
 
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">الملخص المالي</h2>
+        <h2 className="text-lg font-semibold">الملخص المالي — فصل دفعة الحجز عن التأمين المسترد</h2>
         <div className="mt-4 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
-          <p>إيرادات التأجير: <span className="font-bold">{formatReportMoney(financial.rentalCollected)}</span></p>
+          <p>إيرادات التأجير (دفعات إيجار): <span className="font-bold">{formatReportMoney(financial.rentalCollected)}</span></p>
+          <p>دفعة الحجز (مقدم إيجار): <span className="font-bold">{formatReportMoney(financial.bookingAdvanceCollected ?? 0)}</span></p>
           <p>إيرادات المبيعات: <span className="font-bold">{formatReportMoney(financial.salesCollected)}</span></p>
-          <p>إجمالي التحصيل: <span className="font-bold">{formatReportMoney(financial.totalCollected)}</span></p>
-          <p>الاسترجاعات: <span className="font-bold">{formatReportMoney(financial.totalRefunded)}</span></p>
+          <p>إجمالي التحصيل النقدي (إيجار + دفعة حجز + تأمين + مبيعات): <span className="font-bold">{formatReportMoney(financial.totalCollected)}</span></p>
+          <p>التأمين المسترد المحصل (التزام): <span className="font-bold">{formatReportMoney(financial.securityDepositCollected ?? 0)}</span></p>
+          <p>التأمين المسترد المردود للعميلة: <span className="font-bold">{formatReportMoney(financial.securityDepositRefunded ?? 0)}</span></p>
+          <p>التأمين المحتجز (دخل من احتجاز): <span className="font-bold">{formatReportMoney(financial.depositRetained)}</span></p>
+          <p>التأمين المسترد المتبقي (التزام مستحق): <span className="font-bold">{formatReportMoney(financial.depositLiabilityCollected)}</span></p>
+          <p>الاسترجاعات النقدية: <span className="font-bold">{formatReportMoney(financial.totalRefunded)}</span></p>
           <p>المصروفات: <span className="font-bold">{formatReportMoney(financial.totalExpenses)}</span></p>
-          <p>الرسوم المحصلة: <span className="font-bold">{formatReportMoney(financial.feesCollected)}</span></p>
-          <p>عربون محتجز (دخل): <span className="font-bold">{formatReportMoney(financial.depositRetained)}</span></p>
-          <p>عربون مستحق الرد (التزام): <span className="font-bold">{formatReportMoney(financial.depositLiabilityCollected)}</span></p>
+          <p>الرسوم المحصلة (تأخير + ضرر + محتجز): <span className="font-bold">{formatReportMoney(financial.feesCollected)}</span></p>
           <p>صافي حركة النقد: <span className="font-bold">{formatReportMoney(financial.netAmount)}</span></p>
-          <p>الدخل المعترف به: <span className="font-bold">{formatReportMoney(financial.recognisedIncome)}</span></p>
+          <p>الدخل المعترف به (إيجار + دفعة حجز + مبيعات + رسوم + محتجز، بدون التأمين المستحق): <span className="font-bold">{formatReportMoney(financial.recognisedIncome)}</span></p>
         </div>
-        <p className="mt-3 rounded-xl bg-stone-50 p-3 text-xs text-slate-600">
-          العربون القابل للرد ليس إيراداً؛ يبقى التزاماً على المعرض حتى يُرد أو يُحتجز صراحة. المبلغ المحصل ليس ربحاً؛ الدخل المعترف به يستثني العربون المستحق الرد ويخصم المصروفات.
-        </p>
+        <div className="mt-3 space-y-2 rounded-xl bg-stone-50 p-3 text-xs text-slate-600">
+          <p>• دفعة الحجز (دفعة الحجز): مبلغ مقدم من قيمة الإيجار، يقلل المتبقي من الإيجار مرة واحدة، لا ينشئ التزاماً قابلاً للرد، ولا يدخل في تسوية التأمين.</p>
+          <p>• التأمين المسترد (التأمين المسترد): مبلغ تأمين قابل للرد، يبقى التزاماً على المعرض حتى يُرد أو يُحتجز بمبرر صريح (تلف/تأخير/فقد).</p>
+          <p>• تحصيل التأمين يزيد النقد والالتزام، لا الإيراد. استرداده يقلل النقد والالتزام. احتجازه يقلل الالتزام ويسجل الرسم المرتبط.</p>
+          <p>• المبلغ المحصل ليس ربحاً؛ الدخل المعترف به يستثني التأمين المستحق الرد ويخصم المصروفات.</p>
+        </div>
       </article>
     </section>
   );

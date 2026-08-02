@@ -56,21 +56,27 @@ A reservation stores both:
 
 The stable references preserve data integrity. The snapshots preserve historical documents after names or contact details change.
 
-### 2.4 Collections, deposits, fees, and refunds
+### 2.4 Collections, deposits, fees, and refunds — canonical separation (ADR 0002)
 
 Payment records are an append-only movement ledger. Existing movements are not silently edited or deleted; corrections are represented by explicit adjustment, reversal, or refund movements with reasons.
 
-Money has different business meanings:
+Money has different business meanings, with explicit Arabic labels and separate storage:
 
-- rental collection: income against rental charge;
-- security deposit collection: refundable liability, not rental revenue;
-- late/damage fee: assessed revenue;
-- retained deposit: deposit liability converted to cover assessed fees;
-- refund: cash leaving the showroom;
+- rental collection (rental_payment): income against rental charge; reduces المتبقي من الإيجار;
+- booking advance (booking_advance / دفعة الحجز): money paid in advance toward rental obligation; reduces المتبقي من الإيجار once; not a refundable liability; not refunded through security-deposit settlement; cancellation refundability depends on cancellation policy; must not be counted twice;
+- security deposit collection (security_deposit_collection / التأمين المسترد / التأمين المحصل): refundable liability, not rental revenue; does not reduce المتبقي من الإيجار; liability = collected - refunded - retained, never negative;
+- late/damage fee (late_fee / damage_fee): assessed revenue;
+- retained deposit (security_deposit_retention / التأمين المحتجز): deposit liability converted to cover assessed fees; requires explicit reason; never exceeds available liability;
+- security deposit refund (security_deposit_refund / التأمين المسترد للعميلة): cash leaving showroom, reduces liability, does not alter rental revenue;
+- refund (rental refund): cash leaving, increases المتبقي من الإيجار;
 - sale collection: sale revenue and cash inflow;
 - expense: operating cash outflow.
 
-Reports must not call all collected cash “profit” or “revenue”.
+Catalogue default: dresses.defaultSecurityDepositAmount (التأمين المسترد المقترح) replaces ambiguous deposit_amount.
+
+Reports must separate: rental cash, booking advances, security deposits collected/refunded/retained, rental revenue, fee revenue, outstanding refundable liability. Collecting security deposit increases cash and liability, not income. Reports must not call all collected cash “profit” or “revenue”.
+
+Legacy ambiguous depositAmount is preserved as legacyDepositAmount with classification (booking_advance | security_deposit | mixed | unresolved | reviewed) and needsFinancialClassification flag when evidence not clear. Unsafe automated refund/retention blocked until reviewed.
 
 ### 2.5 Delivery, return, inspection, and service
 

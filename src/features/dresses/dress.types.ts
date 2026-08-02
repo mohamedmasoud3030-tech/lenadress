@@ -25,7 +25,10 @@ export type Dress = {
   purchasePrice: number;
   rentalPrice: number;
   salePrice: number;
+  /** @deprecated legacy ambiguous field; use defaultSecurityDepositAmount */
   depositAmount: number;
+  /** Canonical suggested refundable security deposit for the piece */
+  defaultSecurityDepositAmount?: number;
   status: DressStatus;
   isForRent: boolean;
   isForSale: boolean;
@@ -64,3 +67,7 @@ export type DressSummary = {
   rented: number;
   inService: number;
 };
+
+export function getDressSecurityDepositAmount(dress: Dress): number {
+  return dress.defaultSecurityDepositAmount ?? dress.depositAmount ?? 0;
+}

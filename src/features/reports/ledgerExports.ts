@@ -139,7 +139,7 @@ export function buildReservationsCsv(reservations: Reservation[]): string {
         line?.rentalPrice ?? reservation.rentalPrice,
         listPrice,
         Math.max(listPrice - (line?.rentalPrice ?? reservation.rentalPrice), 0),
-        line?.depositAmount ?? reservation.depositAmount,
+        line?.depositAmount ?? reservation.depositAmount, // legacy compat
         reservation.totalAmount,
         reservation.paidAmount,
         reservation.remainingAmount,
@@ -161,7 +161,7 @@ export function buildReservationsCsv(reservations: Reservation[]): string {
           line.rentalPrice,
           listPrice,
           Math.max(listPrice - line.rentalPrice, 0),
-          line.depositAmount,
+          line.depositAmount, // legacy compat
           // Only show totals on the first line row
           index === 0 ? reservation.totalAmount : '',
           index === 0 ? reservation.paidAmount : '',

@@ -537,7 +537,7 @@ test('legacy reservation without lines array is handled correctly', () => {
 
 // ── 15. Payments and totals are not broken by multi-item ────────────────
 
-test('payments and totals work correctly with multi-item reservations', () => {
+test('payments and totals work correctly with multi-item reservations - rental remaining excludes security deposit', () => {
   installStorage();
   try {
     const { customer, dress1, dress2 } = seed();
@@ -553,20 +553,20 @@ test('payments and totals work correctly with multi-item reservations', () => {
       ],
     });
 
-    assert.equal(reservation.totalAmount, 110);
-    assert.equal(reservation.remainingAmount, 110);
+    assert.equal(reservation.totalAmount, 110); // rental 75 + deposit 35 = 110 for cash collection
+    assert.equal(reservation.remainingAmount, 75); // rental only, deposit excluded from rental remaining
     assert.equal(reservation.paidAmount, 0);
 
-    // Record a payment
+    // Record a rental payment
     const paid = recordReservationPayment({
       reservationNumber: reservation.reservationNumber,
-      type: 'rental',
+      type: 'rental_payment',
       direction: 'income',
       amount: 50,
     });
 
-    assert.equal(paid.paidAmount, 50);
-    assert.equal(paid.remainingAmount, 60);
+    assert.equal(paid.rentalCollectedAmount, 50);
+    assert.equal(paid.remainingAmount, 25); // 75 - 50
 
     // Total must not change
     assert.equal(paid.totalAmount, 110);

@@ -1,6 +1,9 @@
 import { generateId, generateNumber, readCollection, writeCollection } from '../../services/localDatabase';
 import { getTodayISO } from '../../shared/utils/date';
-import { calculateReturnSettlement } from '../../shared/utils/financialCalculations.js';
+import {
+  calculateReturnSettlement,
+  calculateSecurityDepositLiability,
+} from '../../shared/utils/financialCalculations.js';
 import { recordAudit } from '../audit/audit.service';
 import { assertBusinessDateOpen } from '../integrity/integrity.service';
 import { getReservations, recordReservationPayment, settleReservationReturn } from '../reservations/reservation.service';
@@ -27,6 +30,8 @@ type AddPaymentInput = {
   method: PaymentMethod;
   amount: number;
   notes?: string;
+  retentionReason?: string;
+  idempotencyKey?: string;
 };
 
 type RecordReturnSettlementInput = {
@@ -36,6 +41,7 @@ type RecordReturnSettlementInput = {
   lateFee: number;
   damageFee: number;
   feesAlreadyAssessed?: boolean;
+  retentionReason?: string;
 };
 
 export type ReturnSettlement = {
@@ -73,11 +79,22 @@ export function summarizePayments(payments: PaymentRecord[]): PaymentSummary {
   const summary = payments.reduce<PaymentSummary>(
     (acc, payment) => {
       if (payment.direction === 'income') acc.totalCollected += payment.amount;
-      if (payment.direction === 'income' && payment.type === 'rental') acc.rentalCollected += payment.amount;
+      if (payment.direction === 'income' && (payment.type === 'rental' || payment.type === 'rental_payment')) acc.rentalCollected += payment.amount;
+      if (payment.direction === 'income' && payment.type === 'booking_advance') acc.bookingAdvanceCollected += payment.amount;
       if (payment.direction === 'refund') acc.totalRefunded += payment.amount;
       if (payment.direction === 'income' && payment.type === 'deposit') acc.deposits += payment.amount;
+      if (payment.direction === 'income' && payment.type === 'security_deposit_collection') {
+        acc.securityDepositsCollected += payment.amount;
+        acc.deposits += payment.amount;
+      }
+      if (payment.direction === 'refund' && payment.type === 'security_deposit_refund') {
+        acc.securityDepositsRefunded += payment.amount;
+      }
+      if (payment.direction === 'settlement' && (payment.type === 'retained_deposit' || payment.type === 'security_deposit_retention')) {
+        acc.retainedDeposits += payment.amount;
+        acc.securityDepositsRetained += payment.amount;
+      }
       if (payment.direction === 'income' && payment.type === 'penalty') acc.penalties += payment.amount;
-      if (payment.direction === 'settlement' && payment.type === 'retained_deposit') acc.retainedDeposits += payment.amount;
       if (payment.direction === 'settlement' && payment.type === 'late_fee') acc.lateFees += payment.amount;
       if (payment.direction === 'settlement' && payment.type === 'damage_fee') acc.damageFees += payment.amount;
       return acc;
@@ -85,19 +102,29 @@ export function summarizePayments(payments: PaymentRecord[]): PaymentSummary {
     {
       totalCollected: 0,
       rentalCollected: 0,
+      bookingAdvanceCollected: 0,
       deposits: 0,
+      securityDepositsCollected: 0,
+      securityDepositsRefunded: 0,
+      securityDepositsRetained: 0,
       retainedDeposits: 0,
       penalties: 0,
       lateFees: 0,
       damageFees: 0,
       totalRefunded: 0,
       remainingBalance: 0,
+      securityDepositLiability: 0,
     },
   );
 
   summary.remainingBalance = getReservations()
     .filter((reservation) => reservation.status !== 'cancelled')
     .reduce((total, reservation) => total + reservation.remainingAmount, 0);
+
+  summary.securityDepositLiability = Math.max(
+    summary.securityDepositsCollected - summary.securityDepositsRefunded - summary.securityDepositsRetained,
+    0,
+  );
 
   return summary;
 }
@@ -112,6 +139,8 @@ function createPaymentRecord(
     amount: number;
     source: 'manual' | 'return';
     notes?: string;
+    retentionReason?: string;
+    idempotencyKey?: string;
   },
 ): PaymentRecord {
   return {
@@ -128,6 +157,8 @@ function createPaymentRecord(
     amount: input.amount,
     reservationTotal: reservation.totalAmount,
     source: input.source,
+    retentionReason: input.retentionReason,
+    idempotencyKey: input.idempotencyKey,
     notes: input.notes?.trim() || undefined,
   };
 }
@@ -145,13 +176,48 @@ function auditPaymentMovement(payment: PaymentRecord): void {
       method: payment.method,
       paymentDate: payment.paymentDate,
       source: payment.source,
+      retentionReason: payment.retentionReason,
     },
   });
 }
 
+function isSecurityDepositRefundType(type: string): boolean {
+  return type === 'security_deposit_refund';
+}
+function isSecurityDepositRetentionType(type: string): boolean {
+  return type === 'security_deposit_retention' || type === 'retained_deposit';
+}
+function isRentalRefundType(type: string): boolean {
+  return type === 'refund';
+}
+
+/** Every value that can change financial timing, classification, or the audit trail. */
+export function matchesIdempotentPaymentPayload(
+  existing: PaymentRecord,
+  input: Pick<AddPaymentInput, 'paymentDate' | 'type' | 'method' | 'amount' | 'notes' | 'retentionReason'>,
+  direction: PaymentDirection,
+): boolean {
+  return existing.type === (input.type === 'rental' ? 'rental_payment' : input.type)
+    && Math.abs(existing.amount - input.amount) < 1e-6
+    && existing.method === input.method
+    && existing.direction === direction
+    && existing.paymentDate === input.paymentDate
+    && (existing.retentionReason ?? '') === (input.retentionReason?.trim() ?? '')
+    && (existing.notes ?? '') === (input.notes?.trim() ?? '')
+    && existing.source === 'manual';
+}
+
 export function addPayment(input: AddPaymentInput): PaymentRecord {
   const reservation = getReservations().find((item) => item.reservationNumber === input.reservationNumber);
-  const direction: PaymentDirection = input.type === 'refund' ? 'refund' : 'income';
+
+  // Strict separation of refund types per blocker #1 - do NOT use existence of securityDepositCollectedAmount to decide type
+  const isRentalRefund = isRentalRefundType(input.type);
+  const isDepositRefund = isSecurityDepositRefundType(input.type);
+  const isRetention = isSecurityDepositRetentionType(input.type);
+  let direction: PaymentDirection;
+  if (isRentalRefund || isDepositRefund) direction = 'refund';
+  else if (isRetention) direction = 'settlement';
+  else direction = 'income';
 
   if (!reservation) throw new Error('الحجز المحدد غير موجود.');
   if (!input.paymentDate) throw new Error('تاريخ الدفع مطلوب.');
@@ -159,24 +225,83 @@ export function addPayment(input: AddPaymentInput): PaymentRecord {
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('قيمة الدفعة يجب أن تكون أكبر من صفر.');
   assertBusinessDateOpen(input.paymentDate);
 
+  if (input.type === 'deposit') {
+    if (reservation.securityDepositAmount !== undefined) {
+      throw new Error('نوع الحركة deposit غامض؛ استخدمي security_deposit_collection أو booking_advance أو rental_payment.');
+    }
+  }
+
+  // ---- Blocker 1: separate refund guards ----
+  if (isDepositRefund) {
+    // Security deposit refund checks ONLY against securityDepositCollected, Refunded, Retained
+    const collected = reservation.securityDepositCollectedAmount ?? 0;
+    const refunded = reservation.securityDepositRefundedAmount ?? 0;
+    const retained = reservation.securityDepositRetainedAmount ?? 0;
+    const available = calculateSecurityDepositLiability({ collected, refunded, retained });
+    if (input.amount > available + 1e-6) {
+      throw new Error('قيمة استرداد التأمين المسترد تتجاوز المبلغ المتاح للاسترداد.');
+    }
+  } else if (isRentalRefund) {
+    // This PR has no cancellation/refund policy for booking advances.  A generic
+    // rental refund therefore covers only explicit rental collections.
+    const rentalCollected = reservation.rentalCollectedAmount ?? 0;
+    const rentalRefunded = reservation.rentalRefundedAmount ?? 0;
+    if (input.amount > rentalCollected - rentalRefunded + 1e-6) {
+      throw new Error('قيمة استرجاع الإيجار تتجاوز المبلغ المحصل فعلياً للإيجار. رد دفعة الحجز عند الإلغاء خارج نطاق هذه النسخة.');
+    }
+  }
+
+  if (isRetention) {
+    throw new Error('احتجاز التأمين متاح فقط عبر تسوية الاسترجاع المرتبطة برسوم تأخير أو ضرر مُقيّمة.');
+  }
+
+  // ---- Blocker 3: idempotency scoped to reservation + operation/type + key ----
+  if (input.idempotencyKey) {
+    const scopedExisting = getPayments().find(
+      (p) => p.reservationNumber === input.reservationNumber && p.idempotencyKey === input.idempotencyKey,
+    );
+    if (scopedExisting) {
+      const payloadMatches = matchesIdempotentPaymentPayload(scopedExisting, input, direction);
+      if (payloadMatches) {
+        return scopedExisting;
+      }
+      // Same key, same reservation, but different payload -> reject reuse
+      throw new Error('إعادة استخدام مفتاح idempotency مع حمولة مختلفة غير مسموحة لنفس الحجز.');
+    }
+    // Do NOT return payment from other reservation - scoped search ensures we don't
+    // Global check is intentionally NOT used here to prevent cross-reservation leak
+  }
+
+  // Map manual type to canonical for storage
+  let canonicalType: PaymentType = input.type as PaymentType;
+  if (input.type === 'rental') canonicalType = 'rental_payment';
+
+  // ---- Blocker 2: settlement must be passed as real movement, not converted to income ----
   const updatedReservation = recordReservationPayment({
     reservationNumber: reservation.reservationNumber,
     type: input.type,
-    direction: direction === 'refund' ? 'refund' : 'income',
+    direction, // income | refund | settlement - no conversion to income
     amount: input.amount,
   });
+
   const payment = createPaymentRecord(updatedReservation, {
     paymentDate: input.paymentDate,
-    type: input.type,
+    type: canonicalType,
     method: input.method,
     direction,
     amount: input.amount,
     source: 'manual',
     notes: input.notes,
+    retentionReason: input.retentionReason,
+    idempotencyKey: input.idempotencyKey,
   });
 
   writeCollection(COLLECTION, [payment, ...getPayments()]);
   auditPaymentMovement(payment);
+  // Best-effort Supabase sync
+  import('../../features/sync/supabaseSync').then(({ pushPaymentToSupabase }) => {
+      pushPaymentToSupabase(payment);
+    }).catch(() => { /* ignore */ });
   return payment;
 }
 
@@ -190,34 +315,69 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
   }
   assertBusinessDateOpen(input.paymentDate);
 
+  if (reservation.needsFinancialClassification) {
+    throw new Error('هذا الحجز يحتاج مراجعة مالية لتصنيف العربون قبل التسوية.');
+  }
+
   const payments = getPayments();
   const reservationPayments = payments.filter((payment) => payment.reservationNumber === reservation.reservationNumber);
-  const depositAmount = getReservationDepositTotal(reservation);
-  const depositCollected = Math.min(
-    depositAmount,
-    reservationPayments
-      .filter((payment) => payment.type === 'deposit' && payment.direction === 'income')
-      .reduce((total, payment) => total + payment.amount, 0),
-  );
-  const totalCollected = reservationPayments
-    .filter((payment) => payment.direction === 'income')
-    .reduce((total, payment) => total + payment.amount, 0);
+
+  // Canonical security deposit handling - derive from reservation fields, fallback to payment history only for collected
+  const securityDepositAmount = getReservationDepositTotal(reservation);
+  const securityDepositCollected = reservation.securityDepositCollectedAmount ?? 0;
+  const securityDepositRefunded = reservation.securityDepositRefundedAmount ?? 0;
+  const securityDepositRetained = reservation.securityDepositRetainedAmount ?? 0;
+
+  // For legacy backups where collected fields not yet set, derive from payment history (only then)
+  const securityDepositCollectedFromHistory = securityDepositCollected > 0
+    ? securityDepositCollected
+    : reservationPayments
+        .filter((p) => p.type === 'security_deposit_collection' || p.type === 'deposit')
+        .filter((p) => p.direction === 'income')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+  const rentalCollected = reservation.rentalCollectedAmount ?? 0;
+  const bookingAdvanceCollected = reservation.bookingAdvanceCollectedAmount ?? 0;
+
+  const totalCollected = securityDepositCollectedFromHistory + rentalCollected + bookingAdvanceCollected;
+
   const previouslyRefundedAmount = reservationPayments
-    .filter((payment) => payment.direction === 'refund')
-    .reduce((total, payment) => total + payment.amount, 0);
-  const previouslyRefundedDepositAmount = reservationPayments
-    .filter((payment) => payment.type === 'refund' && payment.direction === 'refund' && payment.source === 'return')
-    .reduce((total, payment) => total + payment.amount, 0);
+    .filter((p) => p.direction === 'refund')
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  // Use canonical settlement calculation
   const settlement = calculateReturnSettlement({
-    depositAmount,
-    depositCollected,
+    securityDepositAmount,
+    securityDepositCollected: securityDepositCollectedFromHistory,
+    securityDepositRefunded,
+    securityDepositRetained,
     totalCollected,
+    rentalCollected,
     previouslyRefundedAmount,
-    previouslyRefundedDepositAmount,
+    previouslyRefundedDepositAmount: securityDepositRefunded,
     lateFee: input.lateFee,
     damageFee: input.damageFee,
   });
+
   const { refundAmount, retainedDepositAmount, settledDepositAmount } = settlement;
+
+  // Enforce non-negative liability and no over-refund/retention
+  const available = calculateSecurityDepositLiability({
+    collected: securityDepositCollectedFromHistory,
+    refunded: securityDepositRefunded,
+    retained: securityDepositRetained,
+  });
+  if (refundAmount + retainedDepositAmount > available + 1e-6) {
+    throw new Error('إجمالي رد التأمين والتأمين المحتجز يتجاوز المبلغ المتاح.');
+  }
+
+  // Retention must have clear reason and cover proven fees - validation
+  if (retainedDepositAmount > 0) {
+    if (!input.retentionReason && (input.lateFee + input.damageFee) === 0) {
+      // If retained but no fee and no reason, require reason
+      throw new Error('سبب احتجاز التأمين المسترد مطلوب عند وجود مبلغ محتجز بدون رسوم مثبتة.');
+    }
+  }
 
   const updatedReservation = settleReservationReturn({
     reservationNumber: reservation.reservationNumber,
@@ -227,6 +387,8 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
     settledDepositAmount,
     retainedDepositAmount,
     feesAlreadyAssessed: input.feesAlreadyAssessed,
+    securityDepositAmount,
+    securityDepositCollectedAmount: securityDepositCollectedFromHistory,
   });
 
   const movements: PaymentRecord[] = [
@@ -260,46 +422,51 @@ export function recordReturnSettlement(input: RecordReturnSettlementInput): Retu
           direction: 'settlement',
           amount: settledDepositAmount,
           source: 'return',
-          notes: 'إغلاق وتسوية العربون عند استرجاع العنصر.',
+          notes: 'إغلاق وتسوية التأمين المسترد عند استرجاع العنصر.',
         })
       : null,
     retainedDepositAmount > 0
       ? createPaymentRecord(updatedReservation, {
           paymentDate: input.paymentDate,
-          type: 'retained_deposit',
+          type: 'security_deposit_retention',
           method: 'other',
           direction: 'settlement',
           amount: retainedDepositAmount,
           source: 'return',
-          notes: 'جزء محتجز من العربون لتغطية الرسوم.',
+          notes: 'جزء محتجز من التأمين المسترد لتغطية الرسوم.',
+          retentionReason: input.retentionReason || `تأخير ${input.lateFee} + ضرر ${input.damageFee}`,
         })
       : null,
     refundAmount > 0
       ? createPaymentRecord(updatedReservation, {
           paymentDate: input.paymentDate,
-          type: 'refund',
+          type: 'security_deposit_refund',
           method: input.refundMethod,
           direction: 'refund',
           amount: refundAmount,
           source: 'return',
-          notes: 'استرجاع تلقائي للجزء المستحق من العربون.',
+          notes: 'استرجاع تلقائي للجزء المستحق من التأمين المسترد.',
         })
       : null,
   ].filter((movement): movement is PaymentRecord => movement !== null);
 
   writeCollection(COLLECTION, [...movements, ...payments]);
   movements.forEach(auditPaymentMovement);
+  // Supabase sync for each movement
+  import('../../features/sync/supabaseSync').then(({ pushPaymentToSupabase }) => {
+      movements.forEach((m) => pushPaymentToSupabase(m));
+    }).catch(() => { /* ignore */ });
   return { refundAmount, retainedDepositAmount, settledDepositAmount, movements };
 }
 
 export function formatPaymentTypeLabel(type: PaymentType): string {
-  return PAYMENT_TYPE_LABELS[type];
+  return PAYMENT_TYPE_LABELS[type] ?? type;
 }
 
 export function formatPaymentMethodLabel(method: PaymentMethod): string {
-  return PAYMENT_METHOD_LABELS[method];
+  return PAYMENT_METHOD_LABELS[method] ?? method;
 }
 
 export function formatPaymentDirectionLabel(direction: PaymentDirection): string {
-  return PAYMENT_DIRECTION_LABELS[direction];
+  return PAYMENT_DIRECTION_LABELS[direction] ?? direction;
 }

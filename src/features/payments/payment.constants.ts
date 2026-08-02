@@ -1,15 +1,22 @@
 import type { ManualPaymentType, PaymentDirection, PaymentMethod, PaymentType } from './payment.types';
 
 export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
-  rental: 'إيجار',
-  deposit: 'عربون محصل',
+  rental: 'إيجار (قديم)',
+  deposit: 'عربون محصل (قديم - يحتاج تصنيف)',
   late_fee: 'رسوم تأخير',
   damage_fee: 'رسوم ضرر',
-  deposit_settlement: 'تسوية عربون',
-  retained_deposit: 'عربون محتجز',
+  deposit_settlement: 'تسوية عربون (قديم)',
+  retained_deposit: 'عربون محتجز (قديم)',
   penalty: 'غرامة مسددة',
-  refund: 'استرجاع نقدي',
+  refund: 'استرجاع نقدي (قديم)',
   adjustment: 'تسوية مسددة',
+  // Canonical new types
+  booking_advance: 'دفعة الحجز',
+  rental_payment: 'دفعة إيجار',
+  security_deposit_collection: 'تحصيل التأمين المسترد',
+  security_deposit_refund: 'استرداد التأمين المسترد',
+  security_deposit_retention: 'احتجاز التأمين المسترد',
+  reversal: 'عكس حركة',
 };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -30,7 +37,25 @@ export const PAYMENT_DIRECTION_LABELS: Record<PaymentDirection, string> = {
   settlement: 'تسوية غير نقدية',
 };
 
-export const MANUAL_PAYMENT_TYPES: ManualPaymentType[] = ['rental', 'deposit', 'penalty', 'adjustment', 'refund'];
+export const MANUAL_PAYMENT_TYPES: ManualPaymentType[] = [
+  'rental_payment',
+  'booking_advance',
+  'security_deposit_collection',
+  'refund',
+  'adjustment',
+];
+
+export const CANONICAL_PAYMENT_TYPES: PaymentType[] = [
+  'booking_advance',
+  'rental_payment',
+  'security_deposit_collection',
+  'security_deposit_refund',
+  'security_deposit_retention',
+  'late_fee',
+  'damage_fee',
+  'adjustment',
+  'reversal',
+];
 
 export const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'card', 'bank_transfer', 'other'];
 

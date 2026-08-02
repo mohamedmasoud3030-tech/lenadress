@@ -2,22 +2,27 @@ import { escapeHtml, isSectionVisible, printDocument, PrintDocumentError } from 
 import { formatMoneyOMR } from '../../shared/utils/format.js';
 import { formatTimeLabel } from '../../shared/utils/date';
 import { getAccessoriesForReservation } from '../accessories/reservationAccessory.service';
+import { getReservationAccessorySecurityDeposit } from '../accessories/accessory.types';
 import { getDresses } from '../dresses/dress.service';
 import { getShowroomProfile } from '../preferences/showroomProfile.service';
 import { getReservationTimes } from './reservation.service';
-import { getReservationLines, isMultiItemReservation, calculateLinesTotal, calculateLinesRentalPrice, calculateLinesDeposit, calculateLinesFees } from './contractLineHelpers';
+import {
+  getReservationLines,
+  isMultiItemReservation,
+  calculateLinesRentalPrice,
+  calculateLinesSecurityDeposit,
+  calculateLinesBookingAdvance,
+  calculateLinesFees,
+} from './contractLineHelpers';
+import { getLineSecurityDepositAmount, getLineBookingAdvanceAmount, getReservationSecurityDepositAmount, getReservationBookingAdvanceAmount } from './reservation.types';
 import type { Reservation } from './reservation.types';
 import { getPrintSettings } from '../preferences/printSettings.service';
 
 /**
- * Printable rental contract.
- *
- * The contract is a legal record of what the showroom handed over and on what
- * terms, so it prints the historical snapshots stored on the reservation, never
- * the current mutable customer/item values.
- *
- * For multi-item contracts, each line is rendered as a row in a table with its
- * own dates, pricing, and status. The totals are summed from all lines.
+ * Printable rental contract — now with distinct Arabic labels:
+ * - دفعة الحجز (booking advance) reduces rental receivable
+ * - التأمين المسترد (security deposit) is liability, not revenue
+ * Never prints ambiguous "العربون" without qualification.
  */
 
 export class PrintRentalContractError extends Error {
@@ -30,15 +35,17 @@ export class PrintRentalContractError extends Error {
 const CONTRACT_TERMS = [
   'تلتزم العميلة بإعادة القطعة في التاريخ المتفق عليه وبالحالة التي استلمتها بها.',
   'التأخير عن موعد الإرجاع يترتب عليه رسوم تأخير تُحتسب حسب سياسة المعرض.',
-  'أي ضرر أو فقد أو بقعة يصعب إزالتها يترتب عليه رسوم إصلاح تُخصم من العربون أو تُحصّل بشكل منفصل.',
-  'العربون مبلغ مسترد بالكامل بعد فحص القطعة، ما لم تُحتجز منه رسوم تأخير أو ضرر.',
+  'أي ضرر أو فقد أو بقعة يصعب إزالتها يترتب عليه رسوم إصلاح تُخصم من التأمين المسترد أو تُحصّل بشكل منفصل.',
+  'التأمين المسترد مبلغ مسترد بالكامل بعد فحص القطعة، ما لم تُحتجز منه رسوم تأخير أو ضرر، ولا يدخل ضمن إيراد الإيجار إلا عند احتجازه المبرر.',
+  'دفعة الحجز مبلغ مقدم من قيمة الإيجار ويقلل المتبقي من الإيجار مرة واحدة، ولا يُسترد عبر تسوية التأمين.',
+  'سياسة الإلغاء: دفعة الحجز غير مستردة عند إلغاء الحجز من قبل العميلة. رد الإيجار المحصل (إن وجد) يخضع لسياسة إلغاء موثقة ومكتوبة بموافقة إدارة المعرض، ويُرد فقط المبلغ المحصل للإيجار بعد خصم أي رسوم إدارية، ولا يشمل التأمين المسترد الذي يخضع لمسار تسوية منفصل.',
+  'عند الإلغاء، يتم تحرير القطعة فوراً وإتاحة حجزها لعميلة أخرى، ويبقى مبلغ دفعة الحجز كإيراد مؤكد وفق سياسة cash-basis المعتمدة، مع فصل تام عن التزام التأمين المسترد.',
   'لا تُعتبر القطعة مسترجعة إلا بعد إثبات الاستلام وفحصها من قبل المعرض.',
   'لا يجوز تأجير القطعة من الباطن أو تعديلها دون موافقة المعرض.',
 ];
 
 export function buildRentalContractHtml(reservation: Reservation): string {
   const profile = getShowroomProfile();
-  // The operator can switch off blocks that waste paper on a filing copy.
   const settings = getPrintSettings();
   const customerName = reservation.customerNameSnapshot ?? reservation.customerName;
   const customerPhone = reservation.customerPhoneSnapshot ?? reservation.customerPhone;
@@ -57,11 +64,11 @@ export function buildRentalContractHtml(reservation: Reservation): string {
   const accessories = getAccessoriesForReservation(reservation.reservationNumber);
   const accessoryRows = accessories
     .map((link) => `<tr><td>${escapeHtml(link.accessoryCodeSnapshot)}</td><td>${escapeHtml(link.accessoryNameSnapshot)}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(link.rentalPrice))}</td><td>${escapeHtml(formatMoneyOMR(link.depositAmount))}</td></tr>`)
+      + `<td>${escapeHtml(formatMoneyOMR(link.rentalPrice))}</td><td>${escapeHtml(formatMoneyOMR(getReservationAccessorySecurityDeposit(link)))}</td></tr>`)
     .join('');
   const accessorySection = accessories.length > 0
     ? `<div class="section"><b>الملحقات المسلَّمة مع القطعة</b>`
-      + `<table><thead><tr><th>الكود</th><th>الملحق</th><th>قيمة التأجير</th><th>التأمين</th></tr></thead>`
+      + `<table><thead><tr><th>الكود</th><th>الملحق</th><th>قيمة التأجير</th><th>التأمين المسترد</th></tr></thead>`
       + `<tbody>${accessoryRows}</tbody></table></div>`
     : '';
 
@@ -78,11 +85,12 @@ export function buildRentalContractHtml(reservation: Reservation): string {
       + `<td>${escapeHtml(`${line.pickupDate} — ${formatTimeLabel(lineTimes.pickupTime)}`)}</td>`
       + `<td>${escapeHtml(`${line.returnDate} — ${formatTimeLabel(lineTimes.returnTime)}`)}</td>`
       + `<td>${escapeHtml(formatMoneyOMR(line.rentalPrice))}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(line.depositAmount))}</td></tr>`;
+      + `<td>${escapeHtml(formatMoneyOMR(getLineBookingAdvanceAmount(line)))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(getLineSecurityDepositAmount(line)))}</td></tr>`;
   }).join('');
 
   const itemTable = isMulti
-    ? `<table><thead><tr><th>الكود</th><th>القطعة</th><th>المقاس واللون</th><th>الاستلام</th><th>الإرجاع</th><th>الإيجار</th><th>التأمين</th></tr></thead>`
+    ? `<table><thead><tr><th>الكود</th><th>القطعة</th><th>المقاس واللون</th><th>الاستلام</th><th>الإرجاع</th><th>الإيجار</th><th>دفعة الحجز</th><th>التأمين المسترد</th></tr></thead>`
       + `<tbody>${itemTableRows}</tbody></table>`
     : `<table><thead><tr><th>الكود</th><th>القطعة</th><th>المقاس واللون</th><th>الاستلام</th><th>الإرجاع</th></tr></thead>`
       + `<tbody>${lines.map((line) => {
@@ -97,23 +105,38 @@ export function buildRentalContractHtml(reservation: Reservation): string {
 
   // ── Financial summary ──────────────────────────────────────────────────
   const totalRentalPrice = isMulti ? calculateLinesRentalPrice(lines) : reservation.rentalPrice;
-  const totalDeposit = isMulti ? calculateLinesDeposit(lines) : reservation.depositAmount;
-  const totalFees = isMulti ? calculateLinesFees(lines) : 0;
-  const totalAmount = isMulti ? calculateLinesTotal(lines) : reservation.totalAmount;
+  const totalBookingAdvance = isMulti ? calculateLinesBookingAdvance(lines) : getReservationBookingAdvanceAmount(reservation);
+  const totalSecurityDeposit = isMulti ? calculateLinesSecurityDeposit(lines) : getReservationSecurityDepositAmount(reservation);
+  const totalFees = isMulti ? calculateLinesFees(lines) : (reservation.assessedFeesAmount ?? 0);
+  const remainingRental = Math.max(totalRentalPrice + totalFees - totalBookingAdvance - (reservation.rentalCollectedAmount ?? 0) - (reservation.securityDepositRetainedAmount ?? 0), reservation.remainingAmount);
+  const cashToCollect = totalRentalPrice + totalSecurityDeposit;
+
+  const securityCollected = reservation.securityDepositCollectedAmount ?? 0;
+  const securityRefunded = reservation.securityDepositRefundedAmount ?? 0;
+  const securityRetained = reservation.securityDepositRetainedAmount ?? 0;
+  const securityLiability = Math.max(securityCollected - securityRefunded - securityRetained, 0);
 
   const financialTable = isMulti
-    ? `<table><thead><tr><th>إجمالي الإيجار</th><th>إجمالي التأمين</th><th>الرسوم</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr></thead>`
+    ? `<table><thead><tr><th>إجمالي الإيجار</th><th>دفعة الحجز</th><th>المتبقي من الإيجار</th><th>إجمالي التأمين المسترد</th><th>التأمين المحصل</th><th>التأمين المحتجز</th><th>التأمين المسترد للعميلة (التزام)</th><th>الرسوم</th><th>إجمالي نقدي للتحصيل</th><th>المدفوع (إيجار)</th><th>المتبقي من الإيجار</th></tr></thead>`
       + `<tbody><tr><td>${escapeHtml(formatMoneyOMR(totalRentalPrice))}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(totalDeposit))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(totalBookingAdvance))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(remainingRental))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(totalSecurityDeposit))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(securityCollected))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(securityRetained))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(securityLiability))}</td>`
       + `<td>${escapeHtml(formatMoneyOMR(totalFees))}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(totalAmount))}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(reservation.paidAmount))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(cashToCollect))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(reservation.rentalCollectedAmount ?? reservation.paidAmount))}</td>`
       + `<td>${escapeHtml(formatMoneyOMR(reservation.remainingAmount))}</td></tr></tbody></table>`
-    : `<table><thead><tr><th>قيمة الإيجار</th><th>العربون (مسترد)</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr></thead>`
+    : `<table><thead><tr><th>قيمة الإيجار</th><th>دفعة الحجز</th><th>المتبقي من الإيجار</th><th>التأمين المسترد</th><th>التأمين المحصل</th><th>إجمالي نقدي للتحصيل</th><th>المدفوع</th><th>المتبقي</th></tr></thead>`
       + `<tbody><tr><td>${escapeHtml(formatMoneyOMR(reservation.rentalPrice))}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(reservation.depositAmount))}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(reservation.totalAmount))}</td>`
-      + `<td>${escapeHtml(formatMoneyOMR(reservation.paidAmount))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(getReservationBookingAdvanceAmount(reservation)))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(remainingRental))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(getReservationSecurityDepositAmount(reservation)))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(securityCollected))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(cashToCollect))}</td>`
+      + `<td>${escapeHtml(formatMoneyOMR(reservation.rentalCollectedAmount ?? reservation.paidAmount))}</td>`
       + `<td>${escapeHtml(formatMoneyOMR(reservation.remainingAmount))}</td></tr></tbody></table>`;
 
   // ── Per-line discount (if any) ────────────────────────────────────────
@@ -141,7 +164,7 @@ export function buildRentalContractHtml(reservation: Reservation): string {
     + (isSectionVisible(settings, 'accessories') ? accessorySection : '')
     + discountSection
     + financialTable
-    + `<p class="muted">العربون مبلغ تأمين مسترد ولا يُحتسب ضمن قيمة الإيجار.</p>`
+    + `<p class="muted">التأمين المسترد مبلغ تأمين مسترد ولا يُحتسب ضمن قيمة الإيجار ويبقى التزاماً حتى الاسترداد أو الاحتجاز المبرر. دفعة الحجز تقلل المتبقي من الإيجار مرة واحدة ولا تدخل في تسوية التأمين. إجمالي المبلغ النقدي للتحصيل اليوم = المتبقي من الإيجار + التأمين المسترد + الرسوم.</p>`
     + (isSectionVisible(settings, 'terms') ? `<div class="terms"><b>الشروط والأحكام</b><ol>${terms}</ol></div>` : '')
     + (isSectionVisible(settings, 'signatures')
       ? `<div class="signatures"><span>توقيع المعرض: ______________</span><span>توقيع العميلة: ______________</span></div>`

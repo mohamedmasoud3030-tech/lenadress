@@ -11,3 +11,5 @@ dist-ssr
 coverage
 src-tauri/target
 clones/
+
+tsconfig.tsbuildinfo

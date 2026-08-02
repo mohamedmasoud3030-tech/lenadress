@@ -46,6 +46,10 @@ export function getFinancialSummary(range?: DateRangeFilter): FinancialSummary {
     depositRetained: totals.depositRetained,
     feesCollected: totals.feesCollected,
     recognisedIncome: totals.recognisedIncome,
+    bookingAdvanceCollected: totals.bookingAdvanceCollected,
+    securityDepositCollected: totals.securityDepositCollected,
+    securityDepositRefunded: totals.securityDepositRefunded,
+    securityDepositRetained: totals.securityDepositRetained,
   };
 }
 

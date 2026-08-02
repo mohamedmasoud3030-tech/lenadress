@@ -131,7 +131,7 @@ test('a single paid rental produces revenue, occupancy and a utilisation rate', 
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'p1',
@@ -176,7 +176,7 @@ test('several rentals accumulate count, revenue and occupied days', () => {
       recordPaymentCommand({
         reservationNumber: reservation.reservationNumber,
         paymentDate: today,
-        type: 'rental',
+        type: 'rental_payment',
         method: 'cash',
         amount: 100,
         idempotencyKey: `multi-pay-${index}`,
@@ -295,7 +295,7 @@ test('a discount is taken from the recorded price snapshot, not guessed later', 
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 80,
       idempotencyKey: 'discount-pay',
@@ -366,7 +366,7 @@ test('maintenance cost reduces the net result and marks a cost-heavy item', () =
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'cost-pay',
@@ -482,7 +482,7 @@ test('a narrower date range excludes movements outside it', () => {
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'range-pay',
@@ -533,7 +533,7 @@ test('top and low performers rank on net result and utilisation, not booking cou
       recordPaymentCommand({
         reservationNumber: reservation.reservationNumber,
         paymentDate: today,
-        type: 'rental',
+        type: 'rental_payment',
         method: 'cash',
         amount: 10,
         idempotencyKey: `cheap-pay-${index}`,
@@ -552,7 +552,7 @@ test('top and low performers rank on net result and utilisation, not booking cou
     recordPaymentCommand({
       reservationNumber: premiumReservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 300,
       idempotencyKey: 'premium-pay',
@@ -582,7 +582,7 @@ test('the report never invents revenue that the finance layer does not recognise
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'recon-rent',
@@ -590,7 +590,7 @@ test('the report never invents revenue that the finance layer does not recognise
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 50,
       idempotencyKey: 'recon-dep',
@@ -633,7 +633,7 @@ test('the item detail view exposes bookings, revenue lines, costs and accessorie
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'detail-pay',
@@ -681,7 +681,7 @@ test('the timeline aggregates by the selected granularity', () => {
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'timeline-pay',
@@ -720,7 +720,7 @@ test('operation and kind filters narrow the reported rows', () => {
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'filter-pay',
@@ -768,7 +768,7 @@ test('sorting is stable and honours the chosen direction', () => {
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 100,
       idempotencyKey: 'sort-pay',

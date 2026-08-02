@@ -14,6 +14,7 @@ import type { Customer } from '../customers/customer.types';
 import { getDresses } from '../dresses/dress.service';
 import { getBookablePieces } from '../dresses/design.service';
 import type { Dress } from '../dresses/dress.types';
+import { getDressSecurityDepositAmount } from '../dresses/dress.types';
 import { SearchableSelect, type SearchableOption } from '../../components/shared/SearchableSelect';
 import { createReservationCommand } from '../workflows';
 import { getReservationTimeDefaults } from './reservation.service';
@@ -36,7 +37,8 @@ type LineEntry = {
   key: string;
   dressId: string;
   rentalPrice: string;
-  depositAmount: string;
+  securityDepositAmount: string;
+  bookingAdvanceAmount: string;
 };
 
 type CreateReservationModalProps = {
@@ -112,8 +114,6 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
   })), [customers]);
 
   const dressOptions = useMemo<SearchableOption[]>(() => {
-    // Resolve bookable pieces through the conflict rule for the chosen period,
-    // so the operator sees what is genuinely free.
     const source = period
       ? getBookablePieces('', period).filter((dress) => dress.isForRent && reservableDressStatuses.has(dress.status))
       : dresses;
@@ -126,14 +126,30 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
   }, [dresses, period]);
 
   // ── Computed totals ──────────────────────────────────────────────────
-  const linesTotal = useMemo(() => {
+  const rentalTotal = useMemo(() => {
     return lines.reduce((sum, entry) => {
       const dress = dresses.find((d) => d.id === entry.dressId);
       const rental = Number(entry.rentalPrice) || dress?.rentalPrice || 0;
-      const deposit = Number(entry.depositAmount) || 0;
-      return sum + rental + deposit;
+      return sum + rental;
     }, 0);
   }, [lines, dresses]);
+
+  const securityDepositTotal = useMemo(() => {
+    return lines.reduce((sum, entry) => {
+      const deposit = Number(entry.securityDepositAmount) || 0;
+      return sum + deposit;
+    }, 0);
+  }, [lines]);
+
+  const bookingAdvanceTotal = useMemo(() => {
+    return lines.reduce((sum, entry) => {
+      const adv = Number(entry.bookingAdvanceAmount) || 0;
+      return sum + adv;
+    }, 0);
+  }, [lines]);
+
+  const cashToCollectToday = useMemo(() => rentalTotal + securityDepositTotal, [rentalTotal, securityDepositTotal]);
+  const remainingRentalAfterBooking = useMemo(() => Math.max(rentalTotal - bookingAdvanceTotal, 0), [rentalTotal, bookingAdvanceTotal]);
 
   const totalDiscount = useMemo(() => {
     return lines.reduce((sum, entry) => {
@@ -146,7 +162,7 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
 
   // ── Line management ──────────────────────────────────────────────────
   const addLine = () => {
-    setLines((current) => [...current, { key: nextLineKey(), dressId: '', rentalPrice: '', depositAmount: '' }]);
+    setLines((current) => [...current, { key: nextLineKey(), dressId: '', rentalPrice: '', securityDepositAmount: '', bookingAdvanceAmount: '' }]);
   };
 
   const removeLine = (key: string) => {
@@ -177,7 +193,13 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
       });
 
       if (prefilledDress) {
-        setLines([{ key: nextLineKey(), dressId: prefilledDress.id, rentalPrice: String(prefilledDress.rentalPrice), depositAmount: '0' }]);
+        setLines([{
+          key: nextLineKey(),
+          dressId: prefilledDress.id,
+          rentalPrice: String(prefilledDress.rentalPrice),
+          securityDepositAmount: String(getDressSecurityDepositAmount(prefilledDress)),
+          bookingAdvanceAmount: '0',
+        }]);
       } else {
         setLines([]);
       }
@@ -188,13 +210,18 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
     }
   }, [open, reset, prefill?.dressCode, prefill?.pickupDate, prefill?.returnDate]);
 
-  // Auto-fill rental price when a dress is selected
+  // Auto-fill rental price and security deposit when a dress is selected
   useEffect(() => {
     lines.forEach((entry) => {
       if (!entry.dressId) return;
       const dress = dresses.find((d) => d.id === entry.dressId);
-      if (dress && !entry.rentalPrice) {
-        updateLine(entry.key, { rentalPrice: String(dress.rentalPrice) });
+      if (dress) {
+        if (!entry.rentalPrice) {
+          updateLine(entry.key, { rentalPrice: String(dress.rentalPrice) });
+        }
+        if (!entry.securityDepositAmount) {
+          updateLine(entry.key, { securityDepositAmount: String(getDressSecurityDepositAmount(dress)) });
+        }
       }
     });
   }, [lines, dresses]);
@@ -215,7 +242,8 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
     const lineInputs: CreateReservationLineInput[] = validLines.map((entry) => {
       const dress = dresses.find((d) => d.id === entry.dressId);
       const rentalPrice = Number(entry.rentalPrice) || dress?.rentalPrice || 0;
-      const depositAmount = Number(entry.depositAmount) || 0;
+      const securityDepositAmount = Number(entry.securityDepositAmount) || 0;
+      const bookingAdvanceAmount = Number(entry.bookingAdvanceAmount) || 0;
       return {
         dressId: entry.dressId,
         pickupDate: formValues.pickupDate,
@@ -223,7 +251,8 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
         returnDate: formValues.returnDate,
         returnTime: formValues.returnTime,
         rentalPrice,
-        depositAmount,
+        securityDepositAmount,
+        bookingAdvanceAmount,
       };
     });
 
@@ -234,7 +263,9 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
         pickupTime: formValues.pickupTime,
         returnDate: formValues.returnDate,
         returnTime: formValues.returnTime,
-        depositAmount: 0, // Per-line deposits
+        depositAmount: 0, // legacy compat
+        securityDepositAmount: securityDepositTotal,
+        bookingAdvanceAmount: bookingAdvanceTotal,
         rentalPrice: 0, // Per-line pricing
         notes: formValues.notes,
         lines: lineInputs,
@@ -331,7 +362,8 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
                         updateLine(entry.key, {
                           dressId,
                           rentalPrice: dress ? String(dress.rentalPrice) : '',
-                          depositAmount: '0',
+                          securityDepositAmount: dress ? String(getDressSecurityDepositAmount(dress)) : '0',
+                          bookingAdvanceAmount: '0',
                         });
                       }}
                       options={dressOptions}
@@ -363,15 +395,15 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
                       <p className="mt-1 font-bold text-slate-950">{selectedDress.color}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-amber-800">المقاس</p>
+                      <p className="text-xs font-bold text-amber-800\">المقاس</p>
                       <p className="mt-1 font-bold text-slate-950">{selectedDress.size}</p>
                     </div>
                   </div>
                 )}
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <div>
-                    <label className={FORM_LABEL_CLASS_NAME}>قيمة الإيجار المتفق عليها (ر.ع)</label>
+                    <label className={FORM_LABEL_CLASS_NAME}>قيمة الإيجار المتفق عليها (ر.ع) - المتبقي من الإيجار</label>
                     <input
                       type="number"
                       min={MIN_ZERO_AMOUNT}
@@ -387,14 +419,27 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
                     )}
                   </div>
                   <div>
-                    <label className={FORM_LABEL_CLASS_NAME}>العربون (ر.ع)</label>
+                    <label className={FORM_LABEL_CLASS_NAME}>دفعة الحجز (ر.ع)</label>
                     <input
                       type="number"
                       min={MIN_ZERO_AMOUNT}
                       step={MONEY_STEP}
                       inputMode="decimal"
-                      value={entry.depositAmount}
-                      onChange={(event) => updateLine(entry.key, { depositAmount: event.target.value })}
+                      value={entry.bookingAdvanceAmount}
+                      onChange={(event) => updateLine(entry.key, { bookingAdvanceAmount: event.target.value })}
+                      className={FORM_FIELD_CLASS_NAME}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className={FORM_LABEL_CLASS_NAME}>التأمين المسترد (ر.ع)</label>
+                    <input
+                      type="number"
+                      min={MIN_ZERO_AMOUNT}
+                      step={MONEY_STEP}
+                      inputMode="decimal"
+                      value={entry.securityDepositAmount}
+                      onChange={(event) => updateLine(entry.key, { securityDepositAmount: event.target.value })}
                       className={FORM_FIELD_CLASS_NAME}
                     />
                   </div>
@@ -411,14 +456,31 @@ export function CreateReservationModal({ open, onClose, onCreated, prefill }: Cr
         </label>
 
         {lines.length > 0 && lines.some((l) => l.dressId) && (
-          <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-950 px-4 py-3 text-white">
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-bold text-slate-300">الإجمالي شامل العربون</span>
-              {totalDiscount > 0 && (
-                <span className="text-xs font-medium text-amber-300">خصم إجمالي: {formatMoneyOMR(totalDiscount)}</span>
-              )}
+          <div className="space-y-2 rounded-xl bg-slate-950 p-4 text-white">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">إجمالي الإيجار</span>
+              <span className="font-bold">{formatMoneyOMR(rentalTotal)}</span>
             </div>
-            <span className="text-lg font-extrabold text-amber-300">{formatMoneyOMR(linesTotal)}</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">دفعة الحجز</span>
+              <span className="font-bold text-emerald-300">{formatMoneyOMR(bookingAdvanceTotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">المتبقي من الإيجار بعد دفعة الحجز</span>
+              <span className="font-bold text-amber-300">{formatMoneyOMR(remainingRentalAfterBooking)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">التأمين المسترد (التزام)</span>
+              <span className="font-bold text-violet-300">{formatMoneyOMR(securityDepositTotal)}</span>
+            </div>
+            <div className="flex justify-between border-t border-white/10 pt-2 text-sm font-extrabold">
+              <span>إجمالي المبلغ النقدي للتحصيل اليوم (إيجار + تأمين)</span>
+              <span className="text-amber-300">{formatMoneyOMR(cashToCollectToday)}</span>
+            </div>
+            {totalDiscount > 0 && (
+              <span className="block text-xs font-medium text-amber-300">خصم إجمالي: {formatMoneyOMR(totalDiscount)}</span>
+            )}
+            <p className="text-[11px] leading-4 text-slate-400">التأمين المسترد التزام قابل للاسترداد ولا يُحتسب ضمن الإيراد. دفعة الحجز تقلل المتبقي من الإيجار مرة واحدة ولا تدخل في تسوية التأمين.</p>
           </div>
         )}
 

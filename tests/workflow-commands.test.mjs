@@ -201,7 +201,7 @@ test('forced failure after the payment write restores the ledger and the reserva
       () => recordPaymentCommand({
         reservationNumber: reservation.reservationNumber,
         paymentDate: getTodayISO(),
-        type: 'rental',
+        type: 'rental_payment',
         method: 'cash',
         amount: 40,
         idempotencyKey: 'pay-fail',
@@ -231,7 +231,7 @@ test('a duplicate payment submit does not collect the money twice', () => {
     const input = {
       reservationNumber: reservation.reservationNumber,
       paymentDate: getTodayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 40,
       idempotencyKey: 'pay-once',
@@ -281,7 +281,7 @@ test('delivery and return keep the item, reservation, ledger and audit consisten
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 50,
       idempotencyKey: 'pay-flow',
@@ -330,7 +330,7 @@ test('forced failure during return keeps the item rented and the settlement unpo
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 50,
       idempotencyKey: 'pay-rollback',

@@ -86,7 +86,7 @@ function payReservationInFull(reservationNumber) {
   recordPaymentCommand({
     reservationNumber,
     paymentDate: todayISO(),
-    type: 'rental',
+    type: 'rental_payment',
     method: 'cash',
     amount: 75,
     idempotencyKey: 'diagnosis-rental-payment',
@@ -94,7 +94,7 @@ function payReservationInFull(reservationNumber) {
   recordPaymentCommand({
     reservationNumber,
     paymentDate: todayISO(),
-    type: 'deposit',
+    type: 'security_deposit_collection',
     method: 'cash',
     amount: 35,
     idempotencyKey: 'diagnosis-deposit-payment',
@@ -230,7 +230,7 @@ test('contract value cannot be changed underneath posted money', () => {
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: todayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 40,
       idempotencyKey: 'diagnosis-partial-payment',

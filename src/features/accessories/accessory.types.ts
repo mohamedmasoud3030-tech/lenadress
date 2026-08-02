@@ -29,8 +29,10 @@ export type Accessory = {
   salePrice?: number;
   /** Optional rental price; absent means the accessory is not rented separately. */
   rentalPrice?: number;
-  /** Optional refundable deposit charged with the accessory. */
+  /** @deprecated legacy ambiguous; use defaultSecurityDepositAmount */
   depositAmount?: number;
+  /** Canonical suggested refundable security deposit for the accessory */
+  defaultSecurityDepositAmount?: number;
   notes?: string;
   /** Optional single image, stored exactly like inventory images. */
   image?: string;
@@ -45,6 +47,7 @@ export type AddAccessoryInput = {
   salePrice?: number;
   rentalPrice?: number;
   depositAmount?: number;
+  defaultSecurityDepositAmount?: number;
   notes?: string;
   image?: string;
 };
@@ -76,7 +79,12 @@ export type ReservationAccessory = {
   accessoryCodeSnapshot: string;
   accessoryNameSnapshot: string;
   rentalPrice: number;
+  /** @deprecated legacy */
   depositAmount: number;
+  /** Canonical refundable security deposit for this link */
+  securityDepositAmount?: number;
+  /** Canonical booking advance for this link (if accessory has advance) */
+  bookingAdvanceAmount?: number;
   deliveredAt?: string;
   returnedAt?: string;
   returnCondition?: AccessoryReturnCondition;
@@ -84,3 +92,11 @@ export type ReservationAccessory = {
   chargeAmount?: number;
   notes?: string;
 };
+
+export function getAccessorySecurityDepositAmount(accessory: Accessory): number {
+  return accessory.defaultSecurityDepositAmount ?? accessory.depositAmount ?? 0;
+}
+
+export function getReservationAccessorySecurityDeposit(link: ReservationAccessory): number {
+  return link.securityDepositAmount ?? link.depositAmount ?? 0;
+}

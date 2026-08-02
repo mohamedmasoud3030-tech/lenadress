@@ -162,7 +162,7 @@ export function addDesignVariants(designId: string, variants: DesignVariantInput
 
     const rentalPrice = variant.rentalPrice ?? design.defaultRentalPrice;
     const salePrice = variant.salePrice ?? design.defaultSalePrice;
-    const depositAmount = variant.depositAmount ?? design.defaultDepositAmount;
+    const depositAmount = variant.depositAmount ?? design.defaultDepositAmount; // legacy compat
 
     for (let index = 0; index < quantity; index += 1) {
       created.push(addDress({
@@ -175,7 +175,7 @@ export function addDesignVariants(designId: string, variants: DesignVariantInput
         purchasePrice: 0,
         rentalPrice,
         salePrice,
-        depositAmount,
+        depositAmount, // legacy compat
         status: 'available',
         isForRent: rentalPrice > 0,
         isForSale: salePrice > 0,

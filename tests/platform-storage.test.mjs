@@ -83,7 +83,7 @@ test('local database keeps the exact existing keys and JSON shape through the pl
 
     const metadata = JSON.parse(storage.getItem('dress-roomshow:metadata'));
     assert.equal(metadata.applicationId, 'dress-roomshow');
-    assert.equal(metadata.schemaVersion, 1);
+    assert.equal(metadata.schemaVersion, 2);
     assert.equal(typeof metadata.updatedAt, 'string');
   });
 });

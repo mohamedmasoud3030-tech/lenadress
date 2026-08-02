@@ -1,7 +1,11 @@
 import { generateId } from '../../services/localDatabase';
 import { getTodayISO, isValidTime } from '../../shared/utils/date';
-import { calculateReservationRemainingAmount } from '../../shared/utils/financialCalculations.js';
+import {
+  calculateRentalOutstanding,
+  calculateReservationRemainingAmount,
+} from '../../shared/utils/financialCalculations.js';
 import { getDresses } from '../dresses/dress.service';
+import { getDressSecurityDepositAmount } from '../dresses/dress.types';
 import {
   findItemConflicts,
 } from './reservationConflicts';
@@ -11,6 +15,12 @@ import type {
   LineConflictResult,
   LineDeliveryStatus,
   Reservation,
+} from './reservation.types';
+import {
+  getLineSecurityDepositAmount,
+  getReservationSecurityDepositAmount,
+  getLineBookingAdvanceAmount,
+  getReservationBookingAdvanceAmount,
 } from './reservation.types';
 
 /**
@@ -44,10 +54,20 @@ export function buildLineFromInput(
     throw new Error('قيمة الإيجار المتفق عليها لا يمكن أن تتجاوز السعر المسجل للعنصر.');
   }
 
-  const depositAmount = input.depositAmount ?? 0;
-  if (!Number.isFinite(depositAmount) || depositAmount < 0) {
-    throw new Error('قيمة العربون غير صالحة.');
+  // Canonical security deposit: prefer securityDepositAmount, fallback to legacy depositAmount, then dress default // legacy compat
+  const rawSecurityDeposit = input.securityDepositAmount ?? input.depositAmount ?? getDressSecurityDepositAmount(dress); // legacy compat
+  const securityDepositAmount = rawSecurityDeposit ?? 0;
+  if (!Number.isFinite(securityDepositAmount) || securityDepositAmount < 0) {
+    throw new Error('قيمة التأمين المسترد غير صالحة.');
   }
+
+  const bookingAdvanceAmount = input.bookingAdvanceAmount ?? 0;
+  if (!Number.isFinite(bookingAdvanceAmount) || bookingAdvanceAmount < 0) {
+    throw new Error('قيمة دفعة الحجز غير صالحة.');
+  }
+
+  // Legacy field kept for backward compatibility
+  const depositAmount = securityDepositAmount; // legacy compat: deprecated field synced
 
   const pickupDate = input.pickupDate ?? defaults.pickupDate;
   const returnDate = input.returnDate ?? defaults.returnDate;
@@ -69,7 +89,10 @@ export function buildLineFromInput(
     returnTime: isValidTime(returnTime) ? returnTime : undefined,
     rentalPrice: agreedRentalPrice,
     listRentalPrice,
-    depositAmount,
+    depositAmount, // legacy compat
+    securityDepositAmount,
+    bookingAdvanceAmount,
+    legacyDepositAmount: input.depositAmount,
     deliveryStatus: 'pending_delivery',
     lateFee: 0,
     damageFee: 0,
@@ -132,15 +155,25 @@ export function assertNoLineConflicts(results: LineConflictResult[]): void {
 // ── Financial calculations ───────────────────────────────────────────────
 
 export function calculateLinesTotal(lines: ContractLine[]): number {
-  return lines.reduce((sum, line) => sum + line.rentalPrice + line.depositAmount, 0);
+  // Legacy total = rental + security deposit (for backward compat cash to collect)
+  return lines.reduce((sum, line) => sum + line.rentalPrice + getLineSecurityDepositAmount(line), 0);
 }
 
 export function calculateLinesRentalPrice(lines: ContractLine[]): number {
   return lines.reduce((sum, line) => sum + line.rentalPrice, 0);
 }
 
+/** @deprecated use calculateLinesSecurityDeposit */
 export function calculateLinesDeposit(lines: ContractLine[]): number {
-  return lines.reduce((sum, line) => sum + line.depositAmount, 0);
+  return calculateLinesSecurityDeposit(lines);
+}
+
+export function calculateLinesSecurityDeposit(lines: ContractLine[]): number {
+  return lines.reduce((sum, line) => sum + getLineSecurityDepositAmount(line), 0);
+}
+
+export function calculateLinesBookingAdvance(lines: ContractLine[]): number {
+  return lines.reduce((sum, line) => sum + getLineBookingAdvanceAmount(line), 0);
 }
 
 export function calculateLinesFees(lines: ContractLine[]): number {
@@ -198,6 +231,29 @@ export function syncTopLevelFromLines(reservation: Reservation): Reservation {
 
   const primary = reservation.lines[0];
   const totalAmount = calculateLinesTotal(reservation.lines);
+  const rentalTotal = calculateLinesRentalPrice(reservation.lines);
+  const bookingAdvanceTotal = calculateLinesBookingAdvance(reservation.lines);
+
+  // Canonical remaining is rental outstanding, not including security deposit
+  const remainingAmount = calculateRentalOutstanding({
+    rentalTotal,
+    assessedFees: reservation.assessedFeesAmount ?? 0,
+    bookingAdvanceCollected: reservation.bookingAdvanceCollectedAmount ?? reservation.bookingAdvanceAmount ?? bookingAdvanceTotal,
+    rentalCollected: reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0,
+    rentalRefunded: reservation.rentalRefundedAmount ?? 0,
+    retainedDeposit: reservation.securityDepositRetainedAmount ?? reservation.retainedDepositAmount ?? 0,
+  });
+
+  // Fallback legacy calculation if new fields missing (for old backups)
+  const legacyRemaining = calculateReservationRemainingAmount({
+    totalAmount,
+    assessedFeesAmount: reservation.assessedFeesAmount,
+    paidAmount: reservation.paidAmount,
+    settledDepositAmount: reservation.settledDepositAmount,
+    refundedAmount: reservation.refundedAmount,
+  });
+
+  const hasNewFields = reservation.securityDepositAmount !== undefined || reservation.bookingAdvanceAmount !== undefined;
 
   return {
     ...reservation,
@@ -212,21 +268,31 @@ export function syncTopLevelFromLines(reservation: Reservation): Reservation {
     returnTime: primary.returnTime,
     rentalPrice: primary.rentalPrice,
     listRentalPrice: primary.listRentalPrice,
-    depositAmount: primary.depositAmount,
+    depositAmount: primary.securityDepositAmount ?? primary.depositAmount, // legacy compat
+
+    securityDepositAmount: getLineSecurityDepositAmount(primary),
+    bookingAdvanceAmount: getLineBookingAdvanceAmount(primary),
     totalAmount,
-    remainingAmount: calculateReservationRemainingAmount({
-      totalAmount,
-      assessedFeesAmount: reservation.assessedFeesAmount,
-      paidAmount: reservation.paidAmount,
-      settledDepositAmount: reservation.settledDepositAmount,
-      refundedAmount: reservation.refundedAmount,
-    }),
+    // Use canonical remaining when new fields exist, otherwise legacy
+    remainingAmount: hasNewFields ? remainingAmount : legacyRemaining,
   };
 }
 
 /** Canonical refundable-deposit total across every contract line. */
 export function getReservationDepositTotal(reservation: Reservation): number {
   return calculateLinesDeposit(getReservationLines(reservation));
+}
+
+export function getReservationSecurityDepositTotal(reservation: Reservation): number {
+  return calculateLinesSecurityDeposit(getReservationLines(reservation));
+}
+
+export function getReservationRentalTotal(reservation: Reservation): number {
+  return calculateLinesRentalPrice(getReservationLines(reservation));
+}
+
+export function getReservationBookingAdvanceTotal(reservation: Reservation): number {
+  return calculateLinesBookingAdvance(getReservationLines(reservation));
 }
 
 /**
@@ -270,7 +336,9 @@ export function getReservationLines(reservation: Reservation): ContractLine[] {
     returnTime: reservation.returnTime,
     rentalPrice: reservation.rentalPrice,
     listRentalPrice: reservation.listRentalPrice,
-    depositAmount: reservation.depositAmount,
+    depositAmount: reservation.securityDepositAmount ?? reservation.depositAmount, // legacy compat
+    securityDepositAmount: getReservationSecurityDepositAmount(reservation),
+    bookingAdvanceAmount: getReservationBookingAdvanceAmount(reservation),
     deliveryStatus: deriveLineDeliveryStatus(reservation.status),
     lateFee: 0,
     damageFee: 0,

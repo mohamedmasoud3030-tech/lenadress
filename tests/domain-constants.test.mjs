@@ -73,7 +73,7 @@ test('reservation status labels and styles stay in lockstep', () => {
 test('payment constants keep labels, method arrays, and filter options consistent', () => {
   assertSameMembers(PAYMENT_METHODS, Object.keys(PAYMENT_METHOD_LABELS));
   assertSameMembers(PAYMENT_METHODS, Object.keys(BASIC_PAYMENT_METHOD_LABELS));
-  assertSameMembers(MANUAL_PAYMENT_TYPES, ['adjustment', 'deposit', 'penalty', 'refund', 'rental']);
+  assertSameMembers(MANUAL_PAYMENT_TYPES, ['adjustment', 'booking_advance', 'refund', 'rental_payment', 'security_deposit_collection']);
   assertFilterMatchesLabels(PAYMENT_TYPE_FILTER_OPTIONS, PAYMENT_TYPE_LABELS);
   assertFilterMatchesLabels(PAYMENT_METHOD_FILTER_OPTIONS, PAYMENT_METHOD_LABELS);
   assertFilterMatchesLabels(PAYMENT_DIRECTION_FILTER_OPTIONS, PAYMENT_DIRECTION_LABELS);

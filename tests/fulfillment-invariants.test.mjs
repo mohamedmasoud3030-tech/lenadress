@@ -110,7 +110,7 @@ test('the UI delivery workflow hands over every item in a fully-paid multi-item 
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: getTodayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 75,
       idempotencyKey: 'multi-rental',
@@ -118,7 +118,7 @@ test('the UI delivery workflow hands over every item in a fully-paid multi-item 
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: getTodayISO(),
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 35,
       idempotencyKey: 'multi-deposit',
@@ -194,7 +194,7 @@ test('the UI return workflow receives every item in a multi-item contract into i
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: getTodayISO(),
-      type: 'rental',
+      type: 'rental_payment',
       method: 'cash',
       amount: 75,
       idempotencyKey: 'return-rental',
@@ -202,7 +202,7 @@ test('the UI return workflow receives every item in a multi-item contract into i
     recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: getTodayISO(),
-      type: 'deposit',
+      type: 'security_deposit_collection',
       method: 'cash',
       amount: 35,
       idempotencyKey: 'return-deposit',

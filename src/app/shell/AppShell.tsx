@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AppUpdateNotice } from '../../components/shared/AppUpdateNotice';
 import { PersistenceErrorBoundary } from '../../components/shared/PersistenceErrorBoundary';
@@ -14,6 +14,13 @@ export function AppShell() {
   const location = useLocation();
   const persistenceStatus = usePersistenceStatus();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    // Trigger background Supabase sync for production launch - makes Supabase source of truth
+    import('../../features/sync/supabaseSync').then(({ triggerBackgroundSync }) => {
+      triggerBackgroundSync();
+    }).catch(() => { /* ignore */ });
+  }, []);
   const showPersistenceNotice =
     persistenceStatus.state === 'error' ||
     persistenceStatus.state === 'offline' ||

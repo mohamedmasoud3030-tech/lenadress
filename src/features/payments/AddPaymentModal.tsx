@@ -9,7 +9,7 @@ import {
   STACKED_FORM_LABEL_CLASS_NAME,
 } from '../../shared/domain/formConstants';
 import { getTodayISO } from '../../shared/utils/date';
-import { calculateReservationRemainingAmount } from '../../shared/utils/financialCalculations.js';
+import { calculateRentalOutstanding, calculateSecurityDepositLiability } from '../../shared/utils/financialCalculations.js';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
@@ -33,6 +33,7 @@ type PaymentForm = {
   method: PaymentMethod;
   amount: string;
   notes: string;
+  retentionReason: string;
 };
 
 type PaymentPreview = {
@@ -41,11 +42,12 @@ type PaymentPreview = {
   projectedPaidAmount: number;
   projectedRefundedAmount: number;
   projectedRemainingAmount: number;
+  projectedLiability?: number;
   balanceEffect: 'decrease' | 'increase' | 'unchanged';
 };
 
 function getDefaultForm(): PaymentForm {
-  return { reservationNumber: '', paymentDate: getTodayISO(), type: 'rental', method: 'cash', amount: '', notes: '' };
+  return { reservationNumber: '', paymentDate: getTodayISO(), type: 'rental_payment', method: 'cash', amount: '', notes: '', retentionReason: '' };
 }
 
 function parseAmount(value: string): number {
@@ -55,15 +57,47 @@ function parseAmount(value: string): number {
 
 function isEligible(reservation: Reservation, type: ManualPaymentType): boolean {
   if (reservation.status === 'cancelled') return false;
-  if (type === 'refund') return reservation.paidAmount - (reservation.refundedAmount ?? 0) > 0;
+  if (type === 'refund' || type === 'security_deposit_refund') {
+    const liability = calculateSecurityDepositLiability({
+      collected: reservation.securityDepositCollectedAmount ?? 0,
+      refunded: reservation.securityDepositRefundedAmount ?? 0,
+      retained: reservation.securityDepositRetainedAmount ?? 0,
+    });
+    const rentalAvailable = (reservation.paidAmount ?? 0) - (reservation.refundedAmount ?? 0);
+    if (type === 'security_deposit_refund') return liability > 0;
+    return rentalAvailable > 0 || liability > 0;
+  }
+  if (type === 'security_deposit_retention') {
+    const liability = calculateSecurityDepositLiability({
+      collected: reservation.securityDepositCollectedAmount ?? 0,
+      refunded: reservation.securityDepositRefundedAmount ?? 0,
+      retained: reservation.securityDepositRetainedAmount ?? 0,
+    });
+    return liability > 0;
+  }
   if (type === 'penalty' || type === 'adjustment') return true;
+  if (type === 'security_deposit_collection') return true;
   return reservation.remainingAmount > 0;
 }
 
 function getMaximumAmount(reservation: Reservation | undefined, type: ManualPaymentType): number | undefined {
   if (!reservation) return undefined;
-  if (type === 'refund') return Math.max(reservation.paidAmount - (reservation.refundedAmount ?? 0), 0);
-  if (type === 'rental' || type === 'deposit') return reservation.remainingAmount;
+  if (type === 'refund') return Math.max((reservation.paidAmount ?? 0) - (reservation.refundedAmount ?? 0), 0);
+  if (type === 'security_deposit_refund') {
+    return calculateSecurityDepositLiability({
+      collected: reservation.securityDepositCollectedAmount ?? 0,
+      refunded: reservation.securityDepositRefundedAmount ?? 0,
+      retained: reservation.securityDepositRetainedAmount ?? 0,
+    });
+  }
+  if (type === 'security_deposit_retention') {
+    return calculateSecurityDepositLiability({
+      collected: reservation.securityDepositCollectedAmount ?? 0,
+      refunded: reservation.securityDepositRefundedAmount ?? 0,
+      retained: reservation.securityDepositRetainedAmount ?? 0,
+    });
+  }
+  if (type === 'rental_payment' || type === 'booking_advance' || type === 'rental' || type === 'deposit') return reservation.remainingAmount;
   return undefined;
 }
 
@@ -76,17 +110,71 @@ function getPaymentPreview(
   if (!reservation) return null;
 
   const boundedAmount = maximum === undefined ? amount : Math.min(amount, maximum);
-  const isRefund = type === 'refund';
+  const isRefund = type === 'refund' || type === 'security_deposit_refund';
   const isFeeSettlement = type === 'penalty' || type === 'adjustment';
-  const projectedPaidAmount = reservation.paidAmount + (isRefund ? 0 : boundedAmount);
-  const projectedRefundedAmount = (reservation.refundedAmount ?? 0) + (isRefund ? boundedAmount : 0);
-  const projectedRemainingAmount = calculateReservationRemainingAmount({
-    totalAmount: reservation.totalAmount,
-    assessedFeesAmount: (reservation.assessedFeesAmount ?? 0) + (isFeeSettlement ? boundedAmount : 0),
-    paidAmount: projectedPaidAmount,
-    settledDepositAmount: reservation.settledDepositAmount,
-    refundedAmount: projectedRefundedAmount,
-  });
+  const isRental = type === 'rental_payment' || type === 'rental';
+  const isBooking = type === 'booking_advance';
+  const isSecurityCollection = type === 'security_deposit_collection' || type === 'deposit';
+  const isSecurityRefund = type === 'security_deposit_refund';
+  const isSecurityRetention = type === 'security_deposit_retention';
+
+  let projectedPaidAmount = reservation.paidAmount ?? 0;
+  let projectedRefundedAmount = reservation.refundedAmount ?? 0;
+  let projectedRemainingAmount = reservation.remainingAmount;
+  let projectedLiability: number | undefined;
+
+  if (!isRefund && !isSecurityRefund && !isSecurityRetention) {
+    // Income
+    if (isRental || isBooking) {
+      // Rental or booking advance reduces rental remaining
+      projectedRemainingAmount = calculateRentalOutstanding({
+        rentalTotal: reservation.rentalPrice,
+        assessedFees: (reservation.assessedFeesAmount ?? 0) + (isFeeSettlement ? boundedAmount : 0),
+        bookingAdvanceCollected: (reservation.bookingAdvanceCollectedAmount ?? 0) + (isBooking ? boundedAmount : 0),
+        rentalCollected: (reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0) + (isRental ? boundedAmount : 0),
+        retainedDeposit: reservation.securityDepositRetainedAmount ?? reservation.retainedDepositAmount ?? 0,
+        rentalRefunded: reservation.rentalRefundedAmount ?? 0,
+      });
+      projectedPaidAmount = (reservation.paidAmount ?? 0) + boundedAmount;
+    } else if (isSecurityCollection) {
+      // Security deposit collection does NOT reduce rental remaining, but creates liability
+      projectedLiability = calculateSecurityDepositLiability({
+        collected: (reservation.securityDepositCollectedAmount ?? 0) + boundedAmount,
+        refunded: reservation.securityDepositRefundedAmount ?? 0,
+        retained: reservation.securityDepositRetainedAmount ?? 0,
+      });
+      projectedRemainingAmount = reservation.remainingAmount;
+    } else {
+      projectedPaidAmount = (reservation.paidAmount ?? 0) + boundedAmount;
+      projectedRemainingAmount = calculateRentalOutstanding({
+        rentalTotal: reservation.rentalPrice,
+        assessedFees: (reservation.assessedFeesAmount ?? 0) + (isFeeSettlement ? boundedAmount : 0),
+        bookingAdvanceCollected: reservation.bookingAdvanceCollectedAmount ?? 0,
+        rentalCollected: reservation.rentalCollectedAmount ?? 0,
+        retainedDeposit: reservation.securityDepositRetainedAmount ?? 0,
+        rentalRefunded: reservation.rentalRefundedAmount ?? 0,
+      });
+    }
+  } else if (isSecurityRefund || isSecurityRetention) {
+    // Refund/retention of security deposit does NOT affect rental remaining, but reduces liability
+    projectedLiability = calculateSecurityDepositLiability({
+      collected: reservation.securityDepositCollectedAmount ?? 0,
+      refunded: (reservation.securityDepositRefundedAmount ?? 0) + (isSecurityRefund ? boundedAmount : 0),
+      retained: (reservation.securityDepositRetainedAmount ?? 0) + (isSecurityRetention ? boundedAmount : 0),
+    });
+  } else {
+    // Rental refund increases remaining
+    projectedRefundedAmount = (reservation.refundedAmount ?? 0) + boundedAmount;
+    projectedRemainingAmount = calculateRentalOutstanding({
+      rentalTotal: reservation.rentalPrice,
+      assessedFees: reservation.assessedFeesAmount ?? 0,
+      bookingAdvanceCollected: reservation.bookingAdvanceCollectedAmount ?? 0,
+      rentalCollected: reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0,
+      retainedDeposit: reservation.securityDepositRetainedAmount ?? 0,
+      rentalRefunded: (reservation.rentalRefundedAmount ?? 0) + boundedAmount,
+    });
+  }
+
   const balanceEffect = projectedRemainingAmount < reservation.remainingAmount
     ? 'decrease'
     : projectedRemainingAmount > reservation.remainingAmount
@@ -99,21 +187,21 @@ function getPaymentPreview(
     projectedPaidAmount,
     projectedRefundedAmount,
     projectedRemainingAmount,
+    projectedLiability,
     balanceEffect,
   };
 }
 
 function getBalanceEffectLabel(effect: PaymentPreview['balanceEffect']): string {
-  if (effect === 'decrease') return 'سينخفض الرصيد';
-  if (effect === 'increase') return 'سيزيد الرصيد';
-  return 'الرصيد لن يتغير';
+  if (effect === 'decrease') return 'سينخفض رصيد الإيجار';
+  if (effect === 'increase') return 'سيزيد رصيد الإيجار';
+  return 'رصيد الإيجار لن يتغير';
 }
 
 export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalProps) {
   const [form, setForm] = useState<PaymentForm>(() => getDefaultForm());
   const [submitError, setSubmitError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Stable per-form key so a double click never posts the same money twice.
   const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('pay'));
   const amount = parseAmount(form.amount);
   const reservations = useMemo(() => getReservations().filter((item) => isEligible(item, form.type)), [open, form.type]);
@@ -121,7 +209,6 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
   const maximum = getMaximumAmount(selected, form.type);
   const preview = getPaymentPreview(selected, form.type, amount, maximum);
 
-  // A showroom with hundreds of bookings cannot use a native wheel to find one.
   const reservationOptions = useMemo<SearchableOption[]>(() => reservations.map((item) => ({
     value: item.reservationNumber,
     label: `${item.reservationNumber} — ${item.customerName}`,
@@ -138,7 +225,7 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
   }, [open]);
 
   const updateType = (type: ManualPaymentType) => {
-    setForm((current) => ({ ...current, type, reservationNumber: '', amount: '' }));
+    setForm((current) => ({ ...current, type, reservationNumber: '', amount: '', retentionReason: '' }));
     setSubmitError(null);
   };
 
@@ -155,7 +242,12 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
     setIsSubmitting(true);
 
     try {
-      const payment = recordPaymentCommand({ ...form, amount: Number(form.amount), idempotencyKey: submissionKey });
+      const payment = recordPaymentCommand({
+        ...form,
+        amount: Number(form.amount),
+        idempotencyKey: submissionKey,
+        retentionReason: form.retentionReason,
+      });
       onCreated(payment);
       close();
     } catch (error: unknown) {
@@ -173,7 +265,7 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
 
         <div>
           <p className="mb-2 text-sm font-bold text-slate-700">نوع الحركة</p>
-          <div className="grid gap-2 rounded-3xl bg-slate-950 p-2 text-sm font-bold text-white sm:grid-cols-5">
+          <div className="grid gap-2 rounded-3xl bg-slate-950 p-2 text-sm font-bold text-white sm:grid-cols-3 lg:grid-cols-5">
             {MANUAL_PAYMENT_TYPES.map((type) => (
               <button
                 key={type}
@@ -185,6 +277,7 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
               </button>
             ))}
           </div>
+          <p className="mt-2 text-xs text-slate-500">دفعة الحجز (دفعة مقدمة تقلل المتبقي من الإيجار) · التأمين المسترد (التزام قابل للرد ولا يُحتسب إيراداً)</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-[1.3fr_1fr]">
@@ -223,12 +316,22 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
               <p className="mt-1 font-extrabold text-slate-950">{selected.dressCode}</p>
             </div>
             <div>
-              <p className="text-xs font-bold text-amber-800">المحصل</p>
+              <p className="text-xs font-bold text-amber-800">المحصل (إيجار + دفعة حجز)</p>
               <p className="mt-1 font-extrabold text-slate-950">{formatMoneyOMR(selected.paidAmount)}</p>
             </div>
             <div>
-              <p className="text-xs font-bold text-amber-800">الرصيد الحالي</p>
+              <p className="text-xs font-bold text-amber-800">المتبقي من الإيجار</p>
               <p className="mt-1 font-extrabold text-slate-950">{formatMoneyOMR(selected.remainingAmount)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-800">التأمين المحصل</p>
+              <p className="mt-1 font-extrabold text-violet-700">{formatMoneyOMR(selected.securityDepositCollectedAmount ?? 0)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-800">التأمين المتبقي (التزام)</p>
+              <p className="mt-1 font-extrabold text-slate-950">{formatMoneyOMR(
+                (selected.securityDepositCollectedAmount ?? 0) - (selected.securityDepositRefundedAmount ?? 0) - (selected.securityDepositRetainedAmount ?? 0)
+              )}</p>
             </div>
           </div>
         )}
@@ -253,7 +356,7 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
           </label>
 
           <label className={STACKED_FORM_LABEL_CLASS_NAME}>
-            {form.type === 'refund' ? 'وسيلة الاسترجاع' : 'وسيلة الدفع'}
+            {form.type === 'refund' || form.type === 'security_deposit_refund' ? 'وسيلة الاسترجاع' : 'وسيلة الدفع'}
             <select
               value={form.method}
               onChange={(event) => setForm((current) => ({ ...current, method: event.target.value as PaymentMethod }))}
@@ -267,6 +370,19 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
             </select>
           </label>
         </div>
+
+        {(form.type === 'security_deposit_retention') && (
+          <label className={STACKED_FORM_LABEL_CLASS_NAME}>
+            سبب الاحتجاز (مطلوب)
+            <input
+              required
+              value={form.retentionReason}
+              onChange={(event) => setForm((current) => ({ ...current, retentionReason: event.target.value }))}
+              className={STACKED_FORM_FIELD_CLASS_NAME}
+              placeholder="مثال: تأخير يومين - تمزق بسيط"
+            />
+          </label>
+        )}
 
         {preview && (
           <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:grid-cols-5">
@@ -287,9 +403,15 @@ export function AddPaymentModal({ open, onClose, onCreated }: AddPaymentModalPro
               <p className="mt-1 font-extrabold text-sky-700">{formatMoneyOMR(preview.projectedRefundedAmount)}</p>
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500">الرصيد بعد الحفظ</p>
+              <p className="text-xs font-bold text-slate-500">المتبقي من الإيجار بعد الحفظ</p>
               <p className="mt-1 font-extrabold text-rose-700">{formatMoneyOMR(preview.projectedRemainingAmount)}</p>
             </div>
+            {preview.projectedLiability !== undefined && (
+              <div className="sm:col-span-5">
+                <p className="text-xs font-bold text-slate-500">التزام التأمين المسترد بعد الحفظ</p>
+                <p className="mt-1 font-extrabold text-violet-700">{formatMoneyOMR(preview.projectedLiability)}</p>
+              </div>
+            )}
           </div>
         )}
 

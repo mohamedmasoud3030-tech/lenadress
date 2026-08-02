@@ -71,7 +71,7 @@ function mapSupabaseRowToDress(row: SupabaseDressRow): Dress {
     purchasePrice: 0,
     rentalPrice: row.rental_price ?? 0,
     salePrice: row.sale_price ?? 0,
-    depositAmount: row.deposit_amount ?? 0,
+    depositAmount: row.deposit_amount ?? 0, // legacy compat
     status: row.status === 'available' ? 'available' : 'inactive',
     isForRent: row.is_for_rent,
     isForSale: row.is_for_sale,

@@ -202,7 +202,7 @@ export function DressDetailsPage() {
             </div>
             <div>
               <p className="text-sm text-slate-400">التأمين</p>
-              <p className="mt-2 text-base font-bold text-slate-900">{dress.isForRent ? formatMoneyOMR(dress.depositAmount) : 'غير متاح'}</p>
+              <p className="mt-2 text-base font-bold text-slate-900">{dress.isForRent ? formatMoneyOMR(dress.depositAmount) : 'غير متاح'}</p> {/* legacy compat */}
             </div>
             <div>
               <p className="text-sm text-slate-400">عدد مرات التأجير</p>

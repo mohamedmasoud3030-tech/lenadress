@@ -39,6 +39,12 @@ const typeBadgeClasses: Record<PaymentType, string> = {
   penalty: 'bg-orange-100 text-orange-800',
   refund: 'bg-emerald-100 text-emerald-800',
   adjustment: 'bg-slate-200 text-slate-800',
+  booking_advance: 'bg-emerald-100 text-emerald-800',
+  rental_payment: 'bg-blue-100 text-blue-800',
+  security_deposit_collection: 'bg-violet-100 text-violet-800',
+  security_deposit_refund: 'bg-rose-100 text-rose-800',
+  security_deposit_retention: 'bg-amber-100 text-amber-800',
+  reversal: 'bg-slate-200 text-slate-800',
 };
 
 const methodBadgeClasses: Record<PaymentMethod, string> = {
@@ -107,11 +113,6 @@ export function PaymentsPage() {
     setFeedback(`تم تسجيل الدفعة ${payment.paymentNumber} بنجاح.`);
   };
 
-  /**
-   * Exports exactly what the filters show. The accountant asks for a period or
-   * a type, and exporting the unfiltered ledger would make her redo the
-   * narrowing in the spreadsheet.
-   */
   const handleExport = () => {
     downloadCsv(ledgerFileName('سجل-المدفوعات'), buildPaymentsCsv(filteredPayments));
   };
@@ -143,12 +144,14 @@ export function PaymentsPage() {
 
       {feedback && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{feedback}</div>}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <SummaryCard label="إجمالي التحصيل النقدي" value={formatAmount(summary.totalCollected)} tone="positive" />
-        <SummaryCard label="العربونات المحصلة" value={formatAmount(summary.deposits)} hint="التزام مستحق الرد" />
-        <SummaryCard label="العربون المحتجز" value={formatAmount(summary.retainedDeposits)} />
+        <SummaryCard label="دفعة الحجز" value={formatAmount(summary.bookingAdvanceCollected)} hint="تقلل المتبقي من الإيجار" />
+        <SummaryCard label="التأمين المسترد المحصل" value={formatAmount(summary.securityDepositsCollected)} hint="التزام مستحق الرد" />
+        <SummaryCard label="التأمين المحتجز" value={formatAmount(summary.securityDepositsRetained)} hint="دخل من احتجاز" />
+        <SummaryCard label="التأمين المسترد المتبقي (التزام)" value={formatAmount(summary.securityDepositLiability)} tone="warning" />
         <SummaryCard label="الاسترجاعات النقدية" value={formatAmount(summary.totalRefunded)} />
-        <SummaryCard label="الرصيد المتبقي" value={formatAmount(summary.remainingBalance)} tone={summary.remainingBalance > 0 ? 'warning' : 'default'} />
+        <SummaryCard label="المتبقي من الإيجار" value={formatAmount(summary.remainingBalance)} tone={summary.remainingBalance > 0 ? 'warning' : 'default'} />
       </div>
 
       <FilterBar>
@@ -169,7 +172,7 @@ export function PaymentsPage() {
           description={payments.length === 0 ? 'سجّلي أول دفعة على حجز قائم لتظهر هنا.' : 'غيّري البحث أو الفلاتر الحالية لعرض نتائج أخرى.'}
         />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">{filteredPayments.map((payment)=><article key={payment.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-sm text-slate-500">رقم الحركة: {payment.paymentNumber}</p><h2 className="mt-1 text-lg font-semibold text-slate-950">{payment.customerName}</h2><p className="text-sm text-slate-600">{payment.reservationNumber} — {payment.dressCode} / {payment.dressName}</p></div><p className={`text-sm font-bold ${movementAmountClass(payment.direction)}`}>{formatMovementAmount(payment)}</p></div><div className="mt-3 flex flex-wrap gap-2"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${typeBadgeClasses[payment.type]}`}>{formatPaymentTypeLabel(payment.type)}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${methodBadgeClasses[payment.method]}`}>{formatPaymentMethodLabel(payment.method)}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${directionBadgeClasses[payment.direction]}`}>{formatPaymentDirectionLabel(payment.direction)}</span></div><dl className="mt-4 text-sm text-slate-700"><dt className="text-slate-500">تاريخ الحركة</dt><dd>{formatDate(payment.paymentDate)}</dd></dl>{payment.notes ? <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{payment.notes}</p> : null}</article>)}</div>
+        <div className="grid gap-4 xl:grid-cols-2">{filteredPayments.map((payment)=><article key={payment.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-sm text-slate-500">رقم الحركة: {payment.paymentNumber}</p><h2 className="mt-1 text-lg font-semibold text-slate-950">{payment.customerName}</h2><p className="text-sm text-slate-600">{payment.reservationNumber} — {payment.dressCode} / {payment.dressName}</p></div><p className={`text-sm font-bold ${movementAmountClass(payment.direction)}`}>{formatMovementAmount(payment)}</p></div><div className="mt-3 flex flex-wrap gap-2"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${typeBadgeClasses[payment.type]}`}>{formatPaymentTypeLabel(payment.type)}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${methodBadgeClasses[payment.method]}`}>{formatPaymentMethodLabel(payment.method)}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${directionBadgeClasses[payment.direction]}`}>{formatPaymentDirectionLabel(payment.direction)}</span></div><dl className="mt-4 text-sm text-slate-700"><dt className="text-slate-500\">تاريخ الحركة</dt><dd>{formatDate(payment.paymentDate)}</dd></dl>{payment.retentionReason ? <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">سبب الاحتجاز: {payment.retentionReason}</p> : null}{payment.notes ? <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{payment.notes}</p> : null}</article>)}</div>
       )}
 
       <AddPaymentModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreated={handleCreated} />

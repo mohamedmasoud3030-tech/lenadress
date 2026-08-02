@@ -15,6 +15,7 @@ import {
 import { migrateLegacyInventoryStorage } from './inventoryMigration';
 import { migrateLegacyAppointmentStorage } from './appointmentMigration';
 import { migrateStableReferences } from './referenceMigration';
+import { migrateFinancialDepositFields } from './financialDepositMigration';
 import { getAllImages, restoreImages, clearAllImages, type StoredImage } from '@platform/images';
 
 const MIGRATION_MARKERS_STORAGE_KEY = `${STORAGE_PREFIX}:migration-markers`;
@@ -42,7 +43,7 @@ function writeMigrationMarkersRaw(markers: Record<string, unknown>): void {
   }
 }
 
-export const CURRENT_BACKUP_SCHEMA_VERSION = 2;
+export const CURRENT_BACKUP_SCHEMA_VERSION = 3;
 
 export type DatabaseMetadata = {
   applicationId: typeof DATABASE_APPLICATION_ID;
@@ -137,6 +138,10 @@ function runMigrations(metadata: DatabaseMetadata): DatabaseMetadata {
   if (nextMetadata.schemaVersion < 1) {
     nextMetadata = createMetadata(1);
   }
+  // Version 2 introduces canonical separation of booking advance vs security deposit
+  if (nextMetadata.schemaVersion < 2) {
+    nextMetadata = createMetadata(2);
+  }
 
   return nextMetadata;
 }
@@ -155,6 +160,7 @@ export function initializeLocalDatabase(skipMigrations = false): DatabaseMetadat
       migrateLegacyInventoryStorage();
       migrateLegacyAppointmentStorage();
       migrateStableReferences();
+      migrateFinancialDepositFields();
     } finally {
       isInitializingDatabase = false;
     }

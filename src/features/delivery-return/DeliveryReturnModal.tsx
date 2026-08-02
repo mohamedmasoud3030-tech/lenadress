@@ -8,13 +8,14 @@ import {
   STACKED_FORM_FIELD_CLASS_NAME,
   STACKED_FORM_LABEL_CLASS_NAME,
 } from '../../shared/domain/formConstants';
-import { calculateReservationRemainingAmount, calculateReturnSettlement } from '../../shared/utils/financialCalculations.js';
+import { calculateRentalOutstanding, calculateReturnSettlement, calculateSecurityDepositLiability } from '../../shared/utils/financialCalculations.js';
 import { formatMoneyOMR } from '../../shared/utils/format';
 import { BASIC_PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from '../payments/payment.constants';
 import { getPayments } from '../payments/payment.service';
 import type { PaymentMethod } from '../payments/payment.types';
 import { getReservations } from '../reservations/reservation.service';
 import type { Reservation } from '../reservations/reservation.types';
+import { getReservationSecurityDepositAmount, getReservationBookingAdvanceAmount } from '../reservations/reservation.types';
 import { completeDeliveryCommand, completeReturnCommand, type ReturnItemStatus } from '../workflows';
 import { ConditionPhotoCapture } from './ConditionPhotoCapture';
 import { suggestLateFee } from './lateFee';
@@ -87,47 +88,44 @@ function getReturnPreview(reservation: Reservation | undefined, lateFee: number,
   if (!reservation) return null;
 
   const reservationPayments = getPayments().filter((payment) => payment.reservationNumber === reservation.reservationNumber);
-  const depositCollected = Math.min(
-    reservation.depositAmount,
+  const securityDepositCollected = reservation.securityDepositCollectedAmount ??
     reservationPayments
-      .filter((payment) => payment.type === 'deposit' && payment.direction === 'income')
-      .reduce((total, payment) => total + payment.amount, 0),
-  );
-  const totalCollected = reservationPayments
-    .filter((payment) => payment.direction === 'income')
-    .reduce((total, payment) => total + payment.amount, 0);
-  const previouslyRefundedAmount = reservationPayments
-    .filter((payment) => payment.direction === 'refund')
-    .reduce((total, payment) => total + payment.amount, 0);
-  const previouslyRefundedDepositAmount = reservationPayments
-    .filter((payment) => payment.type === 'refund' && payment.direction === 'refund' && payment.source === 'return')
-    .reduce((total, payment) => total + payment.amount, 0);
+      .filter((p) => p.type === 'security_deposit_collection' || p.type === 'deposit')
+      .filter((p) => p.direction === 'income')
+      .reduce((sum, p) => sum + p.amount, 0);
+  const securityDepositRefunded = reservation.securityDepositRefundedAmount ?? 0;
+  const securityDepositRetained = reservation.securityDepositRetainedAmount ?? 0;
+  const securityLiability = calculateSecurityDepositLiability({
+    collected: securityDepositCollected,
+    refunded: securityDepositRefunded,
+    retained: securityDepositRetained,
+  });
+
   const settlement = calculateReturnSettlement({
-    depositAmount: reservation.depositAmount,
-    depositCollected,
-    totalCollected,
-    previouslyRefundedAmount,
-    previouslyRefundedDepositAmount,
+    securityDepositAmount: getReservationSecurityDepositAmount(reservation),
+    securityDepositCollected,
+    securityDepositRefunded,
+    securityDepositRetained,
     lateFee,
     damageFee,
   });
-  const remainingAfterReturn = calculateReservationRemainingAmount({
-    totalAmount: reservation.totalAmount,
-    assessedFeesAmount: (reservation.assessedFeesAmount ?? 0) + settlement.assessedFeesAmount,
-    paidAmount: reservation.paidAmount,
-    settledDepositAmount: (reservation.settledDepositAmount ?? 0) + settlement.settledDepositAmount,
-    refundedAmount: (reservation.refundedAmount ?? 0) + settlement.refundAmount,
+
+  const remainingAfterReturn = calculateRentalOutstanding({
+    rentalTotal: reservation.rentalPrice,
+    assessedFees: (reservation.assessedFeesAmount ?? 0) + settlement.assessedFeesAmount,
+    bookingAdvanceCollected: reservation.bookingAdvanceCollectedAmount ?? reservation.bookingAdvanceAmount ?? 0,
+    rentalCollected: reservation.rentalCollectedAmount ?? reservation.paidAmount ?? 0,
+    retainedDeposit: (reservation.securityDepositRetainedAmount ?? 0) + settlement.retainedDepositAmount,
+    rentalRefunded: reservation.rentalRefundedAmount ?? 0,
   });
 
-  return { settlement, remainingAfterReturn };
+  return { settlement, remainingAfterReturn, securityLiability };
 }
 
 export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
   const [form, setForm] = useState<Form>(() => defaults());
   const [error, setError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // One key per opened form instance: a double click reuses it and the command
-  // layer rejects the second write instead of duplicating the operation.
   const [submissionKey, setSubmissionKey] = useState(() => createSubmissionKey('dr'));
   const [accessoryLinks, setAccessoryLinks] = useState<ReservationAccessoryView[]>([]);
   const [deliveredAccessoryIds, setDeliveredAccessoryIds] = useState<string[]>([]);
@@ -144,9 +142,6 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     [selectedReservation, lateFee, damageFee],
   );
 
-  // The proposal is recomputed from the booking and the actual return time, but
-  // written into the field only when the operator asks for it: overwriting a
-  // figure she has already typed would be the app arguing with her.
   const lateFeeSuggestion = useMemo(
     () => (form.operation === 'return' && selectedReservation
       ? suggestLateFee(selectedReservation, form.dateTime)
@@ -172,8 +167,6 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     setScanFeedback(null);
   }, [open]);
 
-  // Accessory rows follow the selected reservation, so switching bookings never
-  // carries a checked accessory over to the wrong customer.
   useEffect(() => {
     if (!form.reservationNumber) {
       setAccessoryLinks([]);
@@ -205,7 +198,6 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
     }));
   };
 
-  // The scanner selects the matching accessory row instead of navigating away.
   const handleAccessoryScan = (value: string) => {
     setShowScanner(false);
     const accessory = getAccessoryByBarcode(value);
@@ -349,8 +341,16 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
               <p className="mt-1 font-extrabold text-slate-950">{selectedReservation.returnDate}</p>
             </div>
             <div>
-              <p className="text-xs font-bold text-amber-800">الرصيد الحالي</p>
+              <p className="text-xs font-bold text-amber-800">المتبقي من الإيجار</p>
               <p className="mt-1 font-extrabold text-slate-950">{formatMoneyOMR(selectedReservation.remainingAmount)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-800">دفعة الحجز</p>
+              <p className="mt-1 font-extrabold text-emerald-700">{formatMoneyOMR(getReservationBookingAdvanceAmount(selectedReservation))}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-800">التأمين المسترد (التزام)</p>
+              <p className="mt-1 font-extrabold text-violet-700">{formatMoneyOMR(selectedReservation.securityDepositCollectedAmount ?? 0)}</p>
             </div>
           </div>
         )}
@@ -368,7 +368,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
               placeholder="مثال: موافقة المالكة على تحصيل الرصيد عند الإرجاع."
             />
             <span className="mt-1.5 block text-xs font-medium text-rose-700">
-              الرصيد المتبقي {formatMoneyOMR(selectedReservation.remainingAmount)}. سيُحفظ سبب التجاوز في سجل التدقيق.
+              المتبقي من الإيجار {formatMoneyOMR(selectedReservation.remainingAmount)}. سيُحفظ سبب التجاوز في سجل التدقيق.
             </span>
           </label>
         )}
@@ -384,8 +384,6 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
           />
         </label>
 
-        {/* Photographic evidence, because free text is one person's word against
-            another's the moment a customer disputes a stain or a tear. */}
         <ConditionPhotoCapture
           label={form.operation === 'delivery' ? 'صور القطعة عند التسليم' : 'صور القطعة عند الاسترجاع'}
           hint={form.operation === 'delivery'
@@ -463,7 +461,7 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className={STACKED_FORM_LABEL_CLASS_NAME}>
-                وسيلة رد العربون
+                وسيلة رد التأمين المسترد
                 <select
                   value={form.refundMethod}
                   onChange={(event) => setForm((current) => ({ ...current, refundMethod: event.target.value as PaymentMethod }))}
@@ -494,19 +492,23 @@ export function DeliveryReturnModal({ open, onClose, onCompleted }: Props) {
             {returnPreview && (
               <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-4">
                 <div>
+                  <p className="text-xs font-bold text-slate-500">التزام التأمين الحالي</p>
+                  <p className="mt-1 font-extrabold text-violet-700">{formatMoneyOMR(returnPreview.securityLiability)}</p>
+                </div>
+                <div>
                   <p className="text-xs font-bold text-slate-500">رسوم مثبتة</p>
                   <p className="mt-1 font-extrabold text-slate-950">{formatMoneyOMR(returnPreview.settlement.assessedFeesAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-500">عربون محتجز</p>
+                  <p className="text-xs font-bold text-slate-500">التأمين المحتجز (رسوم)</p>
                   <p className="mt-1 font-extrabold text-amber-700">{formatMoneyOMR(returnPreview.settlement.retainedDepositAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-500">رد متوقع</p>
+                  <p className="text-xs font-bold text-slate-500">التأمين المسترد للعميلة</p>
                   <p className="mt-1 font-extrabold text-emerald-700">{formatMoneyOMR(returnPreview.settlement.refundAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-500">متبقي بعد الاسترجاع</p>
+                  <p className="text-xs font-bold text-slate-500">المتبقي من الإيجار بعد الاسترجاع</p>
                   <p className="mt-1 font-extrabold text-rose-700">{formatMoneyOMR(returnPreview.remainingAfterReturn)}</p>
                 </div>
               </div>
