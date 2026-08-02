@@ -50,10 +50,31 @@ function saveDressesToStorage(dresses: Dress[]): void {
     depositAmount: getDressSecurityDepositAmount(d), // legacy compat
   }));
   writeCollection<Dress>(INVENTORY_COLLECTION, normalized);
-  // Best-effort Supabase sync for production
-  import('../../features/sync/supabaseSync').then(({ pushDressToSupabase }) => {
-      normalized.slice(-1).forEach((d) => pushDressToSupabase(d));
-    }).catch(() => { /* ignore */ });
+}
+
+async function pushDressBestEffort(dress: Dress): Promise<void> {
+  try {
+    const { pushDressToSupabase } = await import('../sync/supabaseSync');
+    await pushDressToSupabase(dress);
+  } catch {
+    // Local persistence remains authoritative until background sync retries.
+  }
+}
+
+async function syncCreatedDressBestEffort(dress: Dress): Promise<void> {
+  let publicImageUrls: string[] = [];
+  try {
+    if (dress.images.length > 0) {
+      const { getSuccessfulUploadUrls, uploadMultipleCompressedImages } = await import('@platform/images/supabaseImageUpload');
+      const outcomes = await uploadMultipleCompressedImages(dress.id, dress.images);
+      publicImageUrls = getSuccessfulUploadUrls(outcomes);
+    }
+  } catch {
+    // The local compressed images stay intact and can be retried later.
+  }
+
+  const remoteDress = publicImageUrls.length > 0 ? { ...dress, images: publicImageUrls } : dress;
+  await pushDressBestEffort(remoteDress);
 }
 
 export function getDresses(): Dress[] {
@@ -117,19 +138,7 @@ export function addDress(input: AddDressServiceInput): Dress {
 
   dresses.push(newDress);
   saveDressesToStorage(dresses);
-  // Upload compressed images to Supabase Storage catalogue-images for production (small size)
-  if (newDress.images && newDress.images.length > 0) {
-    import('@platform/images/supabaseImageUpload').then(({ uploadMultipleCompressedImages }) => {
-      uploadMultipleCompressedImages(newDress.id, newDress.images).then((results) => {
-        if (results.length > 0) {
-          import('../../features/sync/supabaseSync').then(({ pushDressToSupabase }) => {
-            const updatedDress = { ...newDress, images: results.map((r: { publicUrl: string }) => r.publicUrl) };
-            pushDressToSupabase(updatedDress as unknown as Dress);
-          }).catch(() => { /* ignore */ });
-        }
-      }).catch(() => { /* ignore */ });
-    }).catch(() => { /* ignore */ });
-  }
+  void syncCreatedDressBestEffort(newDress);
   recordAudit({
     action: 'create',
     entityType: 'dress',
@@ -172,6 +181,7 @@ export function updateDress(code: string, updates: Partial<Dress>): Dress | null
   dresses[index] = next;
 
   saveDressesToStorage(dresses);
+  void pushDressBestEffort(next);
   return dresses[index];
 }
 
@@ -192,6 +202,7 @@ export function markDressRented(code: string): Dress | null {
   };
   dresses[index] = updated;
   saveDressesToStorage(dresses);
+  void pushDressBestEffort(updated);
   return updated;
 }
 
@@ -259,6 +270,7 @@ export function archiveDress(code: string): Dress | null {
   assertDressCanBeArchived(dress.code, dress.status);
   const archived: Dress = { ...dress, status: 'inactive', archivedAt: new Date().toISOString() };
   saveDressesToStorage(dresses.map((item) => (item.code === code ? archived : item)));
+  void pushDressBestEffort(archived);
   recordAudit({
     action: 'archive',
     entityType: 'dress',
@@ -277,6 +289,7 @@ export function restoreArchivedDress(code: string, status: Dress['status'] = 'in
 
   const restored: Dress = { ...dress, status, archivedAt: undefined };
   saveDressesToStorage(dresses.map((item) => (item.code === code ? restored : item)));
+  void pushDressBestEffort(restored);
   recordAudit({
     action: 'restore',
     entityType: 'dress',
