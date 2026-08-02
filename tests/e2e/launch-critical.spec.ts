@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 const userId = '11111111-1111-4111-8111-111111111111';
 
 async function mockAuthenticatedStaff(page: Page) {
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600;
   const user = {
     id: userId,
     aud: 'authenticated',
@@ -15,15 +16,23 @@ async function mockAuthenticatedStaff(page: Page) {
     user_metadata: {},
     identities: [],
   };
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const accessToken = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
+    aud: 'authenticated',
+    exp: expiresAt,
+    sub: userId,
+    email: user.email,
+    role: 'authenticated',
+  })}.test-signature`;
   await page.route('**/auth/v1/token**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
-      access_token: 'test-access-token',
+      access_token: accessToken,
       refresh_token: 'test-refresh-token',
       token_type: 'bearer',
       expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      expires_at: expiresAt,
       user,
     }),
   }));
@@ -31,17 +40,17 @@ async function mockAuthenticatedStaff(page: Page) {
     status: 200,
     contentType: 'application/json',
     headers: { 'content-range': '0-0/1' },
-    body: JSON.stringify([{ id: userId, full_name: 'موظفة اختبار', role: 'staff', is_active: true }]),
+    body: JSON.stringify({ id: userId, full_name: 'موظفة اختبار', role: 'staff', is_active: true }),
   }));
   await page.route('**/rest/v1/showroom_state**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     headers: { 'content-range': '0-0/1' },
-    body: JSON.stringify([{
+    body: JSON.stringify({
       revision: 1,
       updated_at: '2026-01-01T00:00:00.000Z',
       snapshot: { applicationId: 'dress-roomshow', schemaVersion: 3, collections: {} },
-    }]),
+    }),
   }));
   await page.route('**/rest/v1/client_error_events**', (route) => route.fulfill({ status: 201, body: '' }));
 }
@@ -58,8 +67,11 @@ test('PWA shell installs its manifest, survives offline reload, and does not ove
   await expect(page.locator('link[rel="manifest"]')).toHaveCount(1);
   const dimensions = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
   expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewport);
-  await context.setOffline(true);
+  await page.evaluate(async () => navigator.serviceWorker.ready);
   await page.reload();
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+  await context.setOffline(true);
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'LENA' })).toBeVisible();
 });
 
@@ -74,4 +86,3 @@ test('authenticated staff hydrates cloud state and cannot open administrator set
   await page.goto('/preferences');
   await expect(page).toHaveURL(/\/$/);
 });
-
