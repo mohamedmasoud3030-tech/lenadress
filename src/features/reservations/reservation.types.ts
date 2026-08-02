@@ -135,6 +135,11 @@ export type Reservation = {
   /** Rental refunds (refunds of rental payments, not deposit refunds) */
   rentalRefundedAmount?: number;
   notes?: string;
+  /** Cancellation policy fields */
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancellationPolicyAck?: boolean;
   /**
    * Multi-item contract lines.
    *

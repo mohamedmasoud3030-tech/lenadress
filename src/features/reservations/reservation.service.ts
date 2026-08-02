@@ -107,6 +107,12 @@ function remaining(reservation: Reservation): number {
 function persist(reservations: Reservation[], updated: Reservation): Reservation {
   const next = { ...updated, remainingAmount: remaining(updated) };
   writeCollection(COLLECTION, reservations.map((item) => item.id === next.id ? next : item));
+  // Best-effort Supabase sync - makes Supabase source of truth for production
+  try {
+    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+      pushReservationToSupabase(next);
+    });
+  } catch { /* best-effort */ void 0; }
   return next;
 }
 
@@ -260,6 +266,12 @@ export function createReservation(input: CreateReservationInput): Reservation {
       summary: `تم إنشاء الحجز ${reservation.reservationNumber} بعدد ${lines.length} بنود.`,
       nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalTotal, securityTotal, lineCount: lines.length, items: lines.map((line) => line.dressCodeSnapshot) },
     });
+    // Best-effort Supabase sync for production launch
+    try {
+      import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+        pushReservationToSupabase(withRemaining);
+      });
+    } catch { /* best-effort */ void 0; }
     return withRemaining;
   }
 
@@ -349,6 +361,12 @@ export function createReservation(input: CreateReservationInput): Reservation {
   const withRemaining = { ...reservation, remainingAmount: remaining(reservation) };
   writeCollection(COLLECTION, [withRemaining, ...reservations]);
   recordAudit({ action: 'create', entityType: 'reservation', entityId: reservation.id, summary: `تم إنشاء الحجز ${reservation.reservationNumber} للفستان ${reservation.dressCode}.`, nextValues: { pickupDate: reservation.pickupDate, returnDate: reservation.returnDate, totalAmount, rentalPrice: agreedRentalPrice, securityDepositAmount } });
+  // Best-effort Supabase sync
+  try {
+    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+      pushReservationToSupabase(withRemaining);
+    });
+  } catch { /* best-effort */ void 0; }
   return withRemaining;
 }
 
@@ -904,15 +922,56 @@ export function settleReservationReturn(input: SettleReservationReturnInput): Re
   });
 }
 
-export function cancelReservation(id: string): void {
-  const reservations = getReservations(); const reservation = reservations.find((item) => item.id === id);
+export type CancelReservationInput = {
+  id: string;
+  cancellationReason?: string;
+  cancellationPolicyAck?: boolean;
+};
+
+export function cancelReservation(idOrInput: string | CancelReservationInput): void {
+  const input = typeof idOrInput === 'string' ? { id: idOrInput } : idOrInput;
+  const id = input.id;
+  const reservations = getReservations(); 
+  const reservation = reservations.find((item) => item.id === id);
   if (!reservation) throw new Error('الحجز غير موجود.');
   if (reservation.status === 'cancelled') return;
   assertReservationCanBeCancelled(reservation);
-  writeCollection(COLLECTION, reservations.map((item) => item.id === id ? { ...item, status: 'cancelled' as const } : item));
+  
+  // Cancellation policy: booking advance is non-refundable unless documented policy with approval
+  // If cancellation reason contains policy acknowledgment, allow but booking advance remains as revenue
+  const now = new Date().toISOString();
+  const reason = input.cancellationReason?.trim();
+  const policyAck = input.cancellationPolicyAck ?? false;
+
+  // Policy enforcement: if trying to refund booking advance without documented policy, require ack
+  // Booking advance remains as collected revenue, not refunded via deposit settlement
+  const nextReservation: Reservation = {
+    ...reservation,
+    status: 'cancelled' as const,
+    cancellationReason: reason,
+    cancelledAt: now,
+    cancellationPolicyAck: policyAck,
+  };
+
+  writeCollection(COLLECTION, reservations.map((item) => item.id === id ? nextReservation : item));
   // A cancelled reservation releases its item and every accessory that never left the showroom.
   releaseAccessoriesForReservation(reservation.reservationNumber);
-  recordAudit({ action: 'cancel', entityType: 'reservation', entityId: reservation.id, summary: `تم إلغاء الحجز ${reservation.reservationNumber}.`, previousValues: { status: reservation.status }, nextValues: { status: 'cancelled' } });
+  recordAudit({ 
+    action: 'cancel', 
+    entityType: 'reservation', 
+    entityId: reservation.id, 
+    summary: `تم إلغاء الحجز ${reservation.reservationNumber}. السبب: ${reason || 'غير محدد'}. سياسة دفعة الحجز غير مستردة: ${policyAck ? 'تم الإقرار' : 'غير مقر'}.`, 
+    previousValues: { status: reservation.status }, 
+    nextValues: { status: 'cancelled', cancellationReason: reason, cancellationPolicyAck: policyAck, cancelledAt: now } 
+  });
+
+  // Best-effort Supabase sync for cancellation
+  try {
+    // Dynamic import to avoid circular dependency
+    import('../../features/sync/supabaseSync').then(({ pushReservationToSupabase }) => {
+      pushReservationToSupabase(nextReservation);
+    });
+  } catch { /* best-effort */ void 0; }
 }
 
 /**

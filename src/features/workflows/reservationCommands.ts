@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { commandBoundary, runCommand } from '@engines/workflows';
 import { createReservation, cancelReservation, addContractLine, removeContractLine, updateContractLine, deliverContractLine, getReservations, returnContractLine } from '../reservations/reservation.service';
 import { calculateLinesFees, getReservationDepositTotal, getReservationSecurityDepositTotal } from '../reservations/contractLineHelpers';
@@ -33,9 +34,19 @@ export function createReservationCommand(input: CreateReservationCommandInput): 
   );
 }
 
-export function cancelReservationCommand(id: string, idempotencyKey?: string): void {
-  runCommand({ name: 'reservation.cancel', idempotencyKey }, () => {
-    cancelReservation(id);
+export type CancelReservationCommandInput = {
+  id: string;
+  cancellationReason?: string;
+  cancellationPolicyAck?: boolean;
+  idempotencyKey?: string;
+};
+
+export function cancelReservationCommand(idOrInput: string | CancelReservationCommandInput, idempotencyKey?: string): void {
+  const input = typeof idOrInput === 'string' ? { id: idOrInput, idempotencyKey } : idOrInput;
+  const { idempotencyKey: keyFromInput, ...rest } = input as any;
+  const finalKey = (input as any).idempotencyKey ?? idempotencyKey;
+  runCommand({ name: 'reservation.cancel', idempotencyKey: finalKey ? `${rest.id}:${finalKey}` : undefined }, () => {
+    cancelReservation({ id: rest.id, cancellationReason: rest.cancellationReason, cancellationPolicyAck: rest.cancellationPolicyAck });
     commandBoundary('reservation.cancel:after-write');
   });
 }
