@@ -22,7 +22,7 @@ export function DressLifecyclePanel({ performance }: DressLifecyclePanelProps) {
       <div>
         <p className="text-xs font-bold text-amber-700">دورة حياة العنصر</p>
         <h2 id="dress-lifecycle-title" className="mt-1 text-lg font-black text-slate-950">الأداء المحقق والقرار التشغيلي</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">الأرقام معروضة من طبقة التقارير المالية نفسها، ولا تُعاد حسابها داخل صفحة المخزون.</p>
+        <p className="mt-1 text-sm leading-6 text-slate-500">هذه الأرقام مأخوذة مباشرة من سجل الإيجارات والمبيعات والمصروفات المرتبطة بالقطعة.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
