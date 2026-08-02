@@ -36,7 +36,7 @@ function getStepTextColor(isActive: boolean, isCompleted: boolean): string {
   return 'text-slate-500';
 }
 
-export function Stepper({ steps, currentStep, onStepChange, idPrefix = 'wizard' }: StepperProps) {
+export function Stepper({ steps, currentStep, onStepChange, idPrefix = 'wizard' }: Readonly<StepperProps>) {
   const safeCurrentStep = clampStep(currentStep, steps.length);
   const activeStep = steps[safeCurrentStep];
 

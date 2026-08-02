@@ -36,11 +36,11 @@ function getImageExtension(mimeType: string): string {
 }
 
 function generateStoragePath(dressId: string, mimeType: string): string {
-  if (!SAFE_STORAGE_SEGMENT.test(dressId)) throw new Error('Unsafe catalogue item identifier.');
+  if (!SAFE_STORAGE_SEGMENT.test(dressId)) throw new TypeError('Unsafe catalogue item identifier.');
 
   const ext = getImageExtension(mimeType);
   if (typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') {
-    throw new Error('Secure random identifiers are unavailable.');
+    throw new TypeError('Secure random identifiers are unavailable.');
   }
   const id = crypto.randomUUID();
   return `${dressId}/${id}.${ext}`;
