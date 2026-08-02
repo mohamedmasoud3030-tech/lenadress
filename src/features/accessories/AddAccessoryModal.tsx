@@ -145,8 +145,8 @@ export function AddAccessoryModal({ open, onClose, onCreated }: Props) {
           </div>
           <div>
             <label htmlFor={`${fieldId}-deposit`} className={FORM_LABEL_CLASS_NAME}>مبلغ التأمين (اختياري)</label>
-            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" {...register('depositAmount')} className={FORM_FIELD_CLASS_NAME} /> // legacy compat
-            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>} // legacy compat
+            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" {...register('depositAmount')} className={FORM_FIELD_CLASS_NAME} /> {/* legacy compat */}
+            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>} {/* legacy compat */}
           </div>
         </fieldset>
 

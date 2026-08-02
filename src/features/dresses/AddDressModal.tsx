@@ -235,8 +235,8 @@ export function AddDressModal({ open, onClose, onCreated }: AddDressModalProps) 
           </div>
           <div>
             <label htmlFor={`${fieldId}-deposit`} className={FORM_LABEL_CLASS_NAME}>التأمين (ر.ع)</label>
-            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" readOnly={!isForRent || !supportsDeposit} {...register('depositAmount')} className={dressFieldClassName} /> // legacy compat
-            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>} // legacy compat
+            <input id={`${fieldId}-deposit`} type="number" min={MIN_ZERO_AMOUNT} step={MONEY_STEP} inputMode="decimal" readOnly={!isForRent || !supportsDeposit} {...register('depositAmount')} className={dressFieldClassName} /> {/* legacy compat */}
+            {errors.depositAmount && <p className={FORM_ERROR_CLASS_NAME}>{errors.depositAmount.message}</p>} {/* legacy compat */}
           </div>
           <div>
             <label htmlFor={`${fieldId}-sale-price`} className={FORM_LABEL_CLASS_NAME}>سعر البيع (ر.ع)</label>
