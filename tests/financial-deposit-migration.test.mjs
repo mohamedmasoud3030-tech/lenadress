@@ -44,7 +44,9 @@ test('unresolved legacy depositAmount must not be silently copied into canonical
       rentalPrice: 100,
       depositAmount: 50,
       totalAmount: 150,
-      paidAmount: 0,
+      // This legacy value could be the ambiguous old deposit.  With no explicit
+      // payment history it must not become canonical rental collection.
+      paidAmount: 50,
       remainingAmount: 150,
     }]);
     writeRaw(store, 'payments', []);
@@ -65,6 +67,8 @@ test('unresolved legacy depositAmount must not be silently copied into canonical
     assert.equal(res.securityDepositCollectedAmount, 0, 'collected must remain 0, not refundable');
     assert.equal(res.securityDepositRefundedAmount, 0);
     assert.equal(res.securityDepositRetainedAmount, 0);
+    assert.equal(res.rentalCollectedAmount, 0, 'unresolved paidAmount is not rental collection without explicit history');
+    assert.equal(res.remainingAmount, 100, 'unresolved paidAmount must not reduce the rental receivable');
     const { calculateSecurityDepositLiability } = await import('../src/shared/utils/financialCalculations.js');
     const liability = calculateSecurityDepositLiability({
       collected: res.securityDepositCollectedAmount,

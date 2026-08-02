@@ -191,6 +191,22 @@ function isRentalRefundType(type: string): boolean {
   return type === 'refund';
 }
 
+/** Every value that can change financial timing, classification, or the audit trail. */
+export function matchesIdempotentPaymentPayload(
+  existing: PaymentRecord,
+  input: Pick<AddPaymentInput, 'paymentDate' | 'type' | 'method' | 'amount' | 'notes' | 'retentionReason'>,
+  direction: PaymentDirection,
+): boolean {
+  return existing.type === (input.type === 'rental' ? 'rental_payment' : input.type)
+    && Math.abs(existing.amount - input.amount) < 1e-6
+    && existing.method === input.method
+    && existing.direction === direction
+    && existing.paymentDate === input.paymentDate
+    && (existing.retentionReason ?? '') === (input.retentionReason?.trim() ?? '')
+    && (existing.notes ?? '') === (input.notes?.trim() ?? '')
+    && existing.source === 'manual';
+}
+
 export function addPayment(input: AddPaymentInput): PaymentRecord {
   const reservation = getReservations().find((item) => item.reservationNumber === input.reservationNumber);
 
@@ -226,47 +242,17 @@ export function addPayment(input: AddPaymentInput): PaymentRecord {
       throw new Error('قيمة استرداد التأمين المسترد تتجاوز المبلغ المتاح للاسترداد.');
     }
   } else if (isRentalRefund) {
-    // Rental refund checks against rentalCollected, bookingAdvanceCollected only when cancellation policy documented, rentalRefunded
-    // For implementation: check against rentalCollected + (bookingAdvanceCollected if cancellation) - rentalRefunded
-    // We treat bookingAdvanceCollected as allowed when notes contain cancellation keyword or reservation already has bookingAdvanceCollected
-    // But per spec, bookingAdvanceCollected only when applying documented cancellation policy.
-    // So we compute available as rentalCollected - rentalRefunded, plus bookingAdvanceCollected if cancellation policy present.
-    // Cancellation policy detection: if reservation status is cancelled? But at this point it's not cancelled yet, so we check notes for keyword إلغاء or cancel, or allow bookingAdvanceCollected as part of total rental refund when explicitly needed.
-    // For strictness, we allow bookingAdvanceCollected as part of available, but we document that it's only for cancellation.
+    // This PR has no cancellation/refund policy for booking advances.  A generic
+    // rental refund therefore covers only explicit rental collections.
     const rentalCollected = reservation.rentalCollectedAmount ?? 0;
     const rentalRefunded = reservation.rentalRefundedAmount ?? 0;
-    const bookingAdvanceCollected = reservation.bookingAdvanceCollectedAmount ?? 0;
-    // If notes indicate cancellation policy, include booking advance
-    const hasCancellationEvidence = input.notes && /إلغاء|cancel|سياسة/i.test(input.notes);
-    const available = hasCancellationEvidence
-      ? rentalCollected + bookingAdvanceCollected - rentalRefunded
-      : rentalCollected - rentalRefunded;
-    // Legacy fallback for old backups that used paidAmount
-    const legacyAvailable = (reservation.paidAmount ?? 0) - (reservation.refundedAmount ?? 0);
-    if (input.amount > available + 1e-6 && input.amount > legacyAvailable + 1e-6) {
-      // If booking advance exists and we didn't include it, try inclusive check with explicit cancellation note requirement
-      const totalAvailableIncludingBooking = rentalCollected + bookingAdvanceCollected - rentalRefunded;
-      if (input.amount > totalAvailableIncludingBooking + 1e-6) {
-        throw new Error('قيمة استرجاع الإيجار تتجاوز المبلغ المحصل فعلياً للإيجار.');
-      } else if (!hasCancellationEvidence && bookingAdvanceCollected > 0) {
-        // If trying to refund booking advance without cancellation policy, require note
-        throw new Error('رد دفعة الحجز يتطلب تطبيق سياسة إلغاء موثقة مع سبب واضح.');
-      }
+    if (input.amount > rentalCollected - rentalRefunded + 1e-6) {
+      throw new Error('قيمة استرجاع الإيجار تتجاوز المبلغ المحصل فعلياً للإيجار. رد دفعة الحجز عند الإلغاء خارج نطاق هذه النسخة.');
     }
   }
 
   if (isRetention) {
-    if (!input.retentionReason || !input.retentionReason.trim()) {
-      throw new Error('سبب احتجاز التأمين المسترد مطلوب.');
-    }
-    const collected = reservation.securityDepositCollectedAmount ?? 0;
-    const refunded = reservation.securityDepositRefundedAmount ?? 0;
-    const retained = reservation.securityDepositRetainedAmount ?? 0;
-    const available = calculateSecurityDepositLiability({ collected, refunded, retained });
-    if (input.amount > available + 1e-6) {
-      throw new Error('قيمة احتجاز التأمين المسترد تتجاوز المبلغ المتاح.');
-    }
-    // Retention must cover proven fees with clear reason - we already require reason, and assignment happens in settlement
+    throw new Error('احتجاز التأمين متاح فقط عبر تسوية الاسترجاع المرتبطة برسوم تأخير أو ضرر مُقيّمة.');
   }
 
   // ---- Blocker 3: idempotency scoped to reservation + operation/type + key ----
@@ -275,11 +261,7 @@ export function addPayment(input: AddPaymentInput): PaymentRecord {
       (p) => p.reservationNumber === input.reservationNumber && p.idempotencyKey === input.idempotencyKey,
     );
     if (scopedExisting) {
-      const payloadMatches =
-        scopedExisting.type === (input.type === 'rental' ? 'rental_payment' : input.type) &&
-        Math.abs(scopedExisting.amount - input.amount) < 1e-6 &&
-        scopedExisting.method === input.method &&
-        scopedExisting.direction === direction;
+      const payloadMatches = matchesIdempotentPaymentPayload(scopedExisting, input, direction);
       if (payloadMatches) {
         return scopedExisting;
       }

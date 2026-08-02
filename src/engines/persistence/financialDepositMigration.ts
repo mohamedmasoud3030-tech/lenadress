@@ -246,14 +246,26 @@ function migrateReservationsArray(
       res['securityDepositRetainedAmount'] = 0;
       // FIX: Do NOT set bookingAdvanceCollectedAmount = bookingAdvanceAmount. Extract from payment history only, else zero
       res['bookingAdvanceCollectedAmount'] = 0;
-      // For unresolved, rentalCollected from payment history only or 0, to avoid affecting liability
-      if (reservationNumber) {
-        const rentalCollected = getRentalCollectedFromPayments(payments, reservationNumber);
-        res['rentalCollectedAmount'] = rentalCollected > 0 ? rentalCollected : numberOrZero(res['paidAmount']);
-      } else {
-        res['rentalCollectedAmount'] = numberOrZero(res['paidAmount']);
-      }
+      // An unresolved legacy paidAmount can include the ambiguous deposit.  It is
+      // evidence neither of a rental collection nor of a booking advance, so it
+      // must never reduce the canonical rental receivable.  Keep it only in the
+      // legacy record for the human classification workflow.
+      res['rentalCollectedAmount'] = reservationNumber
+        ? getRentalCollectedFromPayments(payments, reservationNumber)
+        : 0;
       if (res['rentalRefundedAmount'] === undefined) res['rentalRefundedAmount'] = 0;
+      // The legacy total included the ambiguous deposit.  Rebuild the stored
+      // receivable from rental-only values so the unresolved amount cannot
+      // falsely make the rental look paid (or remain part of the receivable).
+      const rentalTotal = numberOrZero(res['rentalPrice']) || Math.max(numberOrZero(res['totalAmount']) - legacyAmount, 0);
+      res['remainingAmount'] = Math.max(
+        rentalTotal
+          + numberOrZero(res['assessedFeesAmount'])
+          - numberOrZero(res['rentalCollectedAmount'])
+          - numberOrZero(res['bookingAdvanceCollectedAmount'])
+          + numberOrZero(res['rentalRefundedAmount']),
+        0,
+      );
       changed = true;
     }
 

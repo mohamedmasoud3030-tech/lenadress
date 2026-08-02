@@ -697,25 +697,12 @@ export function recordReservationPayment(input: RecordReservationPaymentInput): 
   // Refund guards - strictly separated per requirement #1
   if (input.direction === 'refund') {
     if (isRentalRefund) {
-      // Rental refund checked against rentalCollected + bookingAdvanceCollected (when cancellation documented) - rentalRefunded
-      // For strict separation: must NOT use security deposit liability
-      // Allowed: rentalCollectedAmount + bookingAdvanceCollectedAmount (booking only when cancellation policy)
-      // Here we check against rentalCollected + bookingAdvanceCollected to support cancellation case, but never security deposit
+      // Booking-advance cancellation/refund policy is outside this PR.  Generic
+      // rental refunds can reverse only explicit rental collections.
       const rentalCollected = reservation.rentalCollectedAmount ?? 0;
-      const bookingAdvanceCollected = reservation.bookingAdvanceCollectedAmount ?? 0;
       const rentalRefunded = reservation.rentalRefundedAmount ?? 0;
-      // For cancellation, bookingAdvanceCollected is included; for normal rental refund we also allow it as fallback
-      const available = rentalCollected + bookingAdvanceCollected - rentalRefunded;
-      const legacyAvailable = (reservation.paidAmount ?? 0) - (reservation.refundedAmount ?? 0);
-      // Use the canonical available, but also allow legacy check for backward compat
-      if (input.amount > available + 1e-6 && input.amount > legacyAvailable + 1e-6) {
-        // If rentalCollected alone is enough, allow; if not, check inclusive of bookingAdvance
-        if (input.amount > rentalCollected - rentalRefunded + 1e-6) {
-          // If bookingAdvance exists, we consider cancellation scenario - allow if within total
-          if (input.amount > available + 1e-6) {
-            throw new Error('قيمة استرجاع الإيجار تتجاوز المبلغ المحصل فعلياً للإيجار.');
-          }
-        }
+      if (input.amount > rentalCollected - rentalRefunded + 1e-6) {
+        throw new Error('قيمة استرجاع الإيجار تتجاوز المبلغ المحصل فعلياً للإيجار. رد دفعة الحجز عند الإلغاء خارج نطاق هذه النسخة.');
       }
     } else if (isSecurityDepositRefund) {
       const collected = reservation.securityDepositCollectedAmount ?? 0;

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { setCommandFailurePoint } from '../src/engines/workflows/index.ts';
 import { createReservationCommand } from '../src/features/workflows/reservationCommands.ts';
 import { recordPaymentCommand } from '../src/features/workflows/paymentCommands.ts';
+import { completeDeliveryCommand, completeReturnCommand } from '../src/features/workflows/deliveryReturnCommands.ts';
 import { getFinanceTotals } from '../src/features/finance/finance.service.ts';
 import { getReservations } from '../src/features/reservations/reservation.service.ts';
 import { getPayments } from '../src/features/payments/payment.service.ts';
@@ -223,8 +224,8 @@ test('security deposit refund does not change rental balance', () => {
   } finally { cleanup(); }
 });
 
-// 3. احتجاز التأمين لا يغير paidAmount
-test('security deposit retention does not change paidAmount, rentalCollected, bookingAdvanceCollected', () => {
+// 3. الاحتجاز اليدوي ممنوع؛ التسوية عند الاسترجاع فقط هي التي تحتجز مقابل رسم مُقيّم
+test('security deposit retention is blocked manually and retained only by return settlement without changing rental totals', () => {
   installStorage();
   try {
     const customer = addCustomer({ name: 'عميل', phone: '90000104', status: 'normal' });
@@ -261,7 +262,7 @@ test('security deposit retention does not change paidAmount, rentalCollected, bo
     const before = getReservations().find((r) => r.reservationNumber === reservation.reservationNumber);
     assert.equal(before.paidAmount, 100);
 
-    recordPaymentCommand({
+    assert.throws(() => recordPaymentCommand({
       reservationNumber: reservation.reservationNumber,
       paymentDate: today,
       type: 'security_deposit_retention',
@@ -269,16 +270,28 @@ test('security deposit retention does not change paidAmount, rentalCollected, bo
       amount: 20,
       retentionReason: 'تأخير مثبت 20 ر.ع مع إيصال',
       idempotencyKey: 'blk-3-ret',
+    }), /فقط عبر تسوية الاسترجاع/);
+
+    completeDeliveryCommand({ reservationNumber: reservation.reservationNumber, deliveryDateTime: new Date().toISOString(), idempotencyKey: 'blk-3-delivery' });
+    completeReturnCommand({
+      reservationNumber: reservation.reservationNumber,
+      returnDateTime: new Date().toISOString(),
+      lateFee: 20,
+      damageFee: 0,
+      refundMethod: 'cash',
+      nextItemStatus: 'inspection',
+      idempotencyKey: 'blk-3-return',
     });
 
     const after = getReservations().find((r) => r.reservationNumber === reservation.reservationNumber);
     assert.equal(after.paidAmount, 100, 'احتجاز التأمين يجب ألا يزيد paidAmount');
     assert.equal(after.rentalCollectedAmount, 100, 'لا يزيد rentalCollectedAmount');
     assert.equal(after.bookingAdvanceCollectedAmount ?? 0, 0, 'لا يزيد bookingAdvanceCollectedAmount');
-    assert.equal(after.securityDepositRetainedAmount, 20, 'يزيد securityDepositRetainedAmount');
-    // يقلل التزام التأمين فقط
+    assert.equal(after.securityDepositRetainedAmount, 20, 'يزيد securityDepositRetainedAmount من رسم عودة مُقيّم فقط');
+    // تسوية العودة تحتجز 20 وترد الباقي، فتغلق الالتزام كله
     const liability = (after.securityDepositCollectedAmount ?? 0) - (after.securityDepositRefundedAmount ?? 0) - (after.securityDepositRetainedAmount ?? 0);
-    assert.equal(liability, 30);
+    assert.equal(after.securityDepositRefundedAmount, 30);
+    assert.equal(liability, 0);
   } finally { cleanup(); }
 });
 
@@ -429,6 +442,34 @@ test('idempotency service layer rejects different payload with same key for same
     }
     assert.equal(threw, true, 'service layer must reject same key with different amount');
   } finally { cleanup(); }
+});
+
+test('idempotency rejects a reused key when accounting date or audit notes change', async () => {
+  installStorage();
+  try {
+    const { addPayment: directAddPayment } = await import('../src/features/payments/payment.service.ts');
+    const customer = addCustomer({ name: 'عميل', phone: '900001071', status: 'normal' });
+    const dress = addDress({ ...rentalItem, barcode: 'B6-date' });
+    const reservation = createReservationCommand({
+      customerId: customer.id, dressId: dress.id, pickupDate: today, returnDate: future(2),
+      depositAmount: 50, securityDepositAmount: 50, idempotencyKey: 'blk-date-res',
+    });
+    directAddPayment({ reservationNumber: reservation.reservationNumber, paymentDate: today, type: 'rental_payment', method: 'cash', amount: 20, notes: 'إيصال 1', idempotencyKey: 'audit-payload-key' });
+    assert.throws(() => directAddPayment({ reservationNumber: reservation.reservationNumber, paymentDate: future(-1), type: 'rental_payment', method: 'cash', amount: 20, notes: 'إيصال 1', idempotencyKey: 'audit-payload-key' }), /حمولة مختلفة|idempotency/);
+    assert.throws(() => directAddPayment({ reservationNumber: reservation.reservationNumber, paymentDate: today, type: 'rental_payment', method: 'cash', amount: 20, notes: 'إيصال معدل', idempotencyKey: 'audit-payload-key' }), /حمولة مختلفة|idempotency/);
+  } finally { cleanup(); }
+});
+
+test('idempotency payload comparison includes retention reason', async () => {
+  const { matchesIdempotentPaymentPayload } = await import('../src/features/payments/payment.service.ts');
+  const existing = {
+    id: 'retention-1', paymentNumber: 'PAY-1', reservationNumber: 'RSV-1', customerName: 'عميل', dressCode: 'D1', dressName: 'فستان',
+    paymentDate: today, type: 'security_deposit_retention', method: 'other', direction: 'settlement', amount: 20,
+    reservationTotal: 100, source: 'manual', retentionReason: 'ضرر مُقيّم رقم ADJ-1', idempotencyKey: 'retention-key',
+  };
+  const same = { paymentDate: today, type: 'security_deposit_retention', method: 'other', amount: 20, retentionReason: 'ضرر مُقيّم رقم ADJ-1' };
+  assert.equal(matchesIdempotentPaymentPayload(existing, same, 'settlement'), true);
+  assert.equal(matchesIdempotentPaymentPayload(existing, { ...same, retentionReason: 'ضرر مُقيّم رقم ADJ-2' }, 'settlement'), false, 'changed retention reason must not replay old movement');
 });
 
 // 6. المبلغ المطلوب كدفعة حجز لا يُعامل كمبلغ محصل

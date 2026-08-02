@@ -296,7 +296,7 @@ test('over-retention rejected', () => {
         amount: 60,
         idempotencyKey: 'over-ret-attempt',
       });
-    }, /تجاوز|مطلوب/);
+    }, /تجاوز|مطلوب|فقط عبر تسوية الاسترجاع/);
   } finally { cleanup(); }
 });
 
@@ -332,7 +332,7 @@ test('duplicate retry does not duplicate refund or retention', () => {
   } finally { cleanup(); }
 });
 
-test('cancellation policy independent of security deposit', () => {
+test('booking-advance cancellation refund is deliberately outside this PR', () => {
   installStorage();
   try {
     const customer = addCustomer({ name: 'ع', phone: '90000011', status: 'normal' });
@@ -347,7 +347,16 @@ test('cancellation policy independent of security deposit', () => {
       bookingAdvanceAmount: 20,
       idempotencyKey: 'cancel',
     });
-    assert.equal(reservation.remainingAmount, 100);
+    recordPaymentCommand({ reservationNumber: reservation.reservationNumber, paymentDate: today, type: 'booking_advance', method: 'cash', amount: 20, idempotencyKey: 'cancel-advance' });
+    assert.throws(() => recordPaymentCommand({
+      reservationNumber: reservation.reservationNumber,
+      paymentDate: today,
+      type: 'refund',
+      method: 'cash',
+      amount: 20,
+      notes: 'إلغاء الحجز',
+      idempotencyKey: 'cancel-refund-attempt',
+    }), /خارج نطاق هذه النسخة|تتجاوز/);
   } finally { cleanup(); }
 });
 
