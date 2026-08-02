@@ -8,7 +8,8 @@ import { UserFacingErrorAlert } from '../../components/shared/UserFacingErrorAle
 import { copyMessageToClipboard, openWhatsAppChat } from '@platform/messaging';
 import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 import { formatMoneyOMR } from '../../shared/utils/format';
-import { dismissReminder, getReminders, summarizeReminders } from './reminder.service';
+import { getReminders, summarizeReminders } from './reminder.service';
+import { dismissReminderCommand } from '../workflows';
 import type { Reminder } from './reminder.types';
 
 const urgencyStyles = {
@@ -118,7 +119,7 @@ export function RemindersPage() {
     try {
       openWhatsAppChat(reminder.customerPhone, reminder.message);
       // Sending is a follow-up, so the reminder is marked handled for today.
-      dismissReminder(reminder.id, 'whatsapp');
+      dismissReminderCommand(reminder.id, 'whatsapp');
       setFeedback(`تم فتح محادثة واتساب مع ${reminder.customerName}.`);
       refresh();
     } catch (reason: unknown) {
@@ -135,7 +136,7 @@ export function RemindersPage() {
 
   const handleDismiss = (reminder: Reminder) => {
     setError(null);
-    dismissReminder(reminder.id, 'manual');
+    dismissReminderCommand(reminder.id, 'manual');
     setFeedback(`تمت متابعة تذكير ${reminder.customerName}.`);
     refresh();
   };

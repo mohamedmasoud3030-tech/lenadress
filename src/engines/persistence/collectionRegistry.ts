@@ -1,7 +1,7 @@
 import type { StoragePort } from '@platform/storage';
 
 export const DATABASE_APPLICATION_ID = 'dress-roomshow';
-export const CURRENT_STORAGE_SCHEMA_VERSION = 2;
+export const CURRENT_STORAGE_SCHEMA_VERSION = 3;
 export const STORAGE_PREFIX = 'dress-roomshow';
 export const METADATA_KEY = `${STORAGE_PREFIX}:metadata`;
 

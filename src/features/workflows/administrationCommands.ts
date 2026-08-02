@@ -47,6 +47,13 @@ import {
   startStocktakeSession,
 } from '../stocktake/stocktake.service';
 import type { StocktakeReport, StocktakeSession } from '../stocktake/stocktake.types';
+import { dismissReminder } from '../reminders/reminder.service';
+import type { ReminderDismissal } from '../reminders/reminder.types';
+import {
+  resetMessageTemplates,
+  saveMessageTemplates,
+  type MessageTemplates,
+} from '../reminders/messageTemplates';
 import {
   addWaitlistEntry,
   closeWaitlistEntry,
@@ -187,6 +194,22 @@ export function resetPrintSettingsCommand(idempotencyKey?: string): PrintSetting
     recordAudit({ action: 'update', entityType: 'preferences', entityId: 'print-settings', summary: 'تمت إعادة إعدادات الطباعة إلى القيم الافتراضية.' });
     return settings;
   });
+}
+
+export function saveMessageTemplatesCommand(input: Partial<MessageTemplates>, idempotencyKey?: string): MessageTemplates {
+  return atomic('message-templates.save', 'message-templates.save:after-write', idempotencyKey, () => saveMessageTemplates(input));
+}
+
+export function resetMessageTemplatesCommand(idempotencyKey?: string): MessageTemplates {
+  return atomic('message-templates.reset', 'message-templates.reset:after-write', idempotencyKey, () => resetMessageTemplates());
+}
+
+export function dismissReminderCommand(
+  reminderRef: string,
+  channel: ReminderDismissal['channel'] = 'manual',
+  idempotencyKey?: string,
+): ReminderDismissal {
+  return atomic('reminder.dismiss', 'reminder.dismiss:after-write', idempotencyKey, () => dismissReminder(reminderRef, channel));
 }
 
 export function resetApplicationDataCommand(idempotencyKey?: string): void {

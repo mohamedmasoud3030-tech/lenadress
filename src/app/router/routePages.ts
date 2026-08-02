@@ -1,31 +1,39 @@
 import { lazy } from 'react';
 
 export { NotFoundPage } from '../../components/shared/NotFoundPage';
-export { AccessoriesPage } from '../../features/accessories/AccessoriesPage';
-export { AuditLogPage } from '../../features/audit/AuditLogPage';
-export { AvailabilitySearchPage } from '../../features/availability/AvailabilitySearchPage';
-export { AppointmentsPage } from '../../features/appointments/AppointmentsPage';
-export { CustomersPage } from '../../features/customers/CustomersPage';
-export { DashboardWithClosingAlertPage } from '../../features/dashboard/DashboardWithClosingAlertPage';
-export { DeliveryReturnPage } from '../../features/delivery-return/DeliveryReturnPage';
-export { DressesPage } from '../../features/dresses/DressesPage';
-export { ExpensesPage } from '../../features/expenses/ExpensesPage';
-export { PaymentsPage } from '../../features/payments/PaymentsPage';
-export { PreferencesPage } from '../../features/preferences/PreferencesPage';
-export { DailyClosingPage } from '../../features/reports/DailyClosingPage';
-export { RemindersPage } from '../../features/reminders/RemindersPage';
-export { WaitlistPage } from '../../features/waitlist/WaitlistPage';
-export { ReportsPage } from '../../features/reports/ReportsPage';
+
+function lazyNamed<T extends Record<K, React.ComponentType>, K extends keyof T>(
+  loader: () => Promise<T>,
+  name: K,
+) {
+  return lazy(async () => ({ default: (await loader())[name] }));
+}
+
+export const AccessoriesPage = lazyNamed(() => import('../../features/accessories/AccessoriesPage'), 'AccessoriesPage');
+export const AuditLogPage = lazyNamed(() => import('../../features/audit/AuditLogPage'), 'AuditLogPage');
+export const AvailabilitySearchPage = lazyNamed(() => import('../../features/availability/AvailabilitySearchPage'), 'AvailabilitySearchPage');
+export const AppointmentsPage = lazyNamed(() => import('../../features/appointments/AppointmentsPage'), 'AppointmentsPage');
+export const CustomersPage = lazyNamed(() => import('../../features/customers/CustomersPage'), 'CustomersPage');
+export const DashboardWithClosingAlertPage = lazyNamed(() => import('../../features/dashboard/DashboardWithClosingAlertPage'), 'DashboardWithClosingAlertPage');
+export const DeliveryReturnPage = lazyNamed(() => import('../../features/delivery-return/DeliveryReturnPage'), 'DeliveryReturnPage');
+export const DressesPage = lazyNamed(() => import('../../features/dresses/DressesPage'), 'DressesPage');
+export const ExpensesPage = lazyNamed(() => import('../../features/expenses/ExpensesPage'), 'ExpensesPage');
+export const PaymentsPage = lazyNamed(() => import('../../features/payments/PaymentsPage'), 'PaymentsPage');
+export const PreferencesPage = lazyNamed(() => import('../../features/preferences/PreferencesPage'), 'PreferencesPage');
+export const DailyClosingPage = lazyNamed(() => import('../../features/reports/DailyClosingPage'), 'DailyClosingPage');
+export const RemindersPage = lazyNamed(() => import('../../features/reminders/RemindersPage'), 'RemindersPage');
+export const WaitlistPage = lazyNamed(() => import('../../features/waitlist/WaitlistPage'), 'WaitlistPage');
+export const ReportsPage = lazyNamed(() => import('../../features/reports/ReportsPage'), 'ReportsPage');
 
 export const InventoryPerformancePage = lazy(async () => {
   const module = await import('../../features/reports/InventoryPerformancePage');
   return { default: module.InventoryPerformancePage };
 });
-export { ReservationsPage } from '../../features/reservations/ReservationsPage';
-export { SalesLedgerPage } from '../../features/dresses/SalesLedgerPage';
-export { StocktakePage } from '../../features/stocktake/StocktakePage';
-export { ServiceQueuePage } from '../../features/service/ServiceQueuePage';
-export { LandingPage } from '../../pages/landing/LandingPage';
+export const ReservationsPage = lazyNamed(() => import('../../features/reservations/ReservationsPage'), 'ReservationsPage');
+export const SalesLedgerPage = lazyNamed(() => import('../../features/dresses/SalesLedgerPage'), 'SalesLedgerPage');
+export const StocktakePage = lazyNamed(() => import('../../features/stocktake/StocktakePage'), 'StocktakePage');
+export const ServiceQueuePage = lazyNamed(() => import('../../features/service/ServiceQueuePage'), 'ServiceQueuePage');
+export const LandingPage = lazyNamed(() => import('../../pages/landing/LandingPage'), 'LandingPage');
 
 export const DesignDetailsPage = lazy(async () => {
   const module = await import('../../features/dresses/DesignDetailsPage');

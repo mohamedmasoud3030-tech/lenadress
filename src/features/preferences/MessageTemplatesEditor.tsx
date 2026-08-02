@@ -10,10 +10,9 @@ import {
   buildTemplateVariables,
   getMessageTemplates,
   renderTemplate,
-  resetMessageTemplates,
-  saveMessageTemplates,
   type MessageTemplates,
 } from '../reminders/messageTemplates';
+import { resetMessageTemplatesCommand, saveMessageTemplatesCommand } from '../workflows';
 import type { ReminderKind } from '../reminders/reminder.types';
 
 /**
@@ -49,7 +48,7 @@ export function MessageTemplatesEditor() {
   const handleSave = () => {
     setError(null);
     try {
-      setTemplates(saveMessageTemplates(templates));
+      setTemplates(saveMessageTemplatesCommand(templates));
       setFeedback('تم حفظ نصوص الرسائل.');
     } catch (caught) {
       setFeedback(null);
@@ -59,7 +58,7 @@ export function MessageTemplatesEditor() {
 
   const handleReset = () => {
     setError(null);
-    setTemplates(resetMessageTemplates());
+    setTemplates(resetMessageTemplatesCommand());
     setFeedback('تمت إعادة النصوص إلى الصياغة الافتراضية.');
   };
 

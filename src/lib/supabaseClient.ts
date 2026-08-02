@@ -5,11 +5,9 @@ import { getSupabaseConfig, MissingRuntimeConfigError } from '../config/env';
  * Lazily-created Supabase client.
  *
  * Config is only read the first time a caller actually needs the client, not
- * at module load. That keeps every screen that has nothing to do with
- * Supabase (which today is most of the app — see the local-first persistence
- * engine at `@engines/persistence`) working even when `VITE_SUPABASE_URL` /
- * `VITE_SUPABASE_ANON_KEY` are unset, e.g. in tests or a fresh checkout
- * before `.env` is configured.
+ * at module load. This keeps pure unit tests and fresh checkouts usable before
+ * runtime configuration is present; production routes still fail closed until
+ * their authenticated central snapshot has loaded.
  */
 let cachedClient: SupabaseClient | null = null;
 

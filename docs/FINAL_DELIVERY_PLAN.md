@@ -1,6 +1,6 @@
 # LENA v1.0 — Final Delivery Plan
 
-> **Status:** Active source of truth  
+> **Status:** Historical plan — implementation state is defined by current code, migrations, and release gates
 > **Tracking issue:** #76  
 > **Release surface:** Official Web App + PWA backed by Supabase per [ADR 0001](adr/0001-web-pwa-supabase-only.md); Tauri/Desktop retained temporarily, out of release scope.
 >
@@ -12,19 +12,19 @@ The product goals, departmental responsibilities, state machines, accounting mea
 
 ## 1. Product boundary
 
-LENA is an Arabic-first, RTL, local-first operating system for one occasion-wear showroom.
+LENA is an Arabic-first, RTL, centrally synchronized operating system for one occasion-wear showroom.
 
 Supported targets:
 
-- Browser and installable PWA — the official release surface per [ADR 0001](adr/0001-web-pwa-supabase-only.md), with Supabase/PostgreSQL as the target centralized source of truth.
+- Browser and installable PWA — the official release surface per [ADR 0001](adr/0001-web-pwa-supabase-only.md), with Supabase/PostgreSQL as the active centralized source of truth.
 - Tauri desktop application for Windows — **outside the current release scope** (ADR 0001); the source is retained temporarily for compatibility and historical recovery but excluded from the official Web build.
 
 Out of scope for v1.0:
 
 - SaaS or multi-tenant architecture.
-- Multi-device synchronization.
+- Multi-branch or multi-tenant synchronization.
 - Online payments.
-- User roles, authentication, or remote account management.
+- Self-service remote account administration.
 - Cosmetic refactors that do not affect release safety, maintainability, or usability.
 
 ## 2. Current verified shape

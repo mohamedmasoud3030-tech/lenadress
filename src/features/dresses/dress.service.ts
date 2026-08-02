@@ -52,15 +52,6 @@ function saveDressesToStorage(dresses: Dress[]): void {
   writeCollection<Dress>(INVENTORY_COLLECTION, normalized);
 }
 
-async function pushDressBestEffort(dress: Dress): Promise<void> {
-  try {
-    const { pushDressToSupabase } = await import('../sync/supabaseSync');
-    await pushDressToSupabase(dress);
-  } catch {
-    // Local persistence remains authoritative until background sync retries.
-  }
-}
-
 async function syncCreatedDressBestEffort(dress: Dress): Promise<void> {
   let publicImageUrls: string[] = [];
   try {
@@ -73,8 +64,13 @@ async function syncCreatedDressBestEffort(dress: Dress): Promise<void> {
     // The local compressed images stay intact and can be retried later.
   }
 
-  const remoteDress = publicImageUrls.length > 0 ? { ...dress, images: publicImageUrls } : dress;
-  await pushDressBestEffort(remoteDress);
+  if (publicImageUrls.length > 0) {
+    const { runCommand } = await import('@engines/workflows');
+    runCommand(
+      { name: 'inventory.images', idempotencyKey: `images:${dress.id}` },
+      () => updateDress(dress.code, { images: publicImageUrls }),
+    );
+  }
 }
 
 export function getDresses(): Dress[] {
@@ -181,7 +177,6 @@ export function updateDress(code: string, updates: Partial<Dress>): Dress | null
   dresses[index] = next;
 
   saveDressesToStorage(dresses);
-  void pushDressBestEffort(next);
   return dresses[index];
 }
 
@@ -202,7 +197,6 @@ export function markDressRented(code: string): Dress | null {
   };
   dresses[index] = updated;
   saveDressesToStorage(dresses);
-  void pushDressBestEffort(updated);
   return updated;
 }
 
@@ -270,7 +264,6 @@ export function archiveDress(code: string): Dress | null {
   assertDressCanBeArchived(dress.code, dress.status);
   const archived: Dress = { ...dress, status: 'inactive', archivedAt: new Date().toISOString() };
   saveDressesToStorage(dresses.map((item) => (item.code === code ? archived : item)));
-  void pushDressBestEffort(archived);
   recordAudit({
     action: 'archive',
     entityType: 'dress',
@@ -289,7 +282,6 @@ export function restoreArchivedDress(code: string, status: Dress['status'] = 'in
 
   const restored: Dress = { ...dress, status, archivedAt: undefined };
   saveDressesToStorage(dresses.map((item) => (item.code === code ? restored : item)));
-  void pushDressBestEffort(restored);
   recordAudit({
     action: 'restore',
     entityType: 'dress',

@@ -26,6 +26,7 @@ export type NavigationItem = {
   to: string;
   label: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
 };
 
 export const navigation: readonly NavigationItem[] = [
@@ -48,7 +49,7 @@ export const navigation: readonly NavigationItem[] = [
   { to: '/audit-log', label: 'سجل التدقيق', icon: ClipboardList },
   { to: '/reports', label: 'التقارير', icon: BarChart3 },
   { to: '/inventory-performance', label: 'أداء المخزون', icon: PackageSearch },
-  { to: '/preferences', label: 'الإعدادات والنسخ', icon: Settings2 },
+  { to: '/preferences', label: 'الإعدادات والنسخ', icon: Settings2, adminOnly: true },
 ];
 
 export const focusRing =

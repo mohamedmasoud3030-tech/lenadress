@@ -1,4 +1,12 @@
-import { readCollection, runInTransaction, runInTransactionAsync, writeCollection } from '@engines/persistence';
+import {
+  createDatabaseSnapshot,
+  createDatabaseSnapshotAsync,
+  readCollection,
+  runInTransaction,
+  runInTransactionAsync,
+  writeCollection,
+} from '@engines/persistence';
+import { publishShowroomCommandCommitted } from '@shared/persistence/cloudCommit';
 
 /**
  * Phase 2 — atomic workflow commands.
@@ -79,13 +87,16 @@ export function runCommand<T>(options: CommandOptions<T>, execute: () => T): T {
     throw new DuplicateCommandError(name, idempotencyKey);
   }
 
-  return runInTransaction(() => {
+  const before = createDatabaseSnapshot();
+  const result = runInTransaction(() => {
     const result = execute();
     if (idempotencyKey) {
       appendCommandLog(name, idempotencyKey, options.summarize?.(result));
     }
     return result;
   });
+  publishShowroomCommandCommitted(name, idempotencyKey, before, createDatabaseSnapshot());
+  return result;
 }
 
 /** Async counterpart for backup/image workflows, with the same rollback contract. */
@@ -99,13 +110,16 @@ export async function runCommandAsync<T>(
     throw new DuplicateCommandError(name, idempotencyKey);
   }
 
-  return runInTransactionAsync(async () => {
+  const before = await createDatabaseSnapshotAsync();
+  const result = await runInTransactionAsync(async () => {
     const result = await execute();
     if (idempotencyKey) {
       appendCommandLog(name, idempotencyKey, options.summarize?.(result));
     }
     return result;
   });
+  publishShowroomCommandCommitted(name, idempotencyKey, before, await createDatabaseSnapshotAsync());
+  return result;
 }
 
 /**

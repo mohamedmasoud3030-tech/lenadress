@@ -1,6 +1,6 @@
 # ADR 0001: Official release surface is Web App + PWA backed by Supabase
 
-- **Status:** Accepted
+- **Status:** Implemented
 - **Date:** 2026-08-01
 - **Related:** PR [#131](https://github.com/mohamedmasoud3030-tech/lenadress/pull/131), [`docs/SUPABASE_SCHEMA_GAP_ANALYSIS.md`](../SUPABASE_SCHEMA_GAP_ANALYSIS.md)
 
@@ -8,10 +8,9 @@
 
 - The official product is the **Web App + installable PWA**.
 - **Tauri/Desktop is outside the current release scope.**
-- **Supabase/PostgreSQL is the target centralized source of truth.**
-- Existing local browser storage **remains temporarily during migration**.
-- Local storage is **not** the final authoritative database.
-- **Offline writes will not be enabled** until idempotency, ordering, retries, and conflict handling are designed.
+- **Supabase/PostgreSQL is the centralized source of truth.**
+- Existing local browser storage is a non-authoritative UI cache.
+- **Offline writes are disabled.** Atomic snapshot commits use idempotency and optimistic revisions; rejected commits are rolled back and rehydrated.
 - Existing Desktop code (`src/platform/desktop/**`, `src/platform/runtime/**`, `src-tauri/**`, and the legacy `src/services/desktopDatabase.ts` delegate) is **retained temporarily but excluded from the official Web build**. Web code must never import it; this is enforced permanently by `tests/architecture/web-runtime-isolation.test.mjs`.
 
 ## Context
@@ -40,7 +39,7 @@ The business priority is multi-device operation for one showroom, which requires
 - **Reduced release complexity:** one deployment surface (static Web/PWA build) plus one Supabase project.
 - **One official runtime to verify:** `npm test`, typecheck, lint, and the Web build cover the released product; desktop parity testing is no longer a release gate.
 - **Multi-device operation** becomes possible through Supabase instead of the single-machine snapshot mirror.
-- **Honest UI state:** the persistence status contract (`src/shared/persistence/persistenceStatus.ts`) reports a typed, neutral default of `local-only` ("البيانات المحلية متاحة مؤقتًا، وجارٍ الانتقال إلى المزامنة السحابية.") instead of implying cloud sync that does not exist.
+- **Honest UI state:** the persistence status starts at `syncing`, reports `synced` only after a verified server read/write, and fails closed on errors.
 
 ### Neutral / managed
 
@@ -51,17 +50,11 @@ The business priority is multi-device operation for one showroom, which requires
 ### Negative
 
 - The Tauri Windows build is no longer a supported release artifact; users on the desktop build have no upgrade path within the official scope.
-- Until the Supabase data flow is wired, the officially supported runtime still persists operational data locally in the browser (transition period).
+- Connectivity is required for operational writes; the PWA shell remains installable and reloadable offline.
 
 ## Non-goals
 
-This ADR does not:
-
-- migrate operational data;
-- create Supabase RPCs;
-- create an offline outbox;
-- redesign financial models;
-- delete Tauri source files.
+This ADR does not enable an offline financial outbox or restore Tauri as a supported release target.
 
 ## Enforcement
 

@@ -1,7 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import { focusRing, navigation } from './navigation';
+import { useAuth } from '../../features/auth/AuthContext';
 
 export function DesktopNavigation() {
+  const { profile } = useAuth();
+  const visibleNavigation = navigation.filter((item) => !item.adminOnly || profile?.role === 'admin');
   return (
     <aside className="fixed inset-y-0 right-0 hidden w-72 overflow-y-auto border-l border-slate-800 bg-slate-950 px-4 py-5 text-stone-100 shadow-2xl lg:block">
       <div className="mb-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-inner">
@@ -15,7 +18,7 @@ export function DesktopNavigation() {
       </div>
 
       <nav aria-label="التنقل الرئيسي" className="space-y-2">
-        {navigation.map((item) => (
+        {visibleNavigation.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

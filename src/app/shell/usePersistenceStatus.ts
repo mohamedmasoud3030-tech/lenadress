@@ -11,7 +11,7 @@ import {
  *
  * The hook is fully typed through the shared persistence contract and has
  * no runtime dependency on native or vendor-specific shells: it starts
- * from the neutral local-only default and listens for typed status updates
+ * from a neutral connection-check state and listens for typed status updates
  * on the shared persistence channel. Payloads that do not match the shared
  * contract are ignored.
  */

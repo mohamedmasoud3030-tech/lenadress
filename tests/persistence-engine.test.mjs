@@ -42,10 +42,10 @@ import {
 test('persistence engine exposes canonical collection registry and metadata', () => {
   const metadata = initializeLocalDatabase();
   assert.equal(metadata.applicationId, 'dress-roomshow');
-  assert.equal(metadata.schemaVersion, 2);
+  assert.equal(metadata.schemaVersion, 3);
   assert.equal(typeof metadata.updatedAt, 'string');
   assert.equal(DATABASE_APPLICATION_ID, 'dress-roomshow');
-  assert.equal(CURRENT_STORAGE_SCHEMA_VERSION, 2);
+  assert.equal(CURRENT_STORAGE_SCHEMA_VERSION, 3);
   assert.equal(isRegisteredCollection('customers'), true);
   assert.equal(isRegisteredCollection('invalid-collection'), false);
   assert.equal(getCollectionKey('customers'), 'dress-roomshow:customers');
@@ -91,7 +91,7 @@ test('persistence engine read and write collections preserve data and metadata t
 
     const backup = exportDatabaseBackup();
     assert.equal(backup.applicationId, 'dress-roomshow');
-    assert.equal(backup.schemaVersion, 2);
+    assert.equal(backup.schemaVersion, 3);
     assert.deepEqual(backup.collections.customers, [{ id: 'c1', name: 'Soha' }]);
 
     resetDatabase();

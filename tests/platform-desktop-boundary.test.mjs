@@ -85,8 +85,8 @@ test('the shared persistence contract is pure, neutral, and typed', async () => 
   assert.equal(shared.PERSISTENCE_STATUS_EVENT, 'lena:persistence-status');
 
   const fallback = shared.createDefaultPersistenceStatus();
-  assert.equal(fallback.state, 'local-only');
-  assert.equal(fallback.message, 'البيانات المحلية متاحة مؤقتًا، وجارٍ الانتقال إلى المزامنة السحابية.');
+  assert.equal(fallback.state, 'syncing');
+  assert.equal(fallback.message, 'جارٍ التحقق من اتصال قاعدة بيانات المعرض…');
   assert.match(fallback.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
 
   assert.equal(shared.isPersistenceStatus(fallback), true);
