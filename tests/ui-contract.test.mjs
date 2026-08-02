@@ -622,9 +622,9 @@ test('the stocktake loop stays hands-free and explains every absence', async () 
 
 test('an app update waits for the operator and never reloads on its own', async () => {
   const notice = await readFile(join(sourceRoot, 'components/shared/AppUpdateNotice.tsx'), 'utf8');
-  const shell = await readFile(join(sourceRoot, 'app/shell/AppShell.tsx'), 'utf8');
+  const app = await readFile(join(sourceRoot, 'app/App.tsx'), 'utf8');
 
-  assert.match(shell, /<AppUpdateNotice \/>/, 'the notice must be mounted in the shell');
+  assert.match(app, /<AppUpdateNotice \/>/, 'the notice must be mounted above every route, including login and landing');
   assert.match(notice, /applyPendingUpdate/, 'applying an update must be an explicit action');
   // The registration was changed from autoUpdate precisely so the operator
   // decides when it is safe to lose the current screen; a timer would undo it.
