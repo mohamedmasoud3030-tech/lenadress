@@ -1,6 +1,13 @@
 import { buildWhatsAppLink } from '../../platform/messaging/whatsapp';
 import type { LandingProfile } from './components/types';
 
+type LandingBookingItem = {
+  code: string;
+  name: string;
+  size?: string;
+  color?: string;
+};
+
 /**
  * Every "book an appointment" / "quick inquiry" action on the public landing
  * page used to link to `/appointments`, a route gated behind staff login
@@ -18,16 +25,21 @@ export function buildLandingWhatsAppLink(profile: LandingProfile, message: strin
   return buildWhatsAppLink(profile.contact.whatsapp, message);
 }
 
-export function buildAppointmentInquiryMessage(dressName?: string): string {
-  if (dressName) {
-    return `مرحباً، أرغب في حجز موعد لتجربة "${dressName}" المعروض في صفحة المعرض.`;
+export function buildAppointmentInquiryMessage(item?: LandingBookingItem): string {
+  if (item) {
+    const details = [
+      `الكود: ${item.code}`,
+      item.size ? `المقاس: ${item.size}` : null,
+      item.color ? `اللون: ${item.color}` : null,
+    ].filter(Boolean).join('، ');
+    return `مرحباً، أرغب في طلب موعد لتجربة "${item.name}" (${details}). أرجو تأكيد الموعد وتوفر القطعة لتاريخ المناسبة.`;
   }
-  return 'مرحباً، أرغب في حجز موعد لزيارة المعرض وتجربة إحدى القطع المعروضة.';
+  return 'مرحباً، أرغب في طلب موعد لزيارة المعرض وتجربة إحدى القطع المعروضة. أرجو تأكيد الوقت المناسب.';
 }
 
-export function buildQuickInquiryMessage(dressName?: string): string {
-  if (dressName) {
-    return `مرحباً، عندي استفسار عن "${dressName}" المعروض في صفحة المعرض.`;
+export function buildQuickInquiryMessage(item?: LandingBookingItem): string {
+  if (item) {
+    return `مرحباً، عندي استفسار عن "${item.name}" (الكود: ${item.code}) المعروض لديكم.`;
   }
   return 'مرحباً، عندي استفسار عن المعروض الحالي في المعرض.';
 }
