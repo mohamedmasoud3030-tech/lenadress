@@ -21,7 +21,7 @@ const toneStyles: Record<SummaryCardTone, { surface: string; accent: string; val
   positive: { surface: 'bg-emerald-50/80 ring-emerald-200', accent: 'bg-emerald-500', value: 'text-emerald-800' },
   warning: { surface: 'bg-amber-50/90 ring-amber-200', accent: 'bg-amber-500', value: 'text-amber-900' },
   danger: { surface: 'bg-rose-50/90 ring-rose-200', accent: 'bg-rose-500', value: 'text-rose-800' },
-  accent: { surface: 'bg-violet-50/80 ring-violet-200', accent: 'bg-violet-500', value: 'text-violet-900' },
+  accent: { surface: 'bg-sky-50/80 ring-sky-200', accent: 'bg-sky-500', value: 'text-sky-900' },
 };
 
 export function SummaryCard({ label, value, hint, tone = 'default' }: SummaryCardProps) {

@@ -32,7 +32,7 @@ export function DressLifecyclePanel({ performance }: DressLifecyclePanelProps) {
           <p className="mt-1 break-words text-sm font-black text-slate-950">{formatMoneyOMR(performance.rentalRevenue)}</p>
         </div>
         <div className="min-w-0 rounded-xl bg-stone-50 p-3">
-          <Activity aria-hidden="true" className="h-5 w-5 text-violet-700" />
+          <Activity aria-hidden="true" className="h-5 w-5 text-amber-700" />
           <p className="mt-2 text-xs text-slate-500">إيراد البيع</p>
           <p className="mt-1 break-words text-sm font-black text-slate-950">{formatMoneyOMR(performance.salesRevenue)}</p>
         </div>

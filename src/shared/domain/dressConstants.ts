@@ -15,7 +15,7 @@ export const DRESS_STATUS_LABELS = {
 export const DRESS_STATUS_STYLES = {
   available: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   reserved: 'bg-amber-50 text-amber-700 ring-amber-200',
-  rented: 'bg-violet-50 text-violet-700 ring-violet-200',
+  rented: 'bg-blue-50 text-blue-700 ring-blue-200',
   inspection: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
   laundry: 'bg-sky-50 text-sky-700 ring-sky-200',
   maintenance: 'bg-orange-50 text-orange-700 ring-orange-200',

@@ -39,9 +39,9 @@ function DressCard({ dress }: { dress: Dress }) {
           loading="lazy"
         />
       ) : (
-        <div className="flex h-40 sm:h-48 items-center justify-center bg-gradient-to-br from-violet-100 via-white to-amber-50">
+        <div className="flex h-40 sm:h-48 items-center justify-center bg-gradient-to-br from-amber-100/70 via-white to-stone-100">
           <div className="rounded-full bg-white/80 p-5 sm:p-6 shadow-sm ring-1 ring-slate-200">
-            <Shirt aria-hidden="true" className="h-10 w-10 sm:h-12 sm:w-12 text-violet-700" />
+            <Shirt aria-hidden="true" className="h-10 w-10 sm:h-12 sm:w-12 text-amber-700" />
           </div>
         </div>
       )}
@@ -50,7 +50,7 @@ function DressCard({ dress }: { dress: Dress }) {
           <div>
             <p className="text-xs font-semibold text-slate-400" dir="ltr">{dress.code}</p>
             <h2 className="mt-1 text-lg font-bold text-slate-950">{dress.name}</h2>
-            <p className="mt-1 text-xs font-bold text-violet-700">{INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress']}</p>
+            <p className="mt-1 text-xs font-bold text-amber-700">{INVENTORY_ITEM_TYPE_LABELS[dress.itemType ?? 'dress']}</p>
             {dress.description && <p className="mt-1 text-sm leading-6 text-slate-500">{dress.description}</p>}
           </div>
           <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ${DRESS_STATUS_STYLES[dress.status]}`}>
@@ -95,7 +95,7 @@ function DressCard({ dress }: { dress: Dress }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {dress.isForRent && <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">للإيجار</span>}
+          {dress.isForRent && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">للإيجار</span>}
           {dress.isForSale && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">للبيع</span>}
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">تأجر {dress.timesRented} مرات</span>
         </div>
@@ -116,7 +116,7 @@ function DressRow({ dress, highlighted }: { dress: Dress; highlighted: boolean }
       {dress.images[0] ? (
         <img src={dress.images[0]} alt="" aria-hidden="true" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
       ) : (
-        <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+        <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
           <Shirt className="h-5 w-5" />
         </span>
       )}
@@ -326,7 +326,7 @@ export function DressesPage() {
           <button
             type="button"
             onClick={() => { setFeedback(null); setShowDesignModal(true); }}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-violet-800 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 shadow-sm transition hover:bg-stone-100 ${AMBER_FOCUS_RING_CLASS_NAME}`}
           >
             <Layers aria-hidden="true" className="h-5 w-5" />
             تصميم بمقاسات وألوان

@@ -28,8 +28,8 @@ const shortcuts = [
   { to: '/reservations?new=1', label: 'حجز جديد', hint: 'إنشاء حجز', icon: CalendarDays, tone: 'bg-emerald-50 text-emerald-700' },
   { to: '/delivery-return', label: 'تسليم واسترجاع', hint: 'عمليات اليوم', icon: PackageCheck, tone: 'bg-sky-50 text-sky-700' },
   { to: '/payments', label: 'تحصيل دفعة', hint: 'تسجيل مبلغ', icon: WalletCards, tone: 'bg-amber-50 text-amber-700' },
-  { to: '/inventory', label: 'المخزون', hint: 'إدارة العناصر', icon: Shirt, tone: 'bg-violet-50 text-violet-700' },
-  { to: '/accessories', label: 'الملحقات', hint: 'الطرح والتيجان', icon: Gem, tone: 'bg-fuchsia-50 text-fuchsia-700' },
+  { to: '/inventory', label: 'المخزون', hint: 'إدارة العناصر', icon: Shirt, tone: 'bg-blue-50 text-blue-700' },
+  { to: '/accessories', label: 'الملحقات', hint: 'الطرح والتيجان', icon: Gem, tone: 'bg-rose-50 text-rose-700' },
   { to: '/customers', label: 'العملاء', hint: 'سجل العميلات', icon: UsersRound, tone: 'bg-stone-100 text-slate-700' },
 ];
 
@@ -229,7 +229,7 @@ export function DashboardPage() {
             </div>
             <div className="rounded-xl bg-stone-50 p-3">
               <dt className="text-xs text-slate-500">مؤجر حالياً</dt>
-              <dd className="mt-1 text-lg font-extrabold text-violet-700">{snapshot.inventory.rented}</dd>
+              <dd className="mt-1 text-lg font-extrabold text-blue-700">{snapshot.inventory.rented}</dd>
             </div>
             <div className="rounded-xl bg-stone-50 p-3">
               <dt className="text-xs text-slate-500">ملحقات متاحة</dt>

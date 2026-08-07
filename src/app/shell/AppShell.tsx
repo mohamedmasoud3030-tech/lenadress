@@ -31,7 +31,7 @@ export function AppShell() {
       <DesktopNavigation />
 
       <main id="main-content" className="relative min-h-screen w-full min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pr-72">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-l from-amber-200/50 via-transparent to-violet-200/40" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-l from-amber-200/50 via-transparent to-amber-100/60" />
         <AppHeader />
 
         <div className="relative mx-auto w-full min-w-0 max-w-7xl p-4 sm:p-6">

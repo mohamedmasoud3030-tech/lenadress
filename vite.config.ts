@@ -15,6 +15,10 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
     __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
+  server: {
+    host: true,
+    allowedHosts: true,
+  },
   resolve: {
     alias: {
       '@app': fileURLToPath(new URL('./src/app', import.meta.url)),
@@ -38,7 +42,7 @@ export default defineConfig({
       workbox: {
         // The bundled Arabic font must be precached, otherwise an offline reload
         // renders the whole Arabic interface in a system fallback font.
-        globPatterns: ['**/*.{js,css,html,svg,woff,woff2,ico,png}'],
+        globPatterns: ['**/*.{js,css,html,svg,woff,woff2,ico,png,jpg,jpeg,webp}'],
         // The app is local-first and offline-capable: every navigation falls back
         // to the cached shell instead of the browser's offline page.
         navigateFallback: 'index.html',

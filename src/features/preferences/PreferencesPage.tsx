@@ -122,7 +122,7 @@ export function PreferencesPage() {
 
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
-          <HardDrive aria-hidden="true" className="h-6 w-6 text-violet-700" />
+          <HardDrive aria-hidden="true" className="h-6 w-6 text-amber-700" />
           <div><h2 className="text-lg font-bold">تحسين حفظ الصور</h2><p className="mt-1 text-sm text-slate-500">نقل الصور القديمة إلى مساحة أكثر ملاءمة داخل الجهاز.</p></div>
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">استخدمي هذه العملية مرة واحدة إذا كانت لديك صور قديمة كثيرة، لتقليل احتمالات امتلاء المساحة أثناء العمل.</p>

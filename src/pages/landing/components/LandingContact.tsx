@@ -10,7 +10,7 @@ export function LandingContact({ profile }: { profile: LandingProfile }) {
   return (
     <section id="contact" className="mt-12 grid gap-6 lg:grid-cols-[1fr_0.8fr]">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-bold text-violet-700">تواصل معنا</p>
+        <p className="text-sm font-bold text-amber-700">تواصل معنا</p>
         <h2 className="mt-2 text-2xl font-black text-slate-950">يسعدنا تواصلك</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600">تواصلي معنا لحجز موعد، التأكد من توفر قطعة، أو الاستفسار عن المقاسات والأسعار.</p>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -44,7 +44,7 @@ export function LandingContact({ profile }: { profile: LandingProfile }) {
       </div>
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-violet-50 p-3 text-violet-700"><MapPin className="h-5 w-5" /></div>
+          <div className="rounded-xl bg-amber-50 p-3 text-amber-700"><MapPin className="h-5 w-5" /></div>
           <div>
             <h3 className="text-lg font-black text-slate-950">العنوان</h3>
             <p className="mt-2 text-sm leading-7 text-slate-600">{profile.contact.address}</p>

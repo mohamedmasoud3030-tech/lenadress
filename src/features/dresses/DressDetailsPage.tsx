@@ -120,7 +120,7 @@ export function DressDetailsPage() {
 
       {/* Both directions of the design relationship must be walkable. */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <Layers aria-hidden="true" className="h-5 w-5 shrink-0 text-violet-700" />
+        <Layers aria-hidden="true" className="h-5 w-5 shrink-0 text-amber-700" />
         {dress.designCode ? (
           <>
             <p className="min-w-0 flex-1 text-sm text-slate-700">
