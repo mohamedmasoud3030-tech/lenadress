@@ -1,11 +1,16 @@
 import { Menu } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import { focusRing, navigation } from './navigation';
+import { focusRing, mobileQuickNavigation } from './navigation';
 
 type MobileNavigationProps = {
   onOpenMenu: () => void;
 };
 
+/**
+ * Bottom bar on phones. Only the four actions that matter while standing at
+ * the till: home, reservations, handover/return, payments. Everything else
+ * lives behind "المزيد" so the bar never buries a real operation.
+ */
 export function MobileNavigation({ onOpenMenu }: MobileNavigationProps) {
   return (
     <nav
@@ -13,7 +18,7 @@ export function MobileNavigation({ onOpenMenu }: MobileNavigationProps) {
       className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
     >
       <div className="grid grid-cols-5 gap-1 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
-        {navigation.slice(0, 4).map((item) => (
+        {mobileQuickNavigation.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -25,7 +30,7 @@ export function MobileNavigation({ onOpenMenu }: MobileNavigationProps) {
             }
           >
             <item.icon aria-hidden="true" className="h-5 w-5" />
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{item.shortLabel ?? item.label}</span>
           </NavLink>
         ))}
         <button
