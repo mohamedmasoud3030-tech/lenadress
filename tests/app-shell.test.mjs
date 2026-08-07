@@ -12,6 +12,9 @@ async function read(path) {
 
 test('app shell keeps the established navigation order and labels', async () => {
   const source = await read('src/app/shell/navigation.ts');
+  // Deliberate IA reorganisation (launch prep): destinations are grouped, and
+  // the audit log now follows reports. This list locks the NEW order so any
+  // future accidental drift is still caught.
   const expectedItems = [
     ['/', 'لوحة التحكم'],
     ['/inventory', 'المخزون'],
@@ -22,8 +25,8 @@ test('app shell keeps the established navigation order and labels', async () => 
     ['/payments', 'المدفوعات'],
     ['/expenses', 'المصروفات'],
     ['/daily-closing', 'إقفال اليومية'],
-    ['/audit-log', 'سجل التدقيق'],
     ['/reports', 'التقارير'],
+    ['/audit-log', 'سجل التدقيق'],
     ['/preferences', 'الإعدادات والنسخ'],
   ];
 
