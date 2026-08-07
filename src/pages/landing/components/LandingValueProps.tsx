@@ -1,8 +1,8 @@
 import { CalendarCheck, ShoppingBag, Sparkles } from 'lucide-react';
 
 const items = [
-  { title: 'اختيار أسهل قبل الزيارة', description: 'شاهدي الألوان والمقاسات والأسعار وحددي القطع التي ترغبين في تجربتها.', icon: Sparkles, iconClass: 'bg-violet-50 text-violet-700' },
-  { title: 'كل ما يكمل الإطلالة', description: 'فساتين وإكسسوارات وحقائب وملحقات في مكان واحد.', icon: ShoppingBag, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { title: 'اختيار أسهل قبل الزيارة', description: 'شاهدي الألوان والمقاسات والأسعار وحددي القطع التي ترغبين في تجربتها.', icon: Sparkles, iconClass: 'bg-amber-50 text-amber-700' },
+  { title: 'كل ما يكمل الإطلالة', description: 'فساتين وإكسسوارات وحقائب وملحقات في مكان واحد.', icon: ShoppingBag, iconClass: 'bg-stone-100 text-slate-700' },
   { title: 'طلب موعد مباشر', description: 'أرسلي طلبك عبر واتساب وسيؤكد لكِ المعرض الموعد والتوفر.', icon: CalendarCheck, iconClass: 'bg-amber-50 text-amber-700' },
 ];
 

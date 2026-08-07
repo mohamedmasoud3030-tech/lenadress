@@ -18,7 +18,7 @@ export function LandingHeader({ profile }: { profile: LandingProfile }) {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <div>
-          <p className="text-sm font-bold text-violet-700">{profile.shortTagline}</p>
+          <p className="text-sm font-bold text-amber-700">{profile.shortTagline}</p>
           <h1 className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">{profile.brandName}</h1>
         </div>
 

@@ -10,6 +10,12 @@ import {
 } from './report.service';
 import type { DateRangeFilter } from './report.types';
 import { getReservationsNeedingFinancialClassification } from '../reservations/reservation.service';
+import { PageHeader } from '../../components/shared/PageHeader';
+import { Section } from '../../components/shared/Section';
+import { SummaryCard } from '../../components/shared/SummaryCard';
+import { EmptyState } from '../../components/shared/StateViews';
+import { getControlClassName } from '../../components/shared/FormField';
+import { AMBER_FOCUS_RING_CLASS_NAME } from '../../shared/domain/formConstants';
 
 export function ReportsPage() {
   const [range, setRange] = useState<DateRangeFilter>({ from: '', to: '' });
@@ -38,70 +44,104 @@ export function ReportsPage() {
   };
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">التقارير التشغيلية والمالية</h1>
-        <p className="mt-2 text-slate-600">نظرة موحدة على الإيرادات والمصروفات وأداء دورة حياة الفساتين مع فصل دفعة الحجز عن التأمين المسترد.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="التقارير"
+        title="التقارير التشغيلية والمالية"
+        description="نظرة موحدة على الإيرادات والمصروفات وأداء دورة حياة الفساتين مع فصل دفعة الحجز عن التأمين المسترد."
+      />
 
-      {feedback && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">{feedback}</div>}
+      {feedback && (
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
+          {feedback}
+        </div>
+      )}
 
       {needsClassification.length > 0 && (
-        <article className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-rose-900">سجلات تحتاج مراجعة مالية — تصنيف العربون</h2>
-          <p className="mt-1 text-sm text-rose-800">يوجد {needsClassification.length} حجز قديم يحتوي على مبلغ عربون غامض (depositAmount) بدون دليل تسوية. تم حفظ القيمة الأصلية كـ legacyDepositAmount وتم وضع علامة needsFinancialClassification. لا يُسمح بالتسوية التلقائية حتى المراجعة.</p>
+        <div role="alert" className="rounded-2xl border border-rose-300 bg-rose-50 p-4 shadow-sm">
+          <p className="text-sm font-extrabold text-rose-900">سجلات تحتاج مراجعة مالية — تصنيف العربون</p>
+          <p className="mt-1 text-xs leading-6 text-rose-800">
+            يوجد {needsClassification.length} حجز قديم يحتوي على مبلغ عربون غامض (depositAmount) بدون دليل تسوية. تم حفظ القيمة الأصلية كـ legacyDepositAmount وتم وضع علامة needsFinancialClassification. لا يُسمح بالتسوية التلقائية حتى المراجعة.
+          </p>
           <div className="mt-3 space-y-2 text-xs">
             {needsClassification.slice(0, 10).map((r) => (
-              <div key={r.id} className="flex justify-between rounded-xl bg-white p-2">
-                <span>{r.reservationNumber} — {r.customerName} — {r.dressCode}</span>
-                <span>الأصل: {r.legacyDepositAmount} ر.ع — {r.classificationReason}</span>
+              <div key={r.id} className="flex flex-wrap justify-between gap-2 rounded-xl bg-white/80 px-3 py-2">
+                <span className="font-bold text-slate-800">{r.reservationNumber} — {r.customerName} — {r.dressCode}</span>
+                <span className="text-slate-600">الأصل: {r.legacyDepositAmount} ر.ع — {r.classificationReason}</span>
               </div>
             ))}
           </div>
-        </article>
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي الفساتين</p><p className="mt-2 text-2xl font-bold">{summary.totalDresses}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">الحجوزات النشطة</p><p className="mt-2 text-2xl font-bold">{summary.activeReservations}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي التحصيل النقدي</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.totalCollected)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">فساتين تحتاج مراجعة</p><p className="mt-2 text-2xl font-bold text-amber-700">{dressesRequiringReview}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">إجمالي المصروفات</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.totalExpenses)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">صافي حركة النقد</p><p className="mt-2 text-2xl font-bold">{formatReportMoney(summary.netAmount)}</p></article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">عميلات عليهن رصيد إيجار</p><p className="mt-2 text-2xl font-bold">{summary.customersWithBalance}</p></article>
-        <article className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">حجوزات تحتاج تصنيف مالي</p><p className="mt-2 text-2xl font-bold text-rose-700">{needsClassification.length}</p></article>
+        <SummaryCard label="إجمالي الفساتين" value={summary.totalDresses} />
+        <SummaryCard label="الحجوزات النشطة" value={summary.activeReservations} />
+        <SummaryCard label="إجمالي التحصيل النقدي" value={formatReportMoney(summary.totalCollected)} tone="positive" />
+        <SummaryCard label="فساتين تحتاج مراجعة" value={dressesRequiringReview} tone={dressesRequiringReview > 0 ? 'warning' : 'default'} />
+        <SummaryCard label="إجمالي المصروفات" value={formatReportMoney(summary.totalExpenses)} tone="warning" />
+        <SummaryCard label="صافي حركة النقد" value={formatReportMoney(summary.netAmount)} tone={summary.netAmount < 0 ? 'danger' : 'default'} />
+        <SummaryCard label="عميلات عليهن رصيد إيجار" value={summary.customersWithBalance} tone={summary.customersWithBalance > 0 ? 'accent' : 'default'} />
+        <SummaryCard label="حجوزات تحتاج تصنيف مالي" value={needsClassification.length} tone={needsClassification.length > 0 ? 'danger' : 'default'} />
       </div>
 
-      <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold">فلتر الفترة المالية</h2>
-        <p className="mt-1 text-sm text-slate-500">يؤثر على التحصيل والمصروفات والصافي فقط، بينما تظل مؤشرات التشغيل الحالية كما هي.</p>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <input type="date" value={range.from} onChange={(event) => setRange((current) => ({ ...current, from: event.target.value }))} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30" />
-          <input type="date" value={range.to} onChange={(event) => setRange((current) => ({ ...current, to: event.target.value }))} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm focus-visible:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30" />
-          <button type="button" onClick={applyRange} className="min-h-11 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2">تطبيق الفترة</button>
+      <Section
+        title="فلتر الفترة المالية"
+        description="يؤثر على التحصيل والمصروفات والصافي فقط، بينما تظل مؤشرات التشغيل الحالية كما هي."
+        action={
+          <button
+            type="button"
+            onClick={applyRange}
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 ${AMBER_FOCUS_RING_CLASS_NAME}`}
+          >
+            تطبيق الفترة
+          </button>
+        }
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-slate-600">من</span>
+            <input type="date" value={range.from} onChange={(event) => setRange((current) => ({ ...current, from: event.target.value }))} className={getControlClassName()} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-slate-600">إلى</span>
+            <input type="date" value={range.to} onChange={(event) => setRange((current) => ({ ...current, to: event.target.value }))} className={getControlClassName()} />
+          </label>
         </div>
-      </article>
+      </Section>
 
-      <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">تقرير اليوم ({today.date})</h2>
-        <div className="mt-4 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-          <p>استلامات اليوم: <span className="font-bold">{today.pickupsToday}</span></p>
-          <p>مرتجعات اليوم: <span className="font-bold">{today.returnsToday}</span></p>
-          <p>مدفوعات اليوم: <span className="font-bold">{formatReportMoney(today.paymentsToday)}</span></p>
-          <p>مصروفات اليوم: <span className="font-bold">{formatReportMoney(today.expensesToday)}</span></p>
+      <Section title={`تقرير اليوم (${today.date})`}>
+        <div className="grid grid-cols-2 gap-3 text-sm xl:grid-cols-4">
+          <div className="rounded-xl bg-stone-50 p-3">
+            <p className="text-xs text-slate-500">استلامات اليوم</p>
+            <p className="mt-1 text-lg font-extrabold text-slate-950">{today.pickupsToday}</p>
+          </div>
+          <div className="rounded-xl bg-stone-50 p-3">
+            <p className="text-xs text-slate-500">مرتجعات اليوم</p>
+            <p className="mt-1 text-lg font-extrabold text-slate-950">{today.returnsToday}</p>
+          </div>
+          <div className="rounded-xl bg-stone-50 p-3">
+            <p className="text-xs text-slate-500">مدفوعات اليوم</p>
+            <p className="mt-1 text-lg font-extrabold text-emerald-700">{formatReportMoney(today.paymentsToday)}</p>
+          </div>
+          <div className="rounded-xl bg-stone-50 p-3">
+            <p className="text-xs text-slate-500">مصروفات اليوم</p>
+            <p className="mt-1 text-lg font-extrabold text-amber-700">{formatReportMoney(today.expensesToday)}</p>
+          </div>
         </div>
-      </article>
+      </Section>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold">أداء دورة حياة الفساتين</h2>
-          {dressPerformance.length === 0 ? <p className="mt-3 text-sm text-slate-500">لا توجد بيانات أداء حالياً.</p> : (
-            <div className="mt-3 space-y-3 text-sm">
+        <Section title="أداء دورة حياة الفساتين">
+          {dressPerformance.length === 0 ? (
+            <EmptyState title="لا توجد بيانات أداء حالياً" description="ستظهر مؤشرات الأداء تلقائياً بعد أول حجز وتسليم." />
+          ) : (
+            <div className="space-y-3 text-sm">
               {dressPerformance.slice(0, 8).map((dress) => (
-                <div key={dress.id} className="rounded-xl bg-slate-50 p-3">
+                <div key={dress.id} className="rounded-xl bg-stone-50 p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold">{dress.code} - {dress.name}</p>
+                      <p className="font-bold text-slate-900">{dress.code} - {dress.name}</p>
                       <p className="mt-1 text-xs text-slate-500">{dress.timesRented} تأجيرات | {DRESS_STATUS_LABELS[dress.status]}</p>
                     </div>
                     {dress.requiresReview && <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">يحتاج مراجعة</span>}
@@ -118,19 +158,26 @@ export function ReportsPage() {
               ))}
             </div>
           )}
-        </article>
+        </Section>
 
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold">أرصدة العميلات - المتبقي من الإيجار</h2>
-          {customerBalances.length === 0 ? <p className="mt-3 text-sm text-slate-500">لا توجد عميلات عليهن رصيد.</p> : (
-            <div className="mt-3 space-y-2 text-sm">{customerBalances.map((customer) => <div key={customer.id} className="flex items-center justify-between rounded-xl bg-slate-50 p-3"><p>{customer.name} - {customer.phone}</p><p className="font-semibold text-rose-700">{formatReportMoney(customer.remainingBalance)}</p></div>)}</div>
+        <Section title="أرصدة العميلات - المتبقي من الإيجار">
+          {customerBalances.length === 0 ? (
+            <EmptyState title="لا توجد عميلات عليهن رصيد" description="كل الأرصدة مسددة بالكامل." />
+          ) : (
+            <div className="space-y-2 text-sm">
+              {customerBalances.map((customer) => (
+                <div key={customer.id} className="flex items-center justify-between rounded-xl bg-stone-50 p-3">
+                  <p className="font-bold text-slate-800">{customer.name} - {customer.phone}</p>
+                  <p className="font-extrabold text-rose-700">{formatReportMoney(customer.remainingBalance)}</p>
+                </div>
+              ))}
+            </div>
           )}
-        </article>
+        </Section>
       </div>
 
-      <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">الملخص المالي — فصل دفعة الحجز عن التأمين المسترد</h2>
-        <div className="mt-4 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
+      <Section title="الملخص المالي — فصل دفعة الحجز عن التأمين المسترد">
+        <div className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
           <p>إيرادات التأجير (دفعات إيجار): <span className="font-bold">{formatReportMoney(financial.rentalCollected)}</span></p>
           <p>دفعة الحجز (مقدم إيجار): <span className="font-bold">{formatReportMoney(financial.bookingAdvanceCollected ?? 0)}</span></p>
           <p>إيرادات المبيعات: <span className="font-bold">{formatReportMoney(financial.salesCollected)}</span></p>
@@ -151,7 +198,7 @@ export function ReportsPage() {
           <p>• تحصيل التأمين يزيد النقد والالتزام، لا الإيراد. استرداده يقلل النقد والالتزام. احتجازه يقلل الالتزام ويسجل الرسم المرتبط.</p>
           <p>• المبلغ المحصل ليس ربحاً؛ الدخل المعترف به يستثني التأمين المستحق الرد ويخصم المصروفات.</p>
         </div>
-      </article>
-    </section>
+      </Section>
+    </div>
   );
 }

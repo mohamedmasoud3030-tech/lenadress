@@ -26,20 +26,20 @@ function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfi
       {primaryImage ? (
         <img src={primaryImage} alt={dress.name} className="h-48 sm:h-64 md:h-72 w-full object-cover" loading="lazy" />
       ) : (
-        <div role="img" aria-label={`صورة توضيحية لفئة ${dress.category}`} className="relative flex h-48 sm:h-64 md:h-72 items-center justify-center overflow-hidden bg-gradient-to-br from-violet-200 via-stone-50 to-amber-100">
+        <div role="img" aria-label={`صورة توضيحية لفئة ${dress.category}`} className="relative flex h-48 sm:h-64 md:h-72 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-200/60 via-stone-50 to-amber-100">
           <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/40" />
-          <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-violet-300/25" />
-          <div className="relative text-center text-violet-950">
+          <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-amber-300/25" />
+          <div className="relative text-center text-amber-950">
             <Sparkles aria-hidden="true" className="mx-auto h-10 w-10" />
             <p className="mt-3 text-xl font-black tracking-wide">LENA</p>
-            <p className="mt-1 text-sm font-bold text-violet-800">{dress.category}</p>
+            <p className="mt-1 text-sm font-bold text-amber-800">{dress.category}</p>
           </div>
         </div>
       )}
       <div className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-violet-700">{typeLabel} • {dress.category}</p>
+            <p className="text-xs font-semibold text-amber-700">{typeLabel} • {dress.category}</p>
             <h3 className="mt-1 text-lg font-black text-slate-950">{dress.name}</h3>
             <p className="mt-1 text-sm leading-6 text-slate-500">{dress.description || 'قطعة متاحة حالياً ويمكن معاينتها وتجربتها خلال الموعد داخل المعرض.'}</p>
           </div>
@@ -61,7 +61,7 @@ function InventoryCard({ dress, profile }: { dress: Dress; profile: LandingProfi
           {dress.isForRent && dress.depositAmount > 0 && <p className="mt-2 text-xs text-slate-500">التأمين: {formatMoneyOMR(dress.depositAmount)}</p>} {/* legacy compat */}
         </div>
         <div className="flex flex-wrap gap-2">
-          {dress.isForRent && <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">للإيجار</span>}
+          {dress.isForRent && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">للإيجار</span>}
           {dress.isForSale && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">للبيع</span>}
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -90,7 +90,7 @@ export function LandingInventory({ profile, dresses, loading, loadError, search,
     <section id="available-dresses" className="mt-12 space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-bold text-violet-700">اختاري قطعتك</p>
+          <p className="text-sm font-bold text-amber-700">اختاري قطعتك</p>
           <h2 className="mt-1 text-2xl font-black text-slate-950">المعروض الآن</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">تصفحي الفساتين والإكسسوارات والحقائب والملحقات، ثم أرسلي طلب الموعد للقطعة التي أعجبتك.</p>
         </div>
@@ -161,7 +161,7 @@ export function LandingInventory({ profile, dresses, loading, loadError, search,
           {typeEntries.map(([type, items]) => (
             <div key={type}>
               <div className="mb-4 flex items-center gap-3">
-                <span className="rounded-full bg-violet-100 px-4 py-2 text-sm font-bold text-violet-800">{INVENTORY_ITEM_TYPE_LABELS[type as keyof typeof INVENTORY_ITEM_TYPE_LABELS] ?? type}</span>
+                <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">{INVENTORY_ITEM_TYPE_LABELS[type as keyof typeof INVENTORY_ITEM_TYPE_LABELS] ?? type}</span>
                 <span className="text-sm text-slate-500">{items.length} عنصر</span>
               </div>
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
