@@ -13,7 +13,6 @@ import { LandingHeader } from './components/LandingHeader';
 import { LandingHero } from './components/LandingHero';
 import { LandingInventory } from './components/LandingInventory';
 import { LandingSteps } from './components/LandingSteps';
-import { LandingValueProps } from './components/LandingValueProps';
 import type { InventoryCategoryFilter, LandingUsageFilter } from './components/types';
 
 const inventoryCategories = ['all', ...DRESS_CATEGORIES] as const;
@@ -94,7 +93,6 @@ export function LandingPage() {
           rentableCount={rentableCount}
           saleCount={saleCount}
         />
-        <LandingValueProps />
         <LandingCategories profile={profile} />
         <LandingInventory
           profile={profile}
